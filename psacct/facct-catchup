@@ -1,0 +1,41 @@
+#!/bin/sh
+
+if test "x$1" = "x--enable"; then 
+    params=""
+else
+    params="--process-only"
+fi
+
+pattern='spacct*'
+
+gratia_dir=/opt/vdt/gratia
+datadir=${gratia_dir}/var/data
+pslib=${gratia_dir}/probe/psacct
+
+# Copy some of the files
+
+mkdir -p "${datadir}"
+chmod og+rwx "${datadir}"
+
+cd /var/adm/acct/nite
+mv $pattern "${datadir}"
+
+cd "${gratia_dir}"
+if test -n "$PYTHONPATH" ; then
+  if echo "$PYTHONPATH" | grep -e ':$' >/dev/null 2>&1; then
+    PYTHONPATH="${PYTHONPATH}${gratia_dir}/probe/common:"
+  else
+    PYTHONPATH="${PYTHONPATH}:${gratia_dir}/probe/common"
+  fi
+else
+  PYTHONPATH="${gratia_dir}/probe/common"
+fi
+export PYTHONPATH
+
+python "$pslib/PSACCTProbe.py" $params
+
+# Move the last fermi acct file
+if test "x$1" = "x--enable"; then 
+    _date="`date +%m%d`"
+    mv /var/log/pacct ${gratia_dir}/var/data/spacct-${_date}
+fi

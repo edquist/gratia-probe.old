@@ -1,0 +1,21 @@
+Probe area packaging build instructions.
+----------------------------------------
+
+1) The script package-probe will create tarfiles for each directory
+mentioned. Example usage:
+
+     build/package-probe 0.4.1 common condor psacct
+
+2) These tarfiles should be moved into the SOURCES area of your
+RPM build tree.
+
+3) Use the RPM SPEC file in build/ to create the RPMs. Note that the
+Version: tag must match the version used in the invocation of the
+package-probe command (0.4.1 in the example above). An example command:
+
+     rpmbuild -ba <spec-file>
+
+   Don't forget to customize Version:, Release:, Vendor: and Packager: as appropriate.
+
+------------------------------------
+2006/08/21 CHG

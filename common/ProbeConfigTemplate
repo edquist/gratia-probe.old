@@ -1,0 +1,32 @@
+<ProbeConfiguration 
+    UseSSL="0" 
+
+    UseGratiaCertificates="0"
+
+    SSLHost="cd-psg2.fnal.gov:8443" 
+    SSLCollectorService="/gratia-servlets/rmi"
+    SSLRegistrationHost="cd-psg2.fnal.gov:8880"
+    SSLRegistrationService="/gratia-security/security"
+
+    GratiaCertificateFile="gratia.hostcert.pem"
+    GratiaKeyFile="gratia.hostkey.pem"
+
+    SOAPHost="cd-psg2.fnal.gov:8880" 
+    CollectorService="/gratia-soap/services/CollectorImpl" 
+
+    MeterName="generic" 
+    SiteName="Generic Site"
+    LogLevel="2"
+    DebugLevel="1" 
+    GratiaExtension="gratia.xml"
+    CertificateFile="/etc/grid-security/hostcert.pem"
+    KeyFile="/etc/grid-security/hostkey.pem"
+    MaxPendingFiles="1000"
+    WorkingFolder="MAGIC_VDT_LOCATION/gratia/var/tmp"
+    LogFolder="MAGIC_VDT_LOCATION/gratia/var/logs/"
+    DataFolder="MAGIC_VDT_LOCATION/gratia/var/data/"
+    VDTSetupFile="MAGIC_VDT_LOCATION/setup.sh"
+    PSACCTFileRepository="/opt/vdt/gratia/var/account/"
+    PSACCTBackupFileRepository="/opt/vdt/gratia/var/backup/"
+    PSACCTExceptionsRepository="/opt/vdt/gratia/logs/exceptions/"
+/>
