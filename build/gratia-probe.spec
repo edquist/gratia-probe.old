@@ -51,7 +51,8 @@ for probe_config in \
 done
 
 # install psacct startup script.
-install -m 755 "$RPM_BUILD_ROOT/opt/vdt/gratia/probe/psacct/gratia-psaact" \
+install -d "$RPM_BUILD_ROOT/etc/rc.d/init.d/"
+install -m 755 "$RPM_BUILD_ROOT/opt/vdt/gratia/probe/psacct/gratia-psacct" \
 "$RPM_BUILD_ROOT/etc/rc.d/init.d/"
 
 %clean
@@ -107,6 +108,7 @@ Requires: %{name}-common = %{version}
 /opt/vdt/gratia/probe/psacct/PSACCTProbeLib.py
 /opt/vdt/gratia/probe/psacct/PSACCTProbe.py      
 %config(noreplace) /opt/vdt/gratia/probe/psacct/ProbeConfig
+/etc/rc.d/init.d/gratia-psacct
 
 %post psacct
 # /usr -> "${RPM_INSTALL_PREFIX0}"
@@ -133,10 +135,10 @@ done
 /sbin/chkconfig --level 35 gratia-psacct on
 
 # Configure crontab entry
-grep -re 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' /etc/crontab /etc/cron.* >/dev/null 2>&1
-
-echo "WARNING: non-standard installation of psacct probe in /etc/crontab or /etc/cron.*" 1>&2
-echo "         Please check and remove to avoid clashes with root's crontab" 1>&2
+if grep -re 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' /etc/crontab /etc/cron.* >/dev/null 2>&1; then
+  echo "WARNING: non-standard installation of psacct probe in /etc/crontab or /etc/cron.*" 1>&2
+  echo "         Please check and remove to avoid clashes with root's crontab" 1>&2
+fi
 
 tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
 crontab -l | grep -v -e 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
@@ -174,10 +176,10 @@ m&%{template_marker}& or print;' \
 done
 
 # Configure crontab entry
-grep -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' /etc/crontab /etc/cron.* >/dev/null 2>&1
-
-echo "WARNING: non-standard installation of condor probe in /etc/crontab or /etc/cron.*" 1>&2
-echo "         Please check and remove to avoid clashes with root's crontab" 1>&2
+if grep -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' /etc/crontab /etc/cron.* >/dev/null 2>&1; then
+  echo "WARNING: non-standard installation of condor probe in /etc/crontab or /etc/cron.*" 1>&2
+  echo "         Please check and remove to avoid clashes with root's crontab" 1>&2
+fi
 
 tmpfile=`mktemp /tmp/gratia-probe-condor-post.XXXXXXXXXX`
 crontab -l | grep -v -e 'condor_meter.cron\.sh' -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
