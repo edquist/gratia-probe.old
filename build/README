@@ -17,5 +17,22 @@ package-probe command (0.4.1 in the example above). An example command:
 
    Don't forget to customize Version:, Release:, Vendor: and Packager: as appropriate.
 
+4) Do not build as ROOT! Create a file ~/.rpmmacros as follows:
+
+%_topdir <my-rpmbuild-dir>
+
+Then, create the structure:
+
+#!/bin/bash
+cd /usr/src/redhat
+cat <<EOF | cpio -pmudv ~/my-rpmbuild-dir
+BUILD
+`ls -1d RPMS/*`
+RPM
+SOURCES
+SPECS
+SRPMS
+EOF
+
 ------------------------------------
-2006/08/21 CHG
+2006/08/22 CHG
