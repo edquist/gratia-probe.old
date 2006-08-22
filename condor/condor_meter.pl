@@ -1,8 +1,8 @@
-#! /usr/bin/perl -w
+#!/bin/env perl 
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.1 2006-08-21 21:10:02 greenc Exp $
+# $Id: condor_meter.pl,v 1.2 2006-08-22 18:04:25 pcanal Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -25,7 +25,7 @@ use File::Basename;
 
 $progname = "condor_meter.pl";
 $prog_version = "v0.4.0";
-$prog_revision = '$Revision: 1.1 $ ';   # CVS Version number
+$prog_revision = '$Revision: 1.2 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -1037,6 +1037,17 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.1  2006/08/21 21:10:02  greenc
+# Probe areas reorganized to facilitate RPM building and new
+# probes.
+#
+# README files in probe/condor and probe/common still need to be
+# updated.
+#
+# Probe tarball creation removed from build script per discussion with Greg. Please see probe/build/README.
+#
+# RPM building commissioned and will be tested shortly.
+#
 # Revision 1.6  2006/08/14 17:08:27  pcanal
 # fix a couple of perl warning seen in the cms-t2 installation
 #
