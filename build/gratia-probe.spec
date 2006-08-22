@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.4.1
+Version: 0.9a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -39,7 +39,7 @@ cp -pR . "$RPM_BUILD_ROOT/opt/vdt/gratia/probe"
 # Set up var area
 cd "$RPM_BUILD_ROOT/opt/vdt/gratia"
 mkdir -p var/{data,logs,tmp}
-chmod -R 777 var/data var/logs
+chmod -R 1777 var/data
 
 # Get uncustomized ProbeConfigTemplate files (see post below)
 for probe_config in \
@@ -77,6 +77,7 @@ Requires: psacct
 Requires: %{name}-common = %{version}
 
 %description psacct
+The psacct probe for the Gratia OSG accounting system.
 
 %package condor
 Summary: A Condor probe
@@ -85,6 +86,7 @@ Requires: python >= 2.2
 Requires: %{name}-common = %{version}
 
 %description condor
+The condor probe for the Gratia OSG accounting system.
 
 %files common
 %defattr(-,root,root,-)
@@ -141,7 +143,7 @@ if grep -re 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' /etc/crontab /etc/cron.
 fi
 
 tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
-crontab -l | grep -v -e 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
+crontab -l 2>/dev/null | grep -v -e 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
 cat >>"$tmpfile" <<EOF
 $(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * \
 "${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh" > \
@@ -149,6 +151,17 @@ $(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * \
 EOF
 
 crontab "$tmpfile" >/dev/null 2>&1
+rm -f "$tmpfile"
+
+%preun psacct
+# Remove crontab entry
+tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
+crontab -l 2>/dev/null | grep -v -e 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
+if test -s "$tmpfile"; then
+  crontab "$tmpfile" >/dev/null 2>&1
+else
+  crontab -r
+fi
 rm -f "$tmpfile"
 
 %files condor
@@ -182,7 +195,7 @@ if grep -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' /etc/crontab /etc/cron
 fi
 
 tmpfile=`mktemp /tmp/gratia-probe-condor-post.XXXXXXXXXX`
-crontab -l | grep -v -e 'condor_meter.cron\.sh' -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
+crontab -l 2>/dev/null | grep -v -e 'condor_meter.cron\.sh' -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
 cat >>"$tmpfile" <<EOF
 $(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * \
 "${RPM_INSTALL_PREFIX1}/probe/condor/condor_meter.cron.sh" > \
@@ -192,7 +205,18 @@ EOF
 crontab "$tmpfile" >/dev/null 2>&1
 rm -f "$tmpfile"
 
+%preun condor
+# Remove crontab entry
+tmpfile=`mktemp /tmp/gratia-probe-condor-post.XXXXXXXXXX`
+crontab -l 2>/dev/null | grep -v -e 'condor_meter.cron\.sh' -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
+if test -s "$tmpfile"; then
+  crontab "$tmpfile" >/dev/null 2>&1
+else
+  crontab -r
+fi
+rm -f "$tmpfile"
+
 %changelog
-* Tue Aug 15 2006  <greenc@fnal.gov> - 0.4.1-1
+* Tue Aug 15 2006  <greenc@fnal.gov> - 0.9a-1
 - Initial build.
 
