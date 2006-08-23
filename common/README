@@ -1,37 +1,24 @@
-Installing the Gratia probe client
-Version 0.9
-Penelope Constanta
+Installing the Gratia Condor probe client
+Version 0.b
+Penelope Constanta & Chris Green
 
-We recommend that the client software be placed in the directory
-	o $VDT_LOCATION
-	
-1. Unpacking the gratia probe software:
-	o $ cd $VDT_LOCATION
-	o $ tar -xvf ...../gratia_probes.tar
-	o The above command will create and populate the following directories: 
-                gratia
-                gratia/condor-probe
-                gratia/condor-probe/gram_mods
-                gratia/var/data
-                gratia/var/logs
-                gratia/var/tmp
-	o The directories under $VDT_LOCATION/gratia/var need to be writeable 
-	  by all, since this is the location that various log and work files 
-	  will be copied to or deleted.
-	  So you may have to do:
-	o $ chmod -R 777 gratia/var	
 
-	  
-2. Customize the gratia probe configuration files 
-	o $ cd $VDT_LOCATION/gratia/condor-probe
+We recommend that the client software be placed in the directory $VDT_LOCATION
 
-	o Make sure that the condor_meter.cron.sh and condor_meter.pl
-	  are excutable.
+1. Install the software:
 
-	o $ cp ProbeConfigTemplate ProbeConfig
-	o Edit the ProbeConfig file so that the following variables have the 
-	  correct values:
-	  
+  rpm -Uvh --relocate /opt/vdt/gratia="$VDT_LOCATION/gratia" \
+      gratia-probe-common-<version>.noarch.rpm \
+
+
+2. Install a specific probe such as gratia-probe-condor or
+gratia-probe-psacct; or write your own based on samplemeter.pl or
+samplemeter.py.
+
+3. Customize the gratia ProbeConfig files for each probe, initializing
+from ProbeTemplate if necessary. The following variables (at least)
+should have appropriate values:
+
  ____________________________________________________________________________
 |   Gratia Configuration Variable        |   Set value information           |
 |________________________________________|___________________________________|
@@ -72,36 +59,9 @@ We recommend that the client software be placed in the directory
 |                                        |MAGIC_VDT_LOCATION variable.       |
 |________________________________________|___________________________________|
 
-3. There is a shell script, which should be executed regularly via cron.  It 
-   does not need to be run as "root", so we recommend that you add it to a 
-   crontab for some other user, such as "daemon".  The chosen user account 
-   needs to have write access to the $VDT_LOCATION/gratia/ directory tree 
-   where the patched "condor.pm" module will place copies of log files as 
-   Grid jobs finish their processing.  
-   
-   To direct the e-mail that may be output by this script, enter the following 
-   crontab entry: 
-   
-   MAILTO=root
-   3,13,23,33,43,53 * * * *  $VDT_LOCATION/gratia/condor-probe/condor_meter.cron.sh
-   
-   Where:
-	o "MAILTO=root" is the destination address that should receive emails
-	  in case of errors when executing this cron script
-	o And "$VDT_LOCATION" has been replaced with the full path to the 
-	  directory, as this environment variable will be unknown to cron.
-	  
-4. Globus script patches:
-	o Under the directory $VDT_LOCATION/gratia/condor-probes/gram_mods there 
-	  are two files that contain for your information the changes to the 
-	  Globus script (in the form of diff between the patched files and 
-	  the ones currently distributed with OSG 0.3.6 / VDT 1.3.10). 
-	o The patch files condor.pm and managedfork.pm  ensure that the condor 
-	  log files are copied in a location that the gratia probe has access 
-	  to and can manage them. The directories are the ones under the 
-	  $VDT_LOCATION/gratia/gratia_probes that were created and were given 
-          access to all in step 1 of the installation. These files are not 
-          distributed with this tar file. Please request them by sending 
-          e-mail to 
-		osg-accounting@opensciencegrid.org
+
+4. For testing, use SOAPHost="cd-psg2.fnal.gov:8881". For production use
+use the port specified in the probe directory README or in the case of
+your own probe, contact osg-accounting@opensciencegrid.org.
+
 

@@ -8,10 +8,10 @@ We recommend that the client software be placed in the directory $VDT_LOCATION
 
   rpm -Uvh --relocate /opt/vdt/gratia="$VDT_LOCATION/gratia" \
       gratia-probe-common-<version>.noarch.rpm \
-      gratia-probe-condor-<version>.noarch.rpm
+      gratia-probe-psacct-<version>.noarch.rpm
 
 	
-2. Customize the gratia probe configuration file $VDT_LOCATION/gratia/probe/condor/ProbeConfig
+2. Customize the gratia probe configuration file $VDT_LOCATION/gratia/probe/psacct/ProbeConfig
 	o Edit the ProbeConfig file so that the following variables have the 
 	  correct values:
 
@@ -22,7 +22,7 @@ We recommend that the client software be placed in the directory $VDT_LOCATION
 |                                        |database to indicate where the     |
 |                                        |record came from.  We recommend a  |
 |                                        |batchsystem:FQDN such as           |
-|                                        |  'condor:fermigrid1.fnal.gov'     |
+|                                        |  'psacct:fermigrid1.fnal.gov'     |
 |________________________________________|___________________________________|
 |SiteName="Generic Site"                 |This value use in the report to    | 
 |                                        |refer to the site/farm/cluster     |
@@ -40,14 +40,5 @@ We recommend that the client software be placed in the directory $VDT_LOCATION
 for uploading accounting information to gratia at the appropriate
 time. The time is appropriately randomized.
 
-
-4. Under the directory gratia/condor-probes/gram_mods there are two
-files that contain the changes to the Globus script. If gratia was
-installed originally with VDT and the RPMS have been installed as
-recommended under ${VDT_LOCATION}, nothing needs to be done. However, if
-you get a post-install message regarding condor.pm and/or
-managedfork.pm, please act upon that message.
-
-
-5. For testing, use SOAPHost="cd-psg2.fnal.gov:8881"; for production,
-use SOAPHost="cd-psg2.fnal.gov:8880"
+4. For testing, use SOAPHost="cd-psg2.fnal.gov:8881"; for production,
+use SOAPHost="cd-psg2.fnal.gov:8882"

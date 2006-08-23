@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.9a
-Release: 2
+Version: 0.9b
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -103,6 +103,7 @@ The condor probe for the Gratia OSG accounting system.
 # post or by the end user.
 %files psacct
 %defattr(-,root,root,-)
+%doc /opt/vdt/gratia/probe/psacct/README
 %config /opt/vdt/gratia/probe/psacct/facct-catchup
 %config /opt/vdt/gratia/probe/psacct/facct-turnoff.sh
 %config /opt/vdt/gratia/probe/psacct/psacct_probe.cron.sh
@@ -224,6 +225,21 @@ s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 m&%{template_marker}& or print;' \
 "$config_file"
 done
+
+# Configure GRAM perl modules
+if ! grep -e 'log_to_gratia' \
+"${RPM_INSTALL_PREFIX1}../globus/lib/perl/Globus/GRAM/JobManager/condor.pm" \
+>/dev/null 2>&1; then
+  echo "WARNING: check that
+\${VDT_LOCATION}/globus/lib/perl/Globus/GRAM/JobManager/condor.pm 
+and managedfork.pm contain the line, 'sub log_to_gratia'. If not, please patch
+using the diff files in:
+
+${RPM_INSTALL_PREFIX1}/probe/condor/gram_mods/
+
+or see ${RPM_INSTALL_PREFIX1}/probe/condor/README for more information." 1>&2
+fi
+
 
 # Configure crontab entry
 if grep -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' \
