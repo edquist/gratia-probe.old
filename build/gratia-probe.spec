@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.9a
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -137,26 +137,63 @@ done
 /sbin/chkconfig --level 35 gratia-psacct on
 
 # Configure crontab entry
-if grep -re 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' /etc/crontab /etc/cron.* >/dev/null 2>&1; then
-  echo "WARNING: non-standard installation of psacct probe in /etc/crontab or /etc/cron.*" 1>&2
-  echo "         Please check and remove to avoid clashes with root's crontab" 1>&2
+if grep -re 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' \
+        /etc/crontab /etc/cron.* >/dev/null 2>&1; then
+  echo "WARNING: non-standard entry for psacct probe in \
+/etc/crontab or /etc/cron.*" 1>&2
+  echo "         Please check and remove to avoid clashes \
+with root's crontab" 1>&2
 fi
 
 tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
-crontab -l 2>/dev/null | grep -v -e 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
+crontab -l 2>/dev/null | \
+grep -v -e 'psacct_probe.cron\.sh' \
+        -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
 cat >>"$tmpfile" <<EOF
 $(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * \
 "${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh" > \
 "${RPM_INSTALL_PREFIX1}/var/logs/gratia-probe-psacct.log" 2>&1
 EOF
 
+# Inform user of next step.
 crontab "$tmpfile" >/dev/null 2>&1
+rm -f "$tmpfile"
+
+  echo "After configuring ${RPM_INSTALL_PREFIX1}/probe/psacct/ProbeConfig
+invoke
+
+/etc/rc.d/init.d/gratia-psaccct start
+
+to start process accounting" 1>&2
+
+# Deal with legacy Fermilab psacct configuration:
+
+if grep -e 'fiscal/monacct\.log' >/dev/null 2>&1; then
+  tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
+  crontab -l 2>/dev/null | \
+grep -v -e 'nite/acct\.log' \
+        -e 'fiscal/monacct\.log' > "$tmpfile" 2>/dev/null
+  crontab "$tmpfile" >/dev/null 2>&1
+  echo "Shutting down facct service" 1>&2
+  chkconfig --del facct
+  echo "
+
+Execute 
+
+${RPM_INSTALL_PREFIX1}/probe/psacct/facct-catchup --enable
+
+to upload remaining information to Gratia. ProbeConfig should be
+configured first and gratia-psacct started to avoid gaps in data." 1>&2
+fi
+
 rm -f "$tmpfile"
 
 %preun psacct
 # Remove crontab entry
 tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
-crontab -l 2>/dev/null | grep -v -e 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
+crontab -l 2>/dev/null | \
+grep -v -e 'psacct_probe.cron\.sh' \
+        -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
 if test -s "$tmpfile"; then
   crontab "$tmpfile" >/dev/null 2>&1
 else
@@ -189,13 +226,16 @@ m&%{template_marker}& or print;' \
 done
 
 # Configure crontab entry
-if grep -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' /etc/crontab /etc/cron.* >/dev/null 2>&1; then
+if grep -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' \
+        /etc/crontab /etc/cron.* >/dev/null 2>&1; then
   echo "WARNING: non-standard installation of condor probe in /etc/crontab or /etc/cron.*" 1>&2
   echo "         Please check and remove to avoid clashes with root's crontab" 1>&2
 fi
 
 tmpfile=`mktemp /tmp/gratia-probe-condor-post.XXXXXXXXXX`
-crontab -l 2>/dev/null | grep -v -e 'condor_meter.cron\.sh' -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
+crontab -l 2>/dev/null | \
+grep -v -e 'condor_meter.cron\.sh' 
+        -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
 cat >>"$tmpfile" <<EOF
 $(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * \
 "${RPM_INSTALL_PREFIX1}/probe/condor/condor_meter.cron.sh" > \
@@ -208,7 +248,9 @@ rm -f "$tmpfile"
 %preun condor
 # Remove crontab entry
 tmpfile=`mktemp /tmp/gratia-probe-condor-post.XXXXXXXXXX`
-crontab -l 2>/dev/null | grep -v -e 'condor_meter.cron\.sh' -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
+crontab -l 2>/dev/null | \
+grep -v -e 'condor_meter.cron\.sh' \
+        -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
 if test -s "$tmpfile"; then
   crontab "$tmpfile" >/dev/null 2>&1
 else
