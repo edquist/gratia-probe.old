@@ -125,6 +125,7 @@ ${RPM_INSTALL_PREFIX1}/probe/psacct/facct-turnoff.sh
 ${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh
 ${RPM_INSTALL_PREFIX1}/probe/psacct/gratia-psacct
 EOF
+test -n "$config_file" || continue
 perl -wni.orig -e \
 '
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
@@ -140,10 +141,13 @@ done
 # Configure crontab entry
 if grep -re 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' \
         /etc/crontab /etc/cron.* >/dev/null 2>&1; then
-  echo "WARNING: non-standard entry for psacct probe in \
-/etc/crontab or /etc/cron.*" 1>&2
-  echo "         Please check and remove to avoid clashes \
-with root's crontab" 1>&2
+cat 1>&2 <<EOF
+
+
+WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
+         Please check and remove to avoid clashes with root's crontab
+
+EOF
 fi
 
 tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
@@ -160,12 +164,16 @@ EOF
 crontab "$tmpfile" >/dev/null 2>&1
 rm -f "$tmpfile"
 
-  echo "After configuring ${RPM_INSTALL_PREFIX1}/probe/psacct/ProbeConfig
+cat 1>&2 <<EOF
+
+After configuring ${RPM_INSTALL_PREFIX1}/probe/psacct/ProbeConfig
 invoke
 
 /etc/rc.d/init.d/gratia-psaccct start
 
-to start process accounting" 1>&2
+to start process accounting
+
+EOF
 
 # Deal with legacy Fermilab psacct configuration:
 
@@ -218,39 +226,48 @@ cat <<EOF | while read config_file; do
 "${RPM_INSTALL_PREFIX1}"/probe/condor/ProbeConfig{,.rpmnew} \
 2>/dev/null`
 EOF
+test -n "$config_file" || continue
 perl -wni.orig -e \
 '
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 m&%{template_marker}& or print;' \
-"$config_file"
+"$config_file" >/dev/null 2>&1
 done
 
 # Configure GRAM perl modules
 if ! grep -e 'log_to_gratia' \
 "${RPM_INSTALL_PREFIX1}../globus/lib/perl/Globus/GRAM/JobManager/condor.pm" \
 >/dev/null 2>&1; then
-  echo "WARNING: check that
+cat 1>&2 <<EOF
+
+WARNING: check that
 \${VDT_LOCATION}/globus/lib/perl/Globus/GRAM/JobManager/condor.pm 
 and managedfork.pm contain the line, 'sub log_to_gratia'. If not, please patch
 using the diff files in:
 
 ${RPM_INSTALL_PREFIX1}/probe/condor/gram_mods/
 
-or see ${RPM_INSTALL_PREFIX1}/probe/condor/README for more information." 1>&2
+or see ${RPM_INSTALL_PREFIX1}/probe/condor/README for more information.
+
+EOF
 fi
 
 
 # Configure crontab entry
 if grep -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' \
         /etc/crontab /etc/cron.* >/dev/null 2>&1; then
-  echo "WARNING: non-standard installation of condor probe in /etc/crontab or /etc/cron.*" 1>&2
-  echo "         Please check and remove to avoid clashes with root's crontab" 1>&2
+cat <<EOF 1>&2
+
+WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
+         Please check and remove to avoid clashes with root's crontab
+
+EOF
 fi
 
 tmpfile=`mktemp /tmp/gratia-probe-condor-post.XXXXXXXXXX`
 crontab -l 2>/dev/null | \
-grep -v -e 'condor_meter.cron\.sh' 
+grep -v -e 'condor_meter.cron\.sh' \
         -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
 cat >>"$tmpfile" <<EOF
 $(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * \
