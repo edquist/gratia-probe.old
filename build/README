@@ -2,20 +2,33 @@ Probe area packaging build instructions.
 ----------------------------------------
 
 1) The script package-probe will create tarfiles for each directory
-mentioned. Example usage:
+   mentioned. Example usage:
 
-     build/package-probe 0.4.1 common condor psacct
+     build/package-probe 0.9c common condor psacct
 
 2) These tarfiles should be moved into the SOURCES area of your
-RPM build tree.
+   RPM build tree.
 
 3) Use the RPM SPEC file in build/ to create the RPMs. Note that the
-Version: tag must match the version used in the invocation of the
-package-probe command (0.4.1 in the example above). An example command:
+   Version: tag must match the version used in the invocation of the
+   package-probe command (0.9c in the example above). An example
+   command:
 
      rpmbuild -ba <spec-file>
 
-   Don't forget to customize Version:, Release:, Vendor: and Packager: as appropriate.
+   Don't forget to customize Version:, Release:, Vendor: and Packager:
+   as appropriate. Please use the following convention:
+
+   *) Only package RPMs from an already-tagged release in CVS (eg 0.9c above).
+
+   *) The Version: tag in the .spec file must match the version used in
+   the package-probe invocation above, and by implication, the CVS tag.
+
+   *) The version of the software being packaged should be bumped and
+   Release: reset to 1 if the contents of the tarballs have changed in
+   any way; conversely, if the RPM content has changed but the tarballs
+   have not (addition of a patch or changes to scriptlets or package
+   descriptions), it is the Release: number that should be bumped.
 
 4) Do not build as ROOT! Create a file ~/.rpmmacros as follows:
 
