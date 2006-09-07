@@ -1,0 +1,47 @@
+#!/bin/bash
+########################################################################
+# populate-SOURCES
+#
+# Copy tarfiles and other build paraphernalia into rpmbuild SOURCES area
+#
+# 2007/08/16 CHG for the Gratia project.
+########################################################################
+
+rpmbuild_top=/usr/src/redhat
+urCollector_dir=./build/urCollector
+
+function usage() {
+  echo "usage: ${0##*/} -h" 1>&2
+  echo "       ${0##*/} [-u <urCollector-dir>] [-r <rpmbuild-top>] [tarfiles]" 1>&2
+  exit 1
+}
+
+while getopts :hu:r: OPT; do
+    case $OPT in
+	h)
+	    usage
+	    ;;
+	r)
+	    rpmbuild_top="$OPTARG"
+	    ;;
+ 	u)
+	    urCollector_dir="$OPTARG"
+	    ;;
+	*)
+	    usage
+    esac
+done
+shift $[ OPTIND - 1 ]
+
+if [[ -z "$1" ]]; then
+  set -- *.tar.bz2
+fi
+
+if [[ ! -w "$rpmbuild_top/SOURCES" ]]; then
+  echo "$rpmbuild_top/SOURCES not writable" 1>&2
+  usage
+fi
+
+cp -pv "$urCollector_dir/"* "$@" "$rpmbuild_top/SOURCES" 2>/dev/null
+
+exit 0
