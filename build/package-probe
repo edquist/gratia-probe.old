@@ -1,6 +1,6 @@
 #!/bin/bash
 ########################################################################
-# package-probe.sh
+# package-probe
 #
 # Package probe directories into tar files for inclusion in RPMs.
 #
@@ -17,6 +17,11 @@ function usage() {
 version="$1"
 shift
 
+# Temporary dir.
+TMP=`mktemp -d /tmp/package-probe.sh.XXXXXXXXXX 2>/dev/null`
+[[ -n  "$TMP" ]] || exit 1
+trap "rm -rf \"$TMP\" 2>/dev/null" EXIT
+
 while [ -n "$1" ]; do
   probe_dir="$1"
 
@@ -28,11 +33,6 @@ sed -e 's/\/$//g' \
     -e 's/^probe[_-]\{0,1\}//'` 
   tar_stem="gratia-probe-${probe_dir_stem}-${version}"
 
-  # Temporary dir.
-  TMP=`mktemp -d /tmp/package-probe.sh.XXXXXXXXXX 2>/dev/null`
-  [[ -n  "$TMP" ]] || exit 1
-  trap "rm -rf \"$TMP\" 2>/dev/null" EXIT
-
   # Find files and transfer to temporary area.
   pushd "$probe_dir" >/dev/null
   find . -depth -print | \
@@ -43,8 +43,7 @@ sed -e 's/\/$//g' \
   find . -name '*~' -exec rm -f \{\} \; 
   cd "${TMP}"
   # Make tar file
-  tar jcf "${tar_stem}.tar.bz2" \
-  "${probe_dir_stem}" 
+  tar jcf "${tar_stem}.tar.bz2" "${probe_dir_stem}" 
   # Return to invocation directory and retrieve tar file.
   popd >/dev/null
   mv "${TMP}/${tar_stem}.tar.bz2" .
