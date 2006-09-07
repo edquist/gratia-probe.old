@@ -3,15 +3,15 @@
 
     UseGratiaCertificates="0"
 
-    SSLHost="cd-psg2.fnal.gov:8443" 
+    SSLHost="gratia-osg.fnal.gov:8443" 
     SSLCollectorService="/gratia-servlets/rmi"
-    SSLRegistrationHost="cd-psg2.fnal.gov:8880"
+    SSLRegistrationHost="gratia-osg.fnal.gov:8880"
     SSLRegistrationService="/gratia-security/security"
 
     GratiaCertificateFile="gratia.hostcert.pem"
     GratiaKeyFile="gratia.hostkey.pem"
 
-    SOAPHost="cd-psg2.fnal.gov:8880" 
+    SOAPHost="gratia-osg.fnal.gov:8880" 
     CollectorService="/gratia-soap/services/CollectorImpl" 
 
     MeterName="generic" 
