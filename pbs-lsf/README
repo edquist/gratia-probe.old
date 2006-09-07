@@ -1,0 +1,78 @@
+Installing the Gratia pbs-lsf probe client
+Version 0.9c
+Penelope Constanta & Chris Green
+
+We recommend that the client software be placed in the directory $VDT_LOCATION
+
+1. Install the software:
+
+  rpm -Uvh --relocate /opt/vdt/gratia="$VDT_LOCATION/gratia" \
+      gratia-probe-common-<version>.noarch.rpm \
+      gratia-probe-pbs-lsf-<version>.i386.rpm
+
+	
+2. Customize the gratia probe configuration file $VDT_LOCATION/gratia/probe/pbs-lsf/ProbeConfig
+	o Edit the ProbeConfig file so that the following variables have the 
+	  correct values:
+
+ ____________________________________________________________________________
+|   Gratia Configuration Variable        |   Set value information           |
+|________________________________________|___________________________________|
+|MeterName="generic"                     |This value will be entered in the  | 
+|                                        |database to indicate where the     |
+|                                        |record came from.  We recommend a  |
+|                                        |batchsystem:FQDN such as           |
+|                                        |  'pbs:fermigrid1.fnal.gov'        |
+|________________________________________|___________________________________|
+|SiteName="Generic Site"                 |This value use in the report to    | 
+|                                        |refer to the site/farm/cluster     |
+|                                        |to which the head node give access.|
+|                                        |This is used in particular in the  |
+|                                        |report.                            |
+|________________________________________|___________________________________|
+|VDTSetupFile=                           |Path to the vdt setup.sh file.     |
+|  "MAGIC_VDT_LOCATION/setup.sh"         |Please expand the                  |
+|                                        |MAGIC_VDT_LOCATION variable.       |
+|________________________________________|___________________________________|
+
+
+3. Customize the urCollector.conf file
+$VDT_LOCATION/gratia/probe/pbs-lsf/urCollector.conf:
+
+ ____________________________________________________________________________
+|          Configuration Variable        |   Set value information           |
+|________________________________________|___________________________________|
+|lrmsType = "pbs"                        |Set to "pbs" or "lsf" as           | 
+|                                        |apropriate.                        |
+|________________________________________|___________________________________|
+|pbsAcctLogDir = "<path>"                |Set to appropriate path for log    |
+|                                        |files.                             |
+|________________________________________|___________________________________|
+|lsfAcctLogDir = "<path>"                |Set to appropriate path for log    |
+|                                        |files.                             |
+|________________________________________|___________________________________|
+|useCEJobMap = "no"                      |Set to yes if using a CE job map   |
+|                                        |(see below).                       |
+|________________________________________|___________________________________|
+|ceJobMapLog = ""                        |This is the location of the CE's   |
+|                                        |grid user/grid job -> local job ID |
+|                                        |map. It has to be specified        |
+|                                        |_either_ as a directory (containing|
+|                                        |file names such as "20050307"      |
+|                                        |or "2005-03-07") _or_ as a file    |
+|                                        |name prefix (including path).      |
+|________________________________________|___________________________________|
+
+
+3. The RPM install procedure makes appropriate entries in root's crontab
+for uploading accounting information to gratia at the appropriate
+time. The time is appropriately randomized.
+
+
+4. The SOAPHost has been preconfigured to use the official OSG Gratia
+collector: change at your own risk.
+
+
+5. This product includes software developed by The EU EGEE Project
+(http://cern.ch/eu-egee/).
+
