@@ -1,5 +1,5 @@
-Installing the Gratia Condor probe client
-Version 0.b
+Installing the Gratia probe clients -- general information
+Version 0.9c
 Penelope Constanta & Chris Green
 
 
@@ -14,6 +14,7 @@ We recommend that the client software be placed in the directory $VDT_LOCATION
 2. Install a specific probe such as gratia-probe-condor or
 gratia-probe-psacct; or write your own based on samplemeter.pl or
 samplemeter.py.
+
 
 3. Customize the gratia ProbeConfig files for each probe, initializing
 from ProbeTemplate if necessary. The following variables (at least)
@@ -34,34 +35,12 @@ should have appropriate values:
 |                                        |This is used in particular in the  |
 |                                        |report.                            |
 |________________________________________|___________________________________|
-|WorkingFolder=                          |A temporary location to put the    |
-|  "MAGIC_VDT_LOCATION/gratia/var/tmp"   |copied files. This location needs  |
-|                                        |to have full access by the user    |
-|                                        |that will run the cron job.        |
-|                                        |Please expand the                  |
-|                                        |MAGIC_VDT_LOCATION variable.       |
-|________________________________________|___________________________________|
-|LogFolder=                              |A location to store temporary log  |
-|  "MAGIC_VDT_LOCATION/gratia/var/logs/" |files for debugging purposes. Same |
-|                                        |restrictions as for the            |
-|                                        |'WorkingFolder' directory.         |
-|                                        |Please expand the                  |
-|                                        |MAGIC_VDT_LOCATION variable.       |
-|________________________________________|___________________________________|
-|LogFolder=                              |A location to store temporary data |
-|  "MAGIC_VDT_LOCATION/gratia/var/data/" |files. Same restrictions as for the|
-|                                        |'WorkingFolder' directory.         |
-|                                        |Please expand the                  |
-|                                        |MAGIC_VDT_LOCATION variable.       |
-|________________________________________|___________________________________|
 |VDTSetupFile=                           |Path to the vdt setup.sh file.     |
 |  "MAGIC_VDT_LOCATION/setup.sh"         |Please expand the                  |
 |                                        |MAGIC_VDT_LOCATION variable.       |
 |________________________________________|___________________________________|
 
 
-4. For testing, use SOAPHost="cd-psg2.fnal.gov:8881". For production use
-use the port specified in the probe directory README or in the case of
-your own probe, contact osg-accounting@opensciencegrid.org.
-
-
+4. For official Gratia-packaged probe RPMS, the SOAPHost is configured
+appropriately; for your own probe, please contact
+osg-accounting@opensciencegrid.org.

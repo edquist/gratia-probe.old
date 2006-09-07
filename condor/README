@@ -1,5 +1,5 @@
 Installing the Gratia Condor probe client
-Version 0.b
+Version 0.9c
 Penelope Constanta & Chris Green
 
 We recommend that the client software be placed in the directory $VDT_LOCATION
@@ -49,5 +49,5 @@ you get a post-install message regarding condor.pm and/or
 managedfork.pm, please act upon that message.
 
 
-5. For testing, use SOAPHost="cd-psg2.fnal.gov:8881"; for production,
-use SOAPHost="cd-psg2.fnal.gov:8880"
+5. The SOAPHost has been preconfigured to use the official OSG Gratia
+collector: change at your own risk.
