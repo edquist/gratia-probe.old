@@ -1,0 +1,17 @@
+--- urCollector.pl~	2006-08-30 17:04:09.000000000 -0500
++++ urCollector.pl	2006-09-05 15:21:29.000000000 -0500
+@@ -277,8 +277,12 @@
+ #	       $lastTimestamp);
+ #}
+ 
+-
+-
++print "Uploading records to Gratia collector ...\n";
++if (system("$URCOLLECTOR_LOC/pbs-lsf.py $URBox") == 0) {
++  print "Uploaded data to Gratia collector.\n";
++} else {
++  print "Failed to upload data to Gratia collector.\n";
++}
+ 
+ print "Exiting...\n";
+ if ( &delLock($collectorLockFileName) != 0 ) {	
