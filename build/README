@@ -34,18 +34,35 @@ EOF
 
 4) Use the RPM SPEC file in build/ to create the RPMs. Note that the
    Version: tag must match the version used in the invocation of the
-   package-probe command (0.9c in the example above). An example
-   command:
+   package-probe command (0.9c in the example above).
 
-     rpmbuild -ba --target=noarch <spec-file>
+   To build the full set of RPMs, you will need to invoke rpmbuild *four*
+   times:
 
-   Note: this will build the non-arch-specific RPMs (everything except
-   the pbs-lsf probe). Remove the --target option to build the pbs-lsf
-   probe for the current architecture (eg i386).
+     i) rpmbuild -ba --target=noarch <spec-file>
 
+        Build the non-architecture-specific default RPMS.
+
+    ii) rpmbuild -ba -Dconfig_itb --target=noarch <spec-file>
+
+        Build the non-arch-specific RPMS with ITB configurations
+        (and -itb suffix in the RPM name).
+
+   iii) rpmbuild -ba <spec-file>
+
+        Build the arch-specific RPMS (currently only the pbs-lsf probe).
+
+    iv) rpmbuild -ba -Dconfig_itb  <spec-file>
+
+        Build the arch-specific RPMS with ITB configurations.
+
+   Alternatively: use the build/build_all script with appropriate
+   arguments. However, please remember to make appropriate entries in
+   the specfile's Changelog section.
 
 5) Don't forget to customize Version:, Release:, Vendor: and Packager:
-   as appropriate. Please use the following convention:
+   as appropriate (Version and release will be updated by the build_all
+   script, if used). Please use the following convention:
 
    *) Only package RPMs from an already-tagged release in CVS (eg 0.9c
    above).
