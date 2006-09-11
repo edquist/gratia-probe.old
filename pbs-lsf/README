@@ -70,7 +70,8 @@ time. The time is appropriately randomized.
 
 
 4. The SOAPHost has been preconfigured to use the official OSG Gratia
-collector: change at your own risk.
+collector (or the official ITB Gratia if your installed the ITB RPMs):
+change at your own risk.
 
 
 5. This product includes software developed by The EU EGEE Project

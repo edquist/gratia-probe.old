@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.9c
+Version: 0.9d
 Release: 1
 License: GPL
 Group: Applications/System
@@ -12,6 +12,11 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 %define ProbeConfig_template_marker <!-- Temporary RPM-generated template marker -->
 %define pbs_lsf_template_marker # Temporary RPM-generated template marker
 %define urCollector_version 2006-06-13
+%define itb_suffix -itb
+
+%{?config_itb: %define maybe_itb_suffix %{itb_suffix}}
+%{?config_itb: %define itb_soaphost_config s&^(\\s*SOAPHost\\s*=\\s*).*$&${1}gratia-osg.fnal.gov:8881&;}
+
 
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
@@ -20,7 +25,7 @@ Source3: %{name}-pbs-lsf-%{version}.tar.bz2
 Source4: urCollector-%{urCollector_version}.tgz
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-gratia-addin-1.patch
-
+Patch2: urCollector-2006-06-13-greenc-fixes-1.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -36,96 +41,98 @@ Prefix: /opt/vdt/gratia
 cd urCollector-%{urCollector_version}
 %patch -P 0 -p1 -b .pcanal-fixes-1
 %patch -P 1 -b .gratia-addin-1
+%patch -P 2 -b .greenc-fixes-1
 %endif
 
 %build
 %ifnarch noarch
 cd urCollector-%{urCollector_version}
-make clean
-make
+%{__make} clean
+%{__make}
 cd -
 %endif
 
 %install
 # Setup
-rm -rf "${RPM_BUILD_ROOT}"
-mkdir -p "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe"
+%{__rm} -rf "${RPM_BUILD_ROOT}"
+%{__mkdir_p} "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe"
 
 %ifarch noarch
   # Obtain files
-  cp -pR {common,condor,psacct} "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe"
+  %{__cp} -pR {common,condor,psacct} "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
   for probe_config in \
       "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe/condor/ProbeConfig" \
       "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe/psacct/ProbeConfig" \
       ; do
-    cp -p "common/ProbeConfigTemplate" \
-          "$probe_config"
+    %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
   done
 
 %else
-  cp -pR pbs-lsf "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe"
+  %{__cp} -pR pbs-lsf "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe"
 
   # Get uncustomized ProbeConfigTemplate file (see post below)
   for probe_config in \
       "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe/pbs-lsf/ProbeConfig" \
       ; do
-    cp -p "common/ProbeConfigTemplate" \
+    %{__cp} -p "common/ProbeConfigTemplate" \
           "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
   done
 
   # Get urCollector software
   cd urCollector-%{urCollector_version}
-  cp -p urCreator urCollector.pl \
+  %{__cp} -p urCreator urCollector.pl \
   "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe/pbs-lsf"
-  cp -p urCollector.conf-template \
+  %{__cp} -p urCollector.conf-template \
   "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe/pbs-lsf/urCollector.conf"
   echo "%{pbs_lsf_template_marker}" >> \
        "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe/pbs-lsf/urCollector.conf"
 
   cd "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe/pbs-lsf"
-  ln -s . etc
-  ln -s . libexec
+  %{__ln_s} . etc
+  %{__ln_s} . libexec
 %endif
 
 cd "${RPM_BUILD_ROOT}/opt/vdt/gratia"
 
 %ifarch noarch
   # Set up var area
-  mkdir -p var/{data,logs,tmp}
-  chmod 1777 var/data
+  %{__mkdir_p} var/{data,logs,tmp}
+  %{__chmod} 1777 var/data
 
   # install psacct startup script.
-  install -d "${RPM_BUILD_ROOT}/etc/rc.d/init.d/"
-  install -m 755 "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe/psacct/gratia-psacct" \
+  %{__install} -d "${RPM_BUILD_ROOT}/etc/rc.d/init.d/"
+  %{__install} -m 755 "${RPM_BUILD_ROOT}/opt/vdt/gratia/probe/psacct/gratia-psacct" \
   "${RPM_BUILD_ROOT}/etc/rc.d/init.d/"
 %else
-  mkdir -p var/{lock,tmp/urCollector}
+  %{__mkdir_p} var/{lock,tmp/urCollector}
 %endif
 
 %clean
-rm -rf "${RPM_BUILD_ROOT}"
+%{__rm} -rf "${RPM_BUILD_ROOT}"
 
 %description
 Probes for the Gratia OSG accounting system
 
 %ifnarch noarch
-%package pbs-lsf
+%package pbs-lsf%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for PBS and LSF batch systems.
 Group: Application/System
 Requires: %{name}-common = %{version}
 License: See LICENSE.
+%{?config_itb:Obsoletes: %{name}-pbs-lsf}
+%{!?config_itb:Obsoletes: %{name}-pbs-lsf%{itb_suffix}}
 
-%description pbs-lsf
+%description pbs-lsf%{?maybe_itb_suffix}
 Gratia OSG accounting system probe for PBS and LSF batch systems.
 
 This product includes software developed by The EU EGEE Project
 (http://cern.ch/eu-egee/).
 
-%files pbs-lsf
+%files pbs-lsf%{?maybe_itb_suffix}
 %defattr(-,root,root,-)
 %dir /opt/vdt/gratia/var
 %dir /opt/vdt/gratia/var/lock
@@ -144,17 +151,17 @@ This product includes software developed by The EU EGEE Project
 %config(noreplace) /opt/vdt/gratia/probe/pbs-lsf/urCollector.conf
 %config(noreplace) /opt/vdt/gratia/probe/pbs-lsf/ProbeConfig
 
-%post pbs-lsf
+%post pbs-lsf%{?maybe_itb_suffix}
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # /opt/vdt/gratia -> "${RPM_INSTALL_PREFIX1}"
-cat <<EOF | while read config_file; do
-`grep -le '^%{ProbeConfig_template_marker}$' -e '^%{pbs_lsf_template_marker}$' \
+%{__cat} <<EOF | while read config_file; do
+`%{__grep} -le '^%{ProbeConfig_template_marker}$' -e '^%{pbs_lsf_template_marker}$' \
 "${RPM_INSTALL_PREFIX1}"/probe/pbs-lsf/ProbeConfig{,.rpmnew} \
 "${RPM_INSTALL_PREFIX1}"/probe/pbs-lsf/urCollector.conf{,.rpmnew} \
 2>/dev/null`
 EOF
 test -n "$config_file" || continue
-perl -wni.orig -e \
+%{__perl} -wni.orig -e \
 '
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
@@ -162,15 +169,16 @@ s&^\s*(URBox\s*=\s*).*$&${1}"$ENV{RPM_INSTALL_PREFIX1}/var/tmp/urCollector"&;
 s&^\s*(collectorLockFileName\s*=\s*).*$&${1}"$ENV{RPM_INSTALL_PREFIX1}/var/lock/urCollector.lock"&;
 s&^\s*(collectorLogFileName\s*=\s*).*$&${1}"$ENV{RPM_INSTALL_PREFIX1}/var/logs/urCollector.log"&;
 s&^\s*(collectorBufferFileName\s*=\s*).*$&${1}"$ENV{RPM_INSTALL_PREFIX1}/var/tmp/urCollectorBuffer"&;
+%{?itb_soaphost_config}
 m&%{ProbeConfig_template_marker}& or m&%{pbs_lsf_template_marker}& or print;
 ' \
 "$config_file" >/dev/null 2>&1
 done
 
 # Configure crontab entry
-if grep -re 'pbs-lsf_meter.cron\.sh' \
+if %{__grep} -re 'pbs-lsf_meter.cron\.sh' \
         /etc/crontab /etc/cron.* >/dev/null 2>&1; then
-cat <<EOF 1>&2
+%{__cat} <<EOF 1>&2
 
 WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
          Please check and remove to avoid clashes with root's crontab
@@ -180,8 +188,8 @@ fi
 
 tmpfile=`mktemp /tmp/gratia-probe-pbs-lsf-post.XXXXXXXXXX`
 crontab -l 2>/dev/null | \
-grep -v -e 'pbs-lsf_meter.cron\.sh' > "$tmpfile" 2>/dev/null
-cat >>"$tmpfile" <<EOF
+%{__grep} -v -e 'pbs-lsf_meter.cron\.sh' > "$tmpfile" 2>/dev/null
+%{__cat} >>"$tmpfile" <<EOF
 $(( $RANDOM % 15 ))-59/15 * * * * \
 "${RPM_INSTALL_PREFIX1}/probe/pbs-lsf/pbs-lsf_meter.cron.sh" > \
 "${RPM_INSTALL_PREFIX1}/var/logs/gratia-probe-pbs-lsf.log" 2>&1
@@ -190,13 +198,13 @@ EOF
 crontab "$tmpfile" >/dev/null 2>&1
 rm -f "$tmpfile"
 
-%preun pbs-lsf
+%preun pbs-lsf%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
   # Remove crontab entry
   tmpfile=`mktemp /tmp/gratia-probe-pbs-lsf-post.XXXXXXXXXX`
   crontab -l 2>/dev/null | \
-  grep -v -e 'pbs-lsf_meter.cron\.sh' > "$tmpfile" 2>/dev/null
+  %{__grep} -v -e 'pbs-lsf_meter.cron\.sh' > "$tmpfile" 2>/dev/null
   if test -s "$tmpfile"; then
     crontab "$tmpfile" >/dev/null 2>&1
   else
@@ -214,25 +222,6 @@ Requires: python >= 2.2
 
 %description common
 Common files and examples for Gratia OSG accounting system probes.
-
-%package psacct
-Summary: A ps-accounting probe
-Group: Applications/System
-Requires: python >= 2.2
-Requires: psacct
-Requires: %{name}-common = %{version}
-
-%description psacct
-The psacct probe for the Gratia OSG accounting system.
-
-%package condor
-Summary: A Condor probe
-Group: Applications/System
-Requires: python >= 2.2
-Requires: %{name}-common = %{version}
-
-%description condor
-The condor probe for the Gratia OSG accounting system.
 
 %files common
 %defattr(-,root,root,-)
@@ -252,6 +241,16 @@ The condor probe for the Gratia OSG accounting system.
 /opt/vdt/gratia/probe/common/Gratia.py
 /opt/vdt/gratia/probe/common/RegisterProbe.py
 
+%package psacct
+Summary: A ps-accounting probe
+Group: Applications/System
+Requires: python >= 2.2
+Requires: psacct
+Requires: %{name}-common = %{version}
+
+%description psacct
+The psacct probe for the Gratia OSG accounting system.
+
 # Anything marked "config" is something that is going to be changed in
 # post or by the end user.
 %files psacct
@@ -270,8 +269,8 @@ The condor probe for the Gratia OSG accounting system.
 %post psacct
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # /opt/vdt/gratia -> "${RPM_INSTALL_PREFIX1}"
-cat <<EOF | while read config_file; do
-`grep -le '^%{ProbeConfig_template_marker}$' \
+%{__cat} <<EOF | while read config_file; do
+`%{__grep} -le '^%{ProbeConfig_template_marker}$' \
 "${RPM_INSTALL_PREFIX1}"/probe/psacct/ProbeConfig{,.rpmnew} \
 2>/dev/null`
 ${RPM_INSTALL_PREFIX1}/probe/psacct/facct-catchup
@@ -281,7 +280,7 @@ ${RPM_INSTALL_PREFIX1}/probe/psacct/gratia-psacct
 /etc/rc.d/init.d/gratia-psacct
 EOF
 test -n "$config_file" || continue
-perl -wni.orig -e \
+%{__perl} -wni.orig -e \
 '
 s&^(\s*SOAPHost\s*=\s*).*$&${1}gratia-fermi.fnal.gov:8882&;
 s&gratia-osg\.fnal\.gov$&gratia-fermi.fnal.gov&;
@@ -296,9 +295,9 @@ done
 /sbin/chkconfig --level 35 gratia-psacct on
 
 # Configure crontab entry
-if grep -re 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' \
+if %{__grep} -re 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' \
         /etc/crontab /etc/cron.* >/dev/null 2>&1; then
-cat 1>&2 <<EOF
+%{__cat} 1>&2 <<EOF
 
 
 WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
@@ -309,9 +308,9 @@ fi
 
 tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
 crontab -l 2>/dev/null | \
-grep -v -e 'psacct_probe.cron\.sh' \
+%{__grep} -v -e 'psacct_probe.cron\.sh' \
         -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
-cat >>"$tmpfile" <<EOF
+%{__cat} >>"$tmpfile" <<EOF
 $(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * \
 "${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh" > \
 "${RPM_INSTALL_PREFIX1}/var/logs/gratia-probe-psacct.log" 2>&1
@@ -321,7 +320,7 @@ crontab "$tmpfile" >/dev/null 2>&1
 rm -f "$tmpfile"
 
 # Inform user of next step.
-cat 1>&2 <<EOF
+%{__cat} 1>&2 <<EOF
 
 After configuring ${RPM_INSTALL_PREFIX1}/probe/psacct/ProbeConfig
 invoke
@@ -334,10 +333,10 @@ EOF
 
 # Deal with legacy Fermilab psacct configuration:
 
-if grep -e 'fiscal/monacct\.log' >/dev/null 2>&1; then
+if %{__grep} -e 'fiscal/monacct\.log' >/dev/null 2>&1; then
   tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
   crontab -l 2>/dev/null | \
-grep -v -e 'nite/acct\.log' \
+%{__grep} -v -e 'nite/acct\.log' \
         -e 'fiscal/monacct\.log' > "$tmpfile" 2>/dev/null
   crontab "$tmpfile" >/dev/null 2>&1
   echo "Shutting down facct service" 1>&2
@@ -360,7 +359,7 @@ if [ $1 -eq 0 ]; then
   # Remove crontab entry
   tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
   crontab -l 2>/dev/null | \
-  grep -v -e 'psacct_probe.cron\.sh' \
+  %{__grep} -v -e 'psacct_probe.cron\.sh' \
           -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
   if test -s "$tmpfile"; then
     crontab "$tmpfile" >/dev/null 2>&1
@@ -370,7 +369,18 @@ if [ $1 -eq 0 ]; then
   rm -f "$tmpfile"
 fi
 
-%files condor
+%package condor%{?maybe_itb_suffix}
+Summary: A Condor probe
+Group: Applications/System
+Requires: python >= 2.2
+Requires: %{name}-common = %{version}
+%{?config_itb:Obsoletes: %{name}-condor}
+%{!?config_itb:Obsoletes: %{name}-condor%{itb_suffix}}
+
+%description condor%{?maybe_itb_suffix}
+The condor probe for the Gratia OSG accounting system.
+
+%files condor%{?maybe_itb_suffix}
 %defattr(-,root,root,-)
 %doc condor/README
 /opt/vdt/gratia/probe/condor/README
@@ -379,28 +389,29 @@ fi
 /opt/vdt/gratia/probe/condor/condor_meter.pl
 %config(noreplace) /opt/vdt/gratia/probe/condor/ProbeConfig
 
-%post condor
+%post condor%{?maybe_itb_suffix}
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # /opt/vdt/gratia -> "${RPM_INSTALL_PREFIX1}"
-cat <<EOF | while read config_file; do
-`grep -le '^%{ProbeConfig_template_marker}$' \
+%{__cat} <<EOF | while read config_file; do
+`%{__grep} -le '^%{ProbeConfig_template_marker}$' \
 "${RPM_INSTALL_PREFIX1}"/probe/condor/ProbeConfig{,.rpmnew} \
 2>/dev/null`
 EOF
 test -n "$config_file" || continue
-perl -wni.orig -e \
+%{__perl} -wni.orig -e \
 '
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
+%{?itb_soaphost_config}
 m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file" >/dev/null 2>&1
 done
 
 # Configure GRAM perl modules
-if ! grep -e 'log_to_gratia' \
+if ! %{__grep} -e 'log_to_gratia' \
 "${RPM_INSTALL_PREFIX1}/../globus/lib/perl/Globus/GRAM/JobManager/condor.pm" \
 >/dev/null 2>&1; then
-cat 1>&2 <<EOF
+%{__cat} 1>&2 <<EOF
 
 WARNING: check that
 \${VDT_LOCATION}/globus/lib/perl/Globus/GRAM/JobManager/condor.pm 
@@ -416,9 +427,9 @@ fi
 
 
 # Configure crontab entry
-if grep -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' \
+if %{__grep} -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' \
         /etc/crontab /etc/cron.* >/dev/null 2>&1; then
-cat <<EOF 1>&2
+%{__cat} <<EOF 1>&2
 
 WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
          Please check and remove to avoid clashes with root's crontab
@@ -428,9 +439,9 @@ fi
 
 tmpfile=`mktemp /tmp/gratia-probe-condor-post.XXXXXXXXXX`
 crontab -l 2>/dev/null | \
-grep -v -e 'condor_meter.cron\.sh' \
+%{__grep} -v -e 'condor_meter.cron\.sh' \
         -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
-cat >>"$tmpfile" <<EOF
+%{__cat} >>"$tmpfile" <<EOF
 $(( $RANDOM % 15 ))-59/15 * * * * \
 "${RPM_INSTALL_PREFIX1}/probe/condor/condor_meter.cron.sh" > \
 "${RPM_INSTALL_PREFIX1}/var/logs/gratia-probe-condor.log" 2>&1
@@ -439,13 +450,13 @@ EOF
 crontab "$tmpfile" >/dev/null 2>&1
 rm -f "$tmpfile"
 
-%preun condor
+%preun condor%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
   # Remove crontab entry
   tmpfile=`mktemp /tmp/gratia-probe-condor-post.XXXXXXXXXX`
   crontab -l 2>/dev/null | \
-  grep -v -e 'condor_meter.cron\.sh' \
+  %{__grep} -v -e 'condor_meter.cron\.sh' \
           -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
   if test -s "$tmpfile"; then
     crontab "$tmpfile" >/dev/null 2>&1
@@ -458,6 +469,14 @@ fi
 %endif
 
 %changelog
+* Mon Sep 11 2006  <greenc@fnal.gov> - 0.9d-1
+- ITB-specific RPMS with preconfigured port.
+- Updated README files.
+- Replaced as many UNIX commands as possible with %%{__cmd} macros
+ 
+* Fri Sep  8 2006  <greenc@fnal.gov> - 0.9c-2
+- Patch to urCollector for parsing corner cases (work with Rosario).
+
 * Wed Sep  6 2006  <greenc@fnal.gov> - 0.9c-1
 - New patch for urCollector to invoke gratia probe.
 - Gratia.py enhancements to handle pre-made XML files.
@@ -474,7 +493,6 @@ fi
 post.
 - Improved description for pbs-lsf probe.
 
-
 * Mon Aug 28 2006 <greenc@fnal.gov> - 0.9b-2
 - Specfile revised for arch-specific pbs-lsf package adapted from EGEE's
 urCollector package. NOTE double build now required with and without
@@ -486,4 +504,3 @@ urCollector package. NOTE double build now required with and without
 
 * Tue Aug 15 2006  <greenc@fnal.gov> - 0.9a-1
 - Initial build.
-

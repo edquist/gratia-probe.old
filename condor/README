@@ -36,6 +36,7 @@ We recommend that the client software be placed in the directory $VDT_LOCATION
 |________________________________________|___________________________________|
 
 
+
 3. The RPM install procedure makes appropriate entries in root's crontab
 for uploading accounting information to gratia at the appropriate
 time. The time is appropriately randomized.
@@ -50,4 +51,5 @@ managedfork.pm, please act upon that message.
 
 
 5. The SOAPHost has been preconfigured to use the official OSG Gratia
-collector: change at your own risk.
+collector (or the official ITB Gratia if your installed the ITB RPMs):
+change at your own risk.
