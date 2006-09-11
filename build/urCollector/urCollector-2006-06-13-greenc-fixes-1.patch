@@ -1,0 +1,28 @@
+--- urCollector.pl~	2006-09-07 16:14:12.000000000 -0500
++++ urCollector.pl	2006-09-08 15:19:12.000000000 -0500
+@@ -1468,8 +1468,14 @@
+         $urAcctlogInfo{user}=$new[11];
+         $urAcctlogInfo{lrmsId}=$new[3];
+         $urAcctlogInfo{processors}=$new[6];
+-        $urAcctlogInfo{walltime}=$new[2]-$new[10];
+-        $urAcctlogInfo{cput}=int($new[28+$shift2])+int($new[29+$shift2]);
++        if ($new[10]) {
++	    $urAcctlogInfo{walltime}=$new[2]-$new[10];
++	    $urAcctlogInfo{cput}=int($new[28+$shift2])+int($new[29+$shift2]);
++	} else {
++	    $urAcctlogInfo{walltime}=0;
++	    $urAcctlogInfo{cput}=0;
++	}
++	$urAcctlogInfo{cput} = 0 if ($urAcctlogInfo{cput} < 0);
+         $urAcctlogInfo{mem}=$new[54+$shift2]."k";
+         $urAcctlogInfo{vmem}=$new[55+$shift2]."k";
+         $urAcctlogInfo{start}=$new[10];
+@@ -1649,7 +1655,7 @@
+ 	if ($minutes > 0) {
+ 	    $timePeriodString = $timePeriodString."$minutes"."M";
+ 	}
+-	if ($remainingSecs > 0) {
++	if (!$tSecs or $remainingSecs > 0) {
+ 	    $timePeriodString = $timePeriodString."$remainingSecs"."S";
+ 	}
+ 
