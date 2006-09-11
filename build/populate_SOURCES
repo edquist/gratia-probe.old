@@ -1,6 +1,6 @@
 #!/bin/bash
 ########################################################################
-# populate-SOURCES
+# populate_SOURCES
 #
 # Copy tarfiles and other build paraphernalia into rpmbuild SOURCES area
 #
