@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.9d
-Release: 2
+Version: 0.9e
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -486,6 +486,9 @@ fi
 %endif
 
 %changelog
+* Wed Sep 13 2006  <greenc@fnal.gov> - 0.9e-1
+- Reprocess() and __disconnect() were at the wrong indent level -- should be outside the loop.
+
 * Wed Sep 13 2006  <greenc@fnal.gov> - 0.9d-2
 - Split post-install sections for configuring urCollector.conf and
 ProbeConfig.

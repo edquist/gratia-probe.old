@@ -1140,13 +1140,13 @@ def SendXMLFiles(fileDir, removeOriginal = False):
                         f.write(line)
                     responseString = "Fatal Error: Record not send and not cached.  Record will be lost."
 
-        # Attempt to reprocess any outstanding records
-        if (not __connectionError):
-           Reprocess()
+    # Attempt to reprocess any outstanding records
+    if (not __connectionError):
+       Reprocess()
 
-        # When we are done sending outstanding records, we need to then
-        # disconnect from the web server
-        __disconnect()
+    # When we are done sending outstanding records, we need to then
+    # disconnect from the web server
+    __disconnect()
 
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
