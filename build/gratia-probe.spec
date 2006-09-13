@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.9d
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -154,10 +154,31 @@ This product includes software developed by The EU EGEE Project
 %post pbs-lsf%{?maybe_itb_suffix}
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # /opt/vdt/gratia -> "${RPM_INSTALL_PREFIX1}"
+
+# Configure urCollector.conf
 %{__cat} <<EOF | while read config_file; do
-`%{__grep} -le '^%{ProbeConfig_template_marker}$' -e '^%{pbs_lsf_template_marker}$' \
-"${RPM_INSTALL_PREFIX1}"/probe/pbs-lsf/ProbeConfig{,.rpmnew} \
+`%{__grep} -le '^%{pbs_lsf_template_marker}$' \
 "${RPM_INSTALL_PREFIX1}"/probe/pbs-lsf/urCollector.conf{,.rpmnew} \
+2>/dev/null`
+EOF
+test -n "$config_file" || continue
+%{__perl} -wni.orig -e \
+'
+s&^\s*(URBox\s*=\s*).*$&${1}"$ENV{RPM_INSTALL_PREFIX1}/var/tmp/urCollector"&;
+s&^\s*(collectorLockFileName\s*=\s*).*$&${1}"$ENV{RPM_INSTALL_PREFIX1}/var/lock/urCollector.lock"&;
+s&^\s*(collectorLogFileName\s*=\s*).*$&${1}"$ENV{RPM_INSTALL_PREFIX1}/var/logs/urCollector.log"&;
+s&^\s*(collectorBufferFileName\s*=\s*).*$&${1}"$ENV{RPM_INSTALL_PREFIX1}/var/tmp/urCollectorBuffer"&;
+s&^\s*(jobPerTimeInterval\s*=\s*).*$&${1}"1000"&;
+s&^\s*(timeInterval\s*=\s*).*$&${1}"0"&;
+m&%{pbs_lsf_template_marker}& or print;
+' \
+"$config_file" >/dev/null 2>&1
+done
+
+# Configure ProbeConfig
+%{__cat} <<EOF | while read config_file; do
+`%{__grep} -le '^%{ProbeConfig_template_marker}$' \
+"${RPM_INSTALL_PREFIX1}"/probe/pbs-lsf/ProbeConfig{,.rpmnew} \
 2>/dev/null`
 EOF
 test -n "$config_file" || continue
@@ -165,12 +186,8 @@ test -n "$config_file" || continue
 '
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-s&^\s*(URBox\s*=\s*).*$&${1}"$ENV{RPM_INSTALL_PREFIX1}/var/tmp/urCollector"&;
-s&^\s*(collectorLockFileName\s*=\s*).*$&${1}"$ENV{RPM_INSTALL_PREFIX1}/var/lock/urCollector.lock"&;
-s&^\s*(collectorLogFileName\s*=\s*).*$&${1}"$ENV{RPM_INSTALL_PREFIX1}/var/logs/urCollector.log"&;
-s&^\s*(collectorBufferFileName\s*=\s*).*$&${1}"$ENV{RPM_INSTALL_PREFIX1}/var/tmp/urCollectorBuffer"&;
 %{?itb_soaphost_config}
-m&%{ProbeConfig_template_marker}& or m&%{pbs_lsf_template_marker}& or print;
+m&%{ProbeConfig_template_marker}& or print;
 ' \
 "$config_file" >/dev/null 2>&1
 done
@@ -469,6 +486,12 @@ fi
 %endif
 
 %changelog
+* Wed Sep 13 2006  <greenc@fnal.gov> - 0.9d-2
+- Split post-install sections for configuring urCollector.conf and
+ProbeConfig.
+- Changed jobPerTimeInterval and timeInterval to make catching up on a
+backlog much faster.
+
 * Mon Sep 11 2006  <greenc@fnal.gov> - 0.9d-1
 - ITB-specific RPMS with preconfigured port.
 - Updated README files.
