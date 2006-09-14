@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.9e
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -342,7 +342,7 @@ rm -f "$tmpfile"
 After configuring ${RPM_INSTALL_PREFIX1}/probe/psacct/ProbeConfig
 invoke
 
-/etc/rc.d/init.d/gratia-psaccct start
+/etc/rc.d/init.d/gratia-psacct start
 
 to start process accounting
 
@@ -486,6 +486,9 @@ fi
 %endif
 
 %changelog
+* Thu Sep 14 2006  <greenc@fnal.gov> - 0.9e-2
+- Correct typo in psacct post-install message.
+
 * Wed Sep 13 2006  <greenc@fnal.gov> - 0.9e-1
 - Reprocess() and __disconnect() were at the wrong indent level -- should be outside the loop.
 
