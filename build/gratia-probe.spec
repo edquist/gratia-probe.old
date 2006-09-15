@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.9e
-Release: 2
+Version: 0.9f
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -15,7 +15,7 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 %define itb_suffix -itb
 
 %{?config_itb: %define maybe_itb_suffix %{itb_suffix}}
-%{?config_itb: %define itb_soaphost_config s&^(\\s*SOAPHost\\s*=\\s*).*$&${1}gratia-osg.fnal.gov:8881&;}
+%{?config_itb: %define itb_soaphost_config s&^(\\s*SOAPHost\\s*=\\s*).*$&${1}"gratia-osg.fnal.gov:8881"&;}
 
 
 Source0: %{name}-common-%{version}.tar.bz2
@@ -299,10 +299,15 @@ EOF
 test -n "$config_file" || continue
 %{__perl} -wni.orig -e \
 '
-s&^(\s*SOAPHost\s*=\s*).*$&${1}gratia-fermi.fnal.gov:8882&;
+s&^(\s*SOAPHost\s*=\s*).*$&${1}"gratia-fermi.fnal.gov:8882"&;
 s&gratia-osg\.fnal\.gov$&gratia-fermi.fnal.gov&;
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
+m&^/>& and print <<EOF;
+    PSACCTFileRepository="$ENV{RPM_INSTALL_PREFIX1}/var/account/"
+    PSACCTBackupFileRepository="$ENV{RPM_INSTALL_PREFIX1}/var/backup/"
+    PSACCTExceptionsRepository="$ENV{RPM_INSTALL_PREFIX1}/logs/exceptions/"
+EOF
 m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file"
 done
@@ -486,11 +491,20 @@ fi
 %endif
 
 %changelog
+* Fri Sep 15 2006  <greenc@fnal.gov> - 0.9f-1
+- Moved psacct-specific items out of ProbeConfigTemplate and into post.
+- Fixed sundry minor problems in psacct_probe.cron.sh: missing export of
+PYTHONPATH, typo (psaact -> psacct). Also only attempt to copy old
+PSACCT admin file if it exists, and assume gratia/var/data already
+exists (in common RPM).
+- SOAPHost changes in post need enclosing quotes
+
 * Thu Sep 14 2006  <greenc@fnal.gov> - 0.9e-2
 - Correct typo in psacct post-install message.
 
 * Wed Sep 13 2006  <greenc@fnal.gov> - 0.9e-1
-- Reprocess() and __disconnect() were at the wrong indent level -- should be outside the loop.
+- Reprocess() and __disconnect() were at the wrong indent level --
+should be outside the loop.
 
 * Wed Sep 13 2006  <greenc@fnal.gov> - 0.9d-2
 - Split post-install sections for configuring urCollector.conf and

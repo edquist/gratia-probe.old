@@ -11,8 +11,7 @@ _currentfile=${_nite}/spacct${_date}
 
 _gratia_dir=/opt/vdt/gratia
 _gratia_data_dir=${_gratia_dir}/var/data
-mkdir -m 777 -p "${_gratia_data_dir}"
-cp ${_currentfile} "${_gratia_data_dir}"
+test -e "${_currentfile}" && cp "${_currentfile}" "${_gratia_data_dir}"
 
 # Now run gratia
 
@@ -24,6 +23,7 @@ if test -n "$PYTHONPATH" ; then
     PYTHONPATH="${PYTHONPATH}:${_gratia_dir}/probe/common"
   fi
 else
-  PYTHONPATH="${gratia_dir}/probe/common"
+  PYTHONPATH="${_gratia_dir}/probe/common"
 fi
-python "${_gratia_dir}/probe/psaact/PSACCTProbe.py"
+export PYTHONPATH
+python "${_gratia_dir}/probe/psacct/PSACCTProbe.py"

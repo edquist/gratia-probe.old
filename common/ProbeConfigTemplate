@@ -26,7 +26,4 @@
     LogFolder="MAGIC_VDT_LOCATION/gratia/var/logs/"
     DataFolder="MAGIC_VDT_LOCATION/gratia/var/data/"
     VDTSetupFile="MAGIC_VDT_LOCATION/setup.sh"
-    PSACCTFileRepository="/opt/vdt/gratia/var/account/"
-    PSACCTBackupFileRepository="/opt/vdt/gratia/var/backup/"
-    PSACCTExceptionsRepository="/opt/vdt/gratia/logs/exceptions/"
 />
