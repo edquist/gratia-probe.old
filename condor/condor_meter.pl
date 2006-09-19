@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.2 2006-08-22 18:04:25 pcanal Exp $
+# $Id: condor_meter.pl,v 1.3 2006-09-19 21:57:33 pcanal Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -25,7 +25,7 @@ use File::Basename;
 
 $progname = "condor_meter.pl";
 $prog_version = "v0.4.0";
-$prog_revision = '$Revision: 1.2 $ ';   # CVS Version number
+$prog_revision = '$Revision: 1.3 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -347,7 +347,7 @@ sub Query_Condor_History {
   }
 
   if ($cluster_id) {
-    open(CHIST, "$condor_hist_cmd -l $cluster_id |")
+    open(CHIST, "$condor_hist_cmd -backwards -match 1 -l $cluster_id |")
       or die "Unable to open condor_history pipe\n";
   } else {
     warn "Tried to call condor_history with no cluster_id data.\n";
@@ -1037,6 +1037,9 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.2  2006/08/22 18:04:25  pcanal
+# use /bin/env
+#
 # Revision 1.1  2006/08/21 21:10:02  greenc
 # Probe areas reorganized to facilitate RPM building and new
 # probes.
