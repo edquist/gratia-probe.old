@@ -19,7 +19,8 @@ specfile=~/gratia/probe/build/gratia-probe.spec
 usage() {
   cat 1>&2 <<EOF
 usage: build_all -h
-       build_all [-r <rpmbuild-top>] [-s <specfile>] [--] <version> [<release>]
+       build_all [-d <rpm-macro-definition>] [-r <rpmbuild-top>] \
+                 [-s <specfile>] [--] <version> [<release>]
 
 Defaults:
   rpmbuild-top=${rpmbuild_top}
@@ -29,8 +30,15 @@ EOF
   exit 1
 }
 
-while getopts :hr:s: OPT; do
+while getopts :hd:r:s: OPT; do
     case $OPT in
+	d)
+            if [[ -n "$defines" ]]; then
+              defines="$defines --define='$OPTARG'"
+            else
+	      defines="--define='$OPTARG'"
+            fi
+            ;;
         h)
 	    usage
             ;;
@@ -64,7 +72,7 @@ s&^(\s*Release\s*:\s*).*$&${1}'"${release}"'&i;
 
 build/package-probe "${version}" common condor pbs-lsf psacct && \
 build/populate_SOURCES -r "${rpmbuild_top}" && \
-rpmbuild -ba "$TMP" && \
-rpmbuild -ba --target=noarch "$TMP" && \
-rpmbuild -ba --define='config_itb 1' "$TMP" && \
-rpmbuild -ba --define='config_itb 1' --target=noarch "$TMP"
+eval rpmbuild -ba $defines "$TMP" && \
+eval rpmbuild -ba $defines --target=noarch "$TMP" && \
+eval rpmbuild -ba $defines "--define='config_itb 1'" "$TMP" && \
+eval rpmbuild -ba $defines "--define='config_itb 1'" --target=noarch "$TMP"
