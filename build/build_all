@@ -58,21 +58,24 @@ shift $[ OPTIND - 1 ]
 version=${1}
 release=${2:-1}
 
-TMP=`mktemp ${TMPDIR:-/tmp}/build_all.XXXXXXXXXX`
+TMP=`mktemp -d ${TMPDIR:-/tmp}/build_all.XXXXXXXXXX`
 if [[ -z "$TMP" ]]; then
   echo "Unable to create temporary file using mktemp" 1>&2
   exit 1
 fi
-trap "rm $TMP* 2>/dev/null" EXIT
+
+trap "[[ -d \"$TMP\" ]] && rm -rf \"$TMP\" 2>/dev/null" EXIT
+
+tmp_specfile="${TMP}/`basename ${specfile}`"
 
 perl -wape '
 s&^(\s*Version\s*:\s*).*$&${1}'"${version}"'&i;
 s&^(\s*Release\s*:\s*).*$&${1}'"${release}"'&i;
-' ${specfile} > "$TMP"
+' ${specfile} > "${tmp_specfile}"
 
 build/package-probe "${version}" common condor pbs-lsf psacct && \
 build/populate_SOURCES -r "${rpmbuild_top}" && \
-eval rpmbuild -ba $defines "$TMP" && \
-eval rpmbuild -ba $defines --target=noarch "$TMP" && \
-eval rpmbuild -ba $defines "--define='config_itb 1'" "$TMP" && \
-eval rpmbuild -ba $defines "--define='config_itb 1'" --target=noarch "$TMP"
+eval rpmbuild -ba $defines "${tmp_specfile}" && \
+eval rpmbuild -ba $defines --target=noarch "${tmp_specfile}" && \
+eval rpmbuild -ba $defines "--define='config_itb 1'" "${tmp_specfile}" && \
+eval rpmbuild -ba $defines "--define='config_itb 1'" --target=noarch "${tmp_specfile}"
