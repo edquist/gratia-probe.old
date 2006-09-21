@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.9g
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -32,6 +32,7 @@ Source4: urCollector-%{urCollector_version}.tgz
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-gratia-addin-1.patch
 Patch2: urCollector-2006-06-13-greenc-fixes-1.patch
+Patch3: urCollector-2006-06-13-createTime-timezone.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -48,6 +49,7 @@ cd urCollector-%{urCollector_version}
 %patch -P 0 -p1 -b .pcanal-fixes-1
 %patch -P 1 -b .gratia-addin-1
 %patch -P 2 -b .greenc-fixes-1
+%patch -P 3 -b .createTime-timezone-1
 %endif
 
 %build
@@ -506,6 +508,9 @@ fi
 %endif
 
 %changelog
+* Thu Sep 21 2006  <greenc@fnal.gov> - 0.9g-2
+- Add patch to fix timezone problem for createTime in urCollector.pl.
+
 * Wed Sep 20 2006  <greenc@fnal.gov> - 0.9g-1
 - Update version number for improved condor probe.
 - Only replace MAGIC_VDT_LOCATION in VDTSetup.sh if vdt_loc was

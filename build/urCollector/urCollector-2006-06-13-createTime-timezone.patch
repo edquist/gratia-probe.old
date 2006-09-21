@@ -1,0 +1,11 @@
+--- urCollector.pl~	2006-09-19 10:04:40.000000000 -0500
++++ urCollector.pl	2006-09-21 11:50:51.000000000 -0500
+@@ -1006,7 +1006,7 @@
+ 
+ 
+     ### compose urCreator command line
+-    my $cmd = "$urCreatorExecutable -t \"".&timestamp2String("".time(),$timeZone)."\""
++    my $cmd = "$urCreatorExecutable -t \"".&timestamp2String("".time(),"Z")."\""
+ 	." -r \"$gridJobId\" -g \"$gridJobId\" ";
+ 
+     if ($lrmsJobID ne "") {
