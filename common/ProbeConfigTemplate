@@ -12,8 +12,9 @@
     GratiaKeyFile="gratia.hostkey.pem"
 
     SOAPHost="gratia-osg.fnal.gov:8880" 
-    CollectorService="/gratia-soap/services/CollectorImpl" 
-
+    CollectorService="/gratia-servlets/rmi" 
+    UseSoapProtocol="0"
+    
     MeterName="generic" 
     SiteName="Generic Site"
     LogLevel="2"

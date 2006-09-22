@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.9g
-Release: 2
+Version: 0.9i
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -297,6 +297,7 @@ The psacct probe for the Gratia OSG accounting system.
 %post psacct
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
 %{__cat} <<EOF | while read config_file; do
 `%{__grep} -le '^%{ProbeConfig_template_marker}$' \
 "${RPM_INSTALL_PREFIX1}"/probe/psacct/ProbeConfig{,.rpmnew} \
@@ -508,6 +509,15 @@ fi
 %endif
 
 %changelog
+* Fri Sep 22 2006  <greenc@fnal.gov> - 0.9i-1
+- Gratia.py had some strange response code logic for non-default
+transaction methods: added automatic setting of code based on message if
+supplied code is -1.
+- Fix thinko in ProbeConfigTemplate.
+
+* Thu Sep 21 2006  <greenc@fnal.gov> - 0.9h-1
+- Turn off soap for non-SSL connections.
+
 * Thu Sep 21 2006  <greenc@fnal.gov> - 0.9g-2
 - Add patch to fix timezone problem for createTime in urCollector.pl.
 

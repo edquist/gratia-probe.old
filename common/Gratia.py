@@ -24,7 +24,7 @@ class ProbeConfiguration:
 
         # TODO:  Check if the ProbeConfiguration node exists
         # TODO:  Check if the requested attribute exists
-        return self.__doc.getElementsByTagName('ProbeConfiguration')[0].getAttribute(attributeName)        
+        return self.__doc.getElementsByTagName('ProbeConfiguration')[0].getAttribute(attributeName)
 
     def get_SSLHost(self):
         return self.__getConfigAttribute('SSLHost')
@@ -74,9 +74,16 @@ class ProbeConfiguration:
     def get_UseSSL(self):
         val = self.__getConfigAttribute('UseSSL')
         if val == None or val == "":
-           return 0
+            return 0
         else:
-           return int(val)
+            return int(val)
+
+    def get_UseSoapProtocol(self):
+        val = self.__getConfigAttribute('UseSoapProtocol')
+        if val == None or val == "":
+            return 0
+        else:
+            return int(val)
 
     def get_UseGratiaCertificates(self):
         return int(self.__getConfigAttribute('UseGratiaCertificates'))
@@ -158,7 +165,13 @@ class Response:
         self._message = ""
 
     def __init__(self, code, message):
-        self._code = code
+        if code == -1:
+            if message == "OK":
+                self._code = 0
+            else:
+                self._code = 1
+        else:
+            self._code = code
         self._message = message
 
     def get_code(self):
@@ -188,8 +201,8 @@ def Initialize(customConfig = "ProbeConfig"):
 
     global Config
     if len(BackupDirList) == 0:
-		# This has to be the first thing done (DebugPrint uses
-		# the information
+        # This has to be the first thing done (DebugPrint uses
+	# the information
         Config = ProbeConfiguration(customConfig)
 
         DebugPrint(0, "Initializing Gratia with "+customConfig)
@@ -206,7 +219,7 @@ def Initialize(customConfig = "ProbeConfig"):
         __connection = None
         __connected = 0
         __connectionError = False
-
+        __connect()
         # Need to look for left over files
         SearchOustandingRecord()
 
@@ -238,20 +251,29 @@ def __connect():
     global __connected
 
     if __connected == 0:
-        if Config.get_UseSSL() == 0:
+        if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
             __connection = httplib.HTTP(Config.get_SOAPHost())            
             DebugPrint(1, 'Connected via HTTP to:  ' + Config.get_SOAPHost())
-        else:
-            if Config.get_UseGratiaCertificates() == 0:
-                __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
-                                                       cert_file = Config.get_CertificateFile(),
-                                                       key_file = Config.get_KeyFile())
-            else:
-                __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
-                                                       cert_file = Config.get_GratiaCertificateFile(),
-                                                       key_file = Config.get_GratiaKeyFile())
+            print "Using SOAP protocol"
+        elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
+            __connection = httplib.HTTPConnection(Config.get_SOAPHost())
+            __connection.connect()
+            DebugPrint(1,"Connection via HTTP to: " + Config.get_SOAPHost())
+            print "Using POST protocol"
+        elif Config.get_UseSSL() == 1 and Config.get_UseGratiaCertificates() == 0:
+            __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
+                                                   cert_file = Config.get_CertificateFile(),
+                                                   key_file = Config.get_KeyFile())
             __connection.connect()
             DebugPrint(1, "Connected via HTTPS to: " + Config.get_SSLHost())
+            print "Using SSL protocol"
+        else:
+            __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
+                                                   cert_file = Config.get_GratiaCertificateFile(),
+                                                   key_file = Config.get_GratiaKeyFile())
+            __connection.connect()
+            DebugPrint(1, "Connected via HTTPS to: " + Config.get_SSLHost())
+            print "Using SSL protocol"
         __connected = 1
 
 ##
@@ -296,7 +318,7 @@ def __sendUsageXML(meterId, recordXml):
         transactionId = meterId + TimeToString().replace(":","")
         DebugPrint(1, 'TransactionId:  ' + transactionId)
 
-        if Config.get_UseSSL() == 0:
+        if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
             # Use the following template to call the interface that has the 'Event' object as a paraeter
             soapServiceTemplate = """<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                 xmlns:xsd="http://www.w3.org/2001/XMLSchema"
@@ -346,13 +368,17 @@ def __sendUsageXML(meterId, recordXml):
                 if codeNode.length == 1 and messageNode.length == 1:
                     response = Response(int(codeNode[0].childNodes[0].data), messageNode[0].childNodes[0].data)
                 else:
-                    response = Response(1, responseString)
+                    response = Response(-1, responseString)
             except:
-                response = Response(1, responseString)
+                response = Response(1,responseString)
+        elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
+            __connection.request("POST",Config.get_CollectorService(),"command=update&arg1=" + recordXml)
+            responseString = __connection.getresponse().read()
+            response = Response(-1, responseString)
         else:
             __connection.request("POST",Config.get_SSLCollectorService(),"command=update&arg1=" + recordXml)
             responseString = __connection.getresponse().read()
-            response = Response(1,responseString)
+            response = Response(-1, responseString)
     except:
         DebugPrint(0,'Failed to send xml to web service:  ', sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1])
         # Upon a connection error, we will stop to try to reprocess but will continue to
@@ -553,22 +579,22 @@ def TimeToString(t = time.gmtime() ):
 #   nDays - remove file older than 'nDays' (default 31)
 #
 def RemoveOldBackups(self, probeConfig, nDays = 31):
-        logDir = Config.get_LogFolder()
-        cutoff = time.time() - nDays * 24 * 3600
+    logDir = Config.get_LogFolder()
+    cutoff = time.time() - nDays * 24 * 3600
 
-        DebugPrint(1, " Removing Gratia log files older than ", nDays, " days from " , backupDir)
- 
-        # Get the list of all files in the PSACCT File Backup Repository
-        files = glob.glob(os.path.join(backupDir,"*.log"))
+    DebugPrint(1, " Removing Gratia log files older than ", nDays, " days from " , backupDir)
 
-        DebugPrint(3, " Will check the files: ",files)
-        
-        for f in files:
-            if os.path.getmtime(f) < cutoff:
-                DebugPrint(2, "Will remove: " + f)
-                os.remove(f)
-                
-        files = None
+    # Get the list of all files in the PSACCT File Backup Repository
+    files = glob.glob(os.path.join(backupDir,"*.log"))
+
+    DebugPrint(3, " Will check the files: ",files)
+
+    for f in files:
+        if os.path.getmtime(f) < cutoff:
+            DebugPrint(2, "Will remove: " + f)
+            os.remove(f)
+
+    files = None
 
 class UsageRecord:
     "Base class for the Gratia Usage Record"
@@ -957,25 +983,25 @@ def Send(record):
         f = 0
 
         while not success:
-           (f,dirIndex,recordIndex) = OpenNewRecordFile(dirIndex,recordIndex)
-           DebugPrint(1,"Will save in the record in:",f.name)
-           DebugPrint(3,"DirIndex=",dirIndex," RecordIndex=",recordIndex)
-           if f.name == "<stdout>":
-              success = True
-           else:
-              try:
-                 for line in record.XmlData:
-                    f.write(line)
-                 f.flush();
-                 if f.tell() > 0:
-                    success = True
-                    DebugPrint(3,"suceeded to fill: ",f.name)
-                 else:
-                    DebugPrint(0,"failed to fill: ",f.name)
+            (f,dirIndex,recordIndex) = OpenNewRecordFile(dirIndex,recordIndex)
+            DebugPrint(1,"Will save in the record in:",f.name)
+            DebugPrint(3,"DirIndex=",dirIndex," RecordIndex=",recordIndex)
+            if f.name == "<stdout>":
+                success = True
+            else:
+                try:
+                    for line in record.XmlData:
+                        f.write(line)
+                    f.flush();
+                    if f.tell() > 0:
+                        success = True
+                        DebugPrint(3,"suceeded to fill: ",f.name)
+                    else:
+                        DebugPrint(0,"failed to fill: ",f.name)
+                        if f.name != "<stdout>": os.remove(f.name)
+                except:
+                    DebugPrint(0,"failed to fill with exception: ",f.name,"--", sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
                     if f.name != "<stdout>": os.remove(f.name)
-              except:
-                 DebugPrint(0,"failed to fill with exception: ",f.name,"--", sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
-                 if f.name != "<stdout>": os.remove(f.name)
 
         DebugPrint(0, 'Saved record to ' + f.name)
 
@@ -984,7 +1010,7 @@ def Send(record):
         # This logic here turns the xml list into a single xml string.
         usageXmlString = ""
         for line in record.XmlData:
-           usageXmlString = usageXmlString + line
+            usageXmlString = usageXmlString + line
         DebugPrint(3, 'UsageXml:  ' + usageXmlString)
 
         # Attempt to send the record to the collector
@@ -997,22 +1023,22 @@ def Send(record):
         # Determine if the call was successful based on the response
         # code.  Currently, 0 = success
         if response.get_code() == 0:
-           DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
-           os.remove(f.name)
+            DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+            os.remove(f.name)
         else:
-           DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
-           #OutstandingRecord.append(f.name)
-           if f.name == "<stdout>":
-              Error("Gratia was un-enable to send the record and was unable to\n"+
-                    "       find a location to store the xml backup file.  The record\n"+
-                    "       will be printed to stdout:")
-              for line in record.XmlData:
-                 f.write(line)
-              responseString = "Fatal Error: Record not send and not cached.  Record will be lost."
+            DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
+            #OutstandingRecord.append(f.name)
+            if f.name == "<stdout>":
+                Error("Gratia was un-enable to send the record and was unable to\n"+
+                      "       find a location to store the xml backup file.  The record\n"+
+                      "       will be printed to stdout:")
+                for line in record.XmlData:
+                    f.write(line)
+                responseString = "Fatal Error: Record not send and not cached.  Record will be lost."
 
         # Attempt to reprocess any outstanding records
         if (not __connectionError):
-           Reprocess()
+            Reprocess()
 
         # When we are done sending outstanding records, we need to then disconnect from the web server
         __disconnect()
@@ -1037,7 +1063,7 @@ def SendXMLFiles(fileDir, removeOriginal = False):
     endUsageRecordPattern = re.compile(r'</(?:[^:]*:)?UsageRecord>')
 
     responseString = ""
-    
+
     for xmlFilename in files:
 
         DebugPrint(0, "***********************************************************")
@@ -1056,7 +1082,7 @@ def SendXMLFiles(fileDir, removeOriginal = False):
             # Need to check for keys that may be missing and add them:
             hasProbeName = False
             hasSiteName = False
-            
+
             for line in in_file:
                 if probeNamePattern.match(line):
                     hasProbeName = True
@@ -1088,22 +1114,22 @@ def SendXMLFiles(fileDir, removeOriginal = False):
                 DebugPrint(1,"Will save in the record in:",f.name)
                 DebugPrint(3,"DirIndex=",dirIndex," RecordIndex=",recordIndex)
                 if f.name == "<stdout>":
-                   success = True
+                    success = True
                 else:
-                   try:
-                      for line in xmlData:
-                         f.write(line)
-                      f.flush();
-                      if f.tell() > 0:
-                         success = True
-                         DebugPrint(3,"suceeded to fill: ",f.name)
-                      else:
-                         DebugPrint(0,"failed to fill: ",f.name)
-                         if f.name != "<stdout>": os.remove(f.name)
-                   except:
-                      DebugPrint(0,"failed to fill with exception: ",f.name,"--",
-                                 sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
-                      if f.name != "<stdout>": os.remove(f.name)
+                    try:
+                        for line in xmlData:
+                            f.write(line)
+                        f.flush();
+                        if f.tell() > 0:
+                            success = True
+                            DebugPrint(3,"suceeded to fill: ",f.name)
+                        else:
+                            DebugPrint(0,"failed to fill: ",f.name)
+                            if f.name != "<stdout>": os.remove(f.name)
+                    except:
+                        DebugPrint(0,"failed to fill with exception: ",f.name,"--",
+                                   sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+                        if f.name != "<stdout>": os.remove(f.name)
 
             if removeOriginal and f.name != "<stdout>": os.remove(xmlFilename)
 
@@ -1142,7 +1168,7 @@ def SendXMLFiles(fileDir, removeOriginal = False):
 
     # Attempt to reprocess any outstanding records
     if (not __connectionError):
-       Reprocess()
+        Reprocess()
 
     # When we are done sending outstanding records, we need to then
     # disconnect from the web server
