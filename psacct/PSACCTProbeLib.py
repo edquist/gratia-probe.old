@@ -32,7 +32,7 @@ class SystemInfo:
     PSACCTTypeCode = ""
     StructFormat = "i8s8f4H116s"
     StructSize = 168
-    Indices = { 'Cmd':0,'CpuUser':1,'CpuSys':2,'Wall':3,'uid':4,'gid':5,'Mem':6,'Disk':-1,'End':7 }
+    Indices = { 'Cmd':0,'CpuUser':1,'CpuSys':2,'Wall':3,'uid':4,'gid':5,'Mem':6,'Disk':-1,'Start':7 }
     Users = {}
     MachineName = socket.getfqdn()
 
@@ -146,24 +146,24 @@ class Aggregate:
         self.Memory = string.atof(data[sysinfo.Indices['Mem']])
         #Disk = string.atof(data[sysinfo.Indices['Disk']])
 
-        EndTime_tuple = (time.strptime(data[sysinfo.Indices['End']]))  # like Mon May 22 17:16:01 2006
-        self.EndTime = time.mktime(EndTime_tuple)
-        self.StartTime = self.EndTime - self.WallDuration
+        StartTime_tuple = (time.strptime(data[sysinfo.Indices['Start']]))  # like Mon May 22 17:16:01 2006
+        self.StartTime = time.mktime(StartTime_tuple)
+        self.EndTime = self.StartTime + self.WallDuration
 
         self.Username = sysinfo.GetUsername(data[sysinfo.Indices['uid']])
         self.Count = 1
 
         # Reset the hours to midnight.
         self.Date = time.struct_time((
-            EndTime_tuple.tm_year,
-            EndTime_tuple.tm_mon,
-            EndTime_tuple.tm_mday,
-            23, # EndTime_tuple.tm_hour,
-            59, # EndTime_tuple.tm_min,
-            59, # EndTime_tuple.tm_sec,
-            EndTime_tuple.tm_wday,
-            EndTime_tuple.tm_yday,
-            EndTime_tuple.tm_isdst))
+            StartTime_tuple.tm_year,
+            StartTime_tuple.tm_mon,
+            StartTime_tuple.tm_mday,
+            00, # StartTime_tuple.tm_hour,
+            00, # StartTime_tuple.tm_min,
+            00, # StartTime_tuple.tm_sec,
+            StartTime_tuple.tm_wday,
+            StartTime_tuple.tm_yday,
+            StartTime_tuple.tm_isdst))
 
     def Add(self, other):
         # We accumulate an other record into this aggregate.
