@@ -712,6 +712,9 @@ class UsageRecord:
         complete = "\n\t\t<ds:X509Data>\n\t\t<ds:X509SubjectName>"+value+"</ds:X509SubjectName>\n\t\t</ds:X509Data>\n\t"
         self.UserId = self.AddToList(self.UserId,"ds:KeyInfo","xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\" ",complete)
 
+    def VOName(self,value):
+        self.UserId = self.AddToList(self.UserId,"VOName","",value);
+
     def JobName(self, value, description = ""):
         self.RecordData = self.AddToList(self.RecordData, "JobName", self.Description(description) ,value)
 
