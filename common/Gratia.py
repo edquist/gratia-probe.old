@@ -254,26 +254,26 @@ def __connect():
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
             __connection = httplib.HTTP(Config.get_SOAPHost())            
             DebugPrint(1, 'Connected via HTTP to:  ' + Config.get_SOAPHost())
-            print "Using SOAP protocol"
+            #print "Using SOAP protocol"
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
             __connection = httplib.HTTPConnection(Config.get_SOAPHost())
             __connection.connect()
             DebugPrint(1,"Connection via HTTP to: " + Config.get_SOAPHost())
-            print "Using POST protocol"
+            #print "Using POST protocol"
         elif Config.get_UseSSL() == 1 and Config.get_UseGratiaCertificates() == 0:
             __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
                                                    cert_file = Config.get_CertificateFile(),
                                                    key_file = Config.get_KeyFile())
             __connection.connect()
             DebugPrint(1, "Connected via HTTPS to: " + Config.get_SSLHost())
-            print "Using SSL protocol"
+            #print "Using SSL protocol"
         else:
             __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
                                                    cert_file = Config.get_GratiaCertificateFile(),
                                                    key_file = Config.get_GratiaKeyFile())
             __connection.connect()
             DebugPrint(1, "Connected via HTTPS to: " + Config.get_SSLHost())
-            print "Using SSL protocol"
+            #print "Using SSL protocol"
         __connected = 1
 
 ##
@@ -472,7 +472,9 @@ def Mkdir(newdir):
         head, tail = os.path.split(newdir)
         if head and not os.path.isdir(head):
             Mkdir(head)
-        print "Mkdir %s" % repr(newdir)
+        # Mkdir can not use DebugPrint since it is used
+        # while trying to create the log file!
+        #print "Mkdir %s" % repr(newdir)
         if tail:
             os.mkdir(newdir)
 
