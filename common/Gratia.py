@@ -2,6 +2,14 @@ import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
 import re
 
+oldexitfunc = getattr(sys, 'exitfunc', None)
+def disconnect_at_exit(last_exit = oldexitfunc):
+    DebugPrint(1, "End-of-execution disconnect ...")
+    __disconnect();
+    if last_exit: last_exit()
+
+sys.exitfunc = disconnect_at_exit
+
 class ProbeConfiguration:
     __doc = None
     __configname = "ProbeConfig"
@@ -291,7 +299,7 @@ def __disconnect():
         if Config.get_UseSSL() != 0 and __connected == 1:
             __connection.system.logout()
             __connected = 0
-            DebugPrint(1, 'Disconnected from ' + Config.get_SSLHost() + '/jclarens/xmlrpc' )
+            DebugPrint(1, 'Disconnected from ' + Config.get_SSLHost() )
     except:
         DebugPrint(0, 'Failed to disconnect from ' + Config.get_SSLHost() + ': ', sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
 
