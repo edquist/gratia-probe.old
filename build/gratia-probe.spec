@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.9i
+Version: 0.9k
 Release: 1
 License: GPL
 Group: Applications/System
@@ -509,6 +509,16 @@ fi
 %endif
 
 %changelog
+* Fri Sep 29 2006  <greenc@fnal.gov> - 0.9k-1
+- Add method to Gratia.py to set VOName in the record.
+- Remove debug statements printing direct to screen in Gratia.py.
+- Disconnect at exit using sys.exitfunc in Gratia.py.
+- Remove obsolete reference to jclarens in disconnect debug message in
+Gratia.py.
+
+* Fri Sep 22 2006  <greenc@fnal.gov> - 0.9j-1
+- Fix problem with StartTime / EndTime in ps-accounting probe.
+
 * Fri Sep 22 2006  <greenc@fnal.gov> - 0.9i-1
 - Gratia.py had some strange response code logic for non-default
 transaction methods: added automatic setting of code based on message if
