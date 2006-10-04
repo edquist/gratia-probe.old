@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.9l
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -511,6 +511,9 @@ fi
 %endif
 
 %changelog
+* Wed Oct  4 2006  <greenc@fnal.gov> - 0.9l-2
+- Processor count set to 1 if it's not anything else.
+
 * Wed Oct  4 2006  <greenc@fnal.gov> - 0.9l-1
 - urCollector now looks at nodect in addition to neednodes.
 
