@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.9k
+Version: 0.9l
 Release: 1
 License: GPL
 Group: Applications/System
@@ -33,6 +33,7 @@ Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-gratia-addin-1.patch
 Patch2: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch3: urCollector-2006-06-13-createTime-timezone.patch
+Patch4: urCollector-2006-06-13-nodect.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -50,6 +51,7 @@ cd urCollector-%{urCollector_version}
 %patch -P 1 -b .gratia-addin-1
 %patch -P 2 -b .greenc-fixes-1
 %patch -P 3 -b .createTime-timezone-1
+%patch -P 4 -b .nodect
 %endif
 
 %build
@@ -509,6 +511,9 @@ fi
 %endif
 
 %changelog
+* Wed Oct  4 2006  <greenc@fnal.gov> - 0.9l-1
+- urCollector now looks at nodect in addition to neednodes.
+
 * Fri Sep 29 2006  <greenc@fnal.gov> - 0.9k-1
 - Add method to Gratia.py to set VOName in the record.
 - Remove debug statements printing direct to screen in Gratia.py.

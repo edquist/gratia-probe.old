@@ -1,0 +1,12 @@
+--- urCollector.pl~	2006-10-04 14:36:03.000000000 -0500
++++ urCollector.pl	2006-10-04 14:46:41.000000000 -0500
+@@ -1414,6 +1414,9 @@
+ 			# in this case the number of hosts should be
+ 			# counted!? What about SMP machines; is their
+ 			# hostname listed N times or only once??
++		} elsif ( /^Resource_List.nodect=(\d*)/ )
++		{
++			$urAcctlogInfo{processors} = $1;
+ 		}
+ 		if ( /^group=(.*)$/)
+ 		{	
