@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.9l
-Release: 2
+Version: 0.9m
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -30,10 +30,11 @@ Source2: %{name}-psacct-%{version}.tar.bz2
 Source3: %{name}-pbs-lsf-%{version}.tar.bz2
 Source4: urCollector-%{urCollector_version}.tgz
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
-Patch1: urCollector-2006-06-13-gratia-addin-1.patch
-Patch2: urCollector-2006-06-13-greenc-fixes-1.patch
-Patch3: urCollector-2006-06-13-createTime-timezone.patch
-Patch4: urCollector-2006-06-13-nodect.patch
+Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
+Patch2: urCollector-2006-06-13-createTime-timezone.patch
+Patch3: urCollector-2006-06-13-nodect.patch
+Patch4: urCollector-2006-06-13-modules-1.patch
+Patch5: urCollector-2006-06-13-modules-2.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -48,10 +49,11 @@ Prefix: %{default_prefix}
 %setup -q -D -T -a 4
 cd urCollector-%{urCollector_version}
 %patch -P 0 -p1 -b .pcanal-fixes-1
-%patch -P 1 -b .gratia-addin-1
-%patch -P 2 -b .greenc-fixes-1
-%patch -P 3 -b .createTime-timezone-1
-%patch -P 4 -b .nodect
+%patch -P 1 -b .greenc-fixes-1
+%patch -P 2 -b .createTime-timezone-1
+%patch -P 3 -b .nodect
+%patch -P 4 -b .modules-1
+%patch -P 5 -b .modules-2
 %endif
 
 %build
@@ -100,6 +102,11 @@ cd -
   "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector.conf"
   echo "%{pbs_lsf_template_marker}" >> \
        "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector.conf"
+  %{__mkdir_p} "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector"
+  %{__cp} -p urCollector/Common.pm \
+  "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector"
+  %{__cp} -p urCollector/Configuration.pm \
+  "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector"
 
   cd "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf"
   %{__ln_s} . etc
@@ -154,8 +161,11 @@ This product includes software developed by The EU EGEE Project
 %{default_prefix}/probe/pbs-lsf/README
 %{default_prefix}/probe/pbs-lsf/pbs-lsf.py
 %{default_prefix}/probe/pbs-lsf/pbs-lsf_meter.cron.sh
+%{default_prefix}/probe/pbs-lsf/pbs-lsf_meter.pl
 %{default_prefix}/probe/pbs-lsf/urCreator
 %{default_prefix}/probe/pbs-lsf/urCollector.pl
+%{default_prefix}/probe/pbs-lsf/urCollector/Common.pm
+%{default_prefix}/probe/pbs-lsf/urCollector/Configuration.pm
 %{default_prefix}/probe/pbs-lsf/etc
 %{default_prefix}/probe/pbs-lsf/libexec
 %config(noreplace) %{default_prefix}/probe/pbs-lsf/urCollector.conf
@@ -511,6 +521,12 @@ fi
 %endif
 
 %changelog
+* Fri Oct  6 2006  <greenc@fnal.gov> - 0.9m-1
+- Separate routines out of urCollector into Perl Modules, and use them
+in a perl Gratia probe for pbs-lsf.
+- Remove gratia-addin patch: call Gratia probe from outside
+urCollector.pl and use perl modules to read configuration file.
+
 * Wed Oct  4 2006  <greenc@fnal.gov> - 0.9l-2
 - Processor count set to 1 if it's not anything else.
 
