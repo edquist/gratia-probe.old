@@ -3,7 +3,7 @@
 # pbs-lsfr_meter.cron.sh - Shell script used with cron to parse PBS and LSF
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: pbs-lsf_meter.cron.sh,v 1.1 2006-09-07 22:20:41 greenc Exp $
+# $Id: pbs-lsf_meter.cron.sh,v 1.2 2006-10-09 16:40:26 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/pbs-lsf/pbs-lsf_meter.cron.sh,v $
 
 Logger='/usr/bin/logger -s -t pbs-lsf_meter'
@@ -59,6 +59,7 @@ export PYTHONPATH
 
 export URCOLLECTOR_LOCATION=`pwd`  
 ./urCollector.pl --nodaemon
+./pbs-lsf_meter.pl
 
 ExitCode=$?
 
@@ -73,6 +74,9 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.1  2006/09/07 22:20:41  greenc
+# Gratia-specific files for pbs-lsf probe.
+#
 # Revision 1.1  2006/08/21 21:10:03  greenc
 # Probe areas reorganized to facilitate RPM building and new
 # probes.
