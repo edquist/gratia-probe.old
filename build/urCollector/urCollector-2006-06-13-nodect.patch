@@ -1,6 +1,6 @@
 --- urCollector.pl~	2006-10-04 14:36:03.000000000 -0500
 +++ urCollector.pl	2006-10-04 14:46:41.000000000 -0500
-@@ -1414,6 +1414,11 @@
+@@ -1407,6 +1407,11 @@
  			# in this case the number of hosts should be
  			# counted!? What about SMP machines; is their
  			# hostname listed N times or only once??
