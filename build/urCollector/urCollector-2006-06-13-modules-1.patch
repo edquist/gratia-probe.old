@@ -1,0 +1,138 @@
+--- urCollector.pl~	2006-10-05 09:34:32.000000000 -0500
++++ urCollector.pl	2006-10-06 15:11:43.000000000 -0500
+@@ -8,22 +8,20 @@
+ 
+ use strict;
+ use POSIX;
++
++BEGIN {
++  push @INC, $::ENV{URCOLLECTOR_LOCATION} || "/opt/urCollector";
++};
++
+ use Text::ParseWords;
+ use Time::Local;
+ use File::Basename;
+-
++use urCollector::Common qw(:DEFAULT :Locking);
++use urCollector::Configuration;
+ 
+ # turn off buffering of STDOUT
+ $| = 1;
+ 
+-my $URCOLLECTOR_LOC = "/opt/urCollector";  # default, can be overwritten with
+-                                           # the environment variable
+-                                           # URCOLLECTOR_LOCATION
+-if (exists($ENV{URCOLLECTOR_LOCATION}) && $ENV{URCOLLECTOR_LOCATION} ne "") {
+-    $URCOLLECTOR_LOC = $ENV{URCOLLECTOR_LOCATION};
+-}
+-
+-
+ my $TSTAMP_ACC = 86400; # timestamps between CE log and LRMS log can
+                         # differ for up to a day.
+ my $DEF_LDIF_VALIDITY = 86400; # assume the GLUE attributes taken from the LDIF
+@@ -37,32 +35,8 @@
+ POSIX::sigaction(&POSIX::SIGHUP, $actionHUP);
+ POSIX::sigaction(&POSIX::SIGINT, $actionInt);
+ POSIX::sigaction(&POSIX::SIGTERM, $actionInt);
+-my $configFilePath ="$URCOLLECTOR_LOC/etc/urCollector.conf";
+ my $urCreatorExecutable = "$URCOLLECTOR_LOC/libexec/urCreator";
+ 
+-my %configValues =
+-    (
+-     lrmsType              => "",
+-     pbsAcctLogDir         => "",
+-     lsfAcctLogDir         => "",
+-     ceJobMapLog           => "yes",
+-     writeGGFUR            => "no",
+-
+-     keyList               => "GlueHostBenchmarkSF00,GlueHostBenchmarkSI00",
+-     ldifDefaultFiles      => "",
+-     glueLdifFile          => "",
+-     siteName              => "", ### read from glueLdifFile instead???
+-
+-     URBox    =>  "$URCOLLECTOR_LOC/var/URbox",
+-     
+-     collectorLockFileName => "$URCOLLECTOR_LOC/var/urCollector.lock",
+-     collectorBufferFileName => "$URCOLLECTOR_LOC/var/urCollectorBuffer",
+-     mainPollInterval  => "5",
+-     timeInterval      =>"5",
+-     jobPerTimeInterval =>"10",
+-     );
+-
+-
+ my $onlyOneIteration = 0; # default is run as daemon!
+ my $useCElog = 1;   # default is use the CE's map: grid job <-> local job
+ 
+@@ -298,55 +265,6 @@
+ #### ------------------------ Functions: ------------------------ ####
+ 
+ 
+-#### parseConf ####
+-sub parseConf {
+-    my $fconf = $_[0];
+-    open(FILE, "$fconf") || &error("Error: Cannot open configuration file $fconf\n");
+-    while(<FILE>) {
+-	if(/^lrmsType\s*=\s*\"(.*)\"$/){$configValues{lrmsType}=$1;}
+-	if(/^pbsAcctLogDir\s*=\s*\"(.*)\"$/){$configValues{pbsAcctLogDir}=$1;}
+-	if(/^lsfAcctLogDir\s*=\s*\"(.*)\"$/){$configValues{lsfAcctLogDir}=$1;}
+-	if(/^ceJobMapLog\s*=\s*\"(.*)\"$/){$configValues{ceJobMapLog}=$1;}
+-	if(/^useCEJobMap\s*=\s*\"(.*)\"$/){$configValues{useCEJobMap}=$1;}
+-	if(/^writeGGFUR\s*=\s*\"(.*)\"$/){$configValues{writeGGFUR}=$1;}
+-
+-	if(/^keyList\s*=\s*\"(.*)\"$/){$configValues{keyList}=$1;}
+-	if(/^ldifDefaultFiles\s*=\s*\"(.*)\"$/){$configValues{ldifDefaultFiles}=$1;}
+-	if(/^glueLdifFile\s*=\s*\"(.*)\"$/){$configValues{glueLdifFile}=$1;}
+-	if(/^siteName\s*=\s*\"(.*)\"$/){$configValues{siteName}=$1;}
+-
+-	if(/^URBox\s*=\s*\"(.*)\"$/){$configValues{URBox}=$1;}
+-
+-	if(/^collectorLockFileName\s*=\s*\"(.*)\"$/){$configValues{collectorLockFileName}=$1;}
+-	if(/^collectorBufferFileName\s*=\s*\"(.*)\"$/){$configValues{collectorBufferFileName}=$1;}
+-	if(/^mainPollInterval\s*=\s*\"(.*)\"$/){$configValues{mainPollInterval}=$1;}
+-	if(/^timeInterval\s*=\s*\"(.*)\"$/){$configValues{timeInterval}=$1;}
+-	if(/^jobPerTimeInterval\s*=\s*\"(.*)\"$/){$configValues{jobPerTimeInterval}=$1;}
+-    }
+-    close(FILE);
+-}
+-
+-
+-
+-##-------> lock  subroutines <---------##
+-sub putLock {
+-    my $lockName = $_[0];
+-    open(IN,  "< $lockName") && return 1;
+-    close(IN);
+-    open(OUT, "> $lockName") || return 2;
+-    print OUT  $$;    ## writes pid   
+-    close(OUT);
+-    return 0;
+-}
+-
+-sub delLock {
+-    my $lockName = $_[0];
+-    open(IN,  "< $lockName") || return 1;
+-    close(IN);
+-    my $status = system("rm -f $lockName");
+-    return $status;
+-}
+-
+ ##--------> routines for job processing buffer <---------##
+ sub putBuffer {
+     # arguments are: 0 = buffer name
+@@ -1349,16 +1267,6 @@
+ }
+ 
+ 
+-## ----- print error and quit ----- ##
+-
+-sub error {
+-    if (scalar(@_) > 0) {
+-	print "$_[0]";
+-    }
+-    exit(1);
+-}
+-
+-
+ 
+ 
+ sub parseUR_pbs

@@ -1,0 +1,175 @@
+diff -u -r -N tmp/urCollector/Common.pm ./urCollector/Common.pm
+--- tmp/urCollector/Common.pm	1969-12-31 18:00:00.000000000 -0600
++++ ./urCollector/Common.pm	2006-10-06 15:20:22.000000000 -0500
+@@ -0,0 +1,76 @@
++package urCollector::Common;
++
++####################################
++# Packages
++####################################
++use strict;
++require Exporter;
++
++####################################
++# Global variables used internally
++####################################
++use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS
++	    $URCOLLECTOR_LOC);
++
++####################################
++# Symbol export
++####################################
++@ISA = qw(Exporter);
++@EXPORT = qw($URCOLLECTOR_LOC
++	     &error);
++@EXPORT_OK = qw();
++%EXPORT_TAGS =
++  (
++   Locking => [ qw(&putLock &delLock) ]
++  );
++
++Exporter::export_ok_tags('Locking');
++
++####################################
++# Initialization / executable code
++####################################
++
++# Installation area
++$URCOLLECTOR_LOC = $::ENV{URCOLLECTOR_LOCATION} || "/opt/urCollector";
++
++####################################
++# End of initialization / executable code
++####################################
++1;
++
++
++####################################
++# Subroutines
++####################################
++sub error {
++    if (scalar(@_) > 0) {
++	print "$_[0]";
++    }
++    exit(1);
++}
++
++
++sub putLock {
++    my $lockName = $_[0];
++    open(IN,  "< $lockName") && return 1;
++    close(IN);
++    open(OUT, "> $lockName") || return 2;
++    print OUT  $$;    ## writes pid
++    close(OUT);
++    return 0;
++}
++
++
++sub delLock {
++    my $lockName = $_[0];
++    open(IN,  "< $lockName") || return 1;
++    close(IN);
++    my $status = system("rm -f $lockName");
++    return $status;
++}
++
++
++####################################
++# Only POD beyond here.
++####################################
++__END__
+diff -u -r -N tmp/urCollector/Configuration.pm ./urCollector/Configuration.pm
+--- tmp/urCollector/Configuration.pm	1969-12-31 18:00:00.000000000 -0600
++++ ./urCollector/Configuration.pm	2006-10-06 15:09:35.000000000 -0500
+@@ -0,0 +1,91 @@
++package urCollector::Configuration;
++
++####################################
++# Packages
++####################################
++use strict;
++use urCollector::Common;
++
++require Exporter;
++
++####################################
++# Global variables used internally
++####################################
++use vars qw(@EXPORT @ISA @EXPORT_OK
++	    $configFilePath
++	    %configValues);
++
++####################################
++# Symbol export
++####################################
++@ISA = qw(Exporter);
++@EXPORT = qw($configFilePath %configValues &parseConf);
++
++####################################
++# Initialization / executable code
++####################################
++$configFilePath = "$URCOLLECTOR_LOC/etc/urCollector.conf";
++
++%configValues =
++(
++ lrmsType              => "",
++ pbsAcctLogDir         => "",
++ lsfAcctLogDir         => "",
++ ceJobMapLog           => "yes",
++ writeGGFUR            => "no",
++
++ keyList               => "GlueHostBenchmarkSF00,GlueHostBenchmarkSI00",
++ ldifDefaultFiles      => "",
++ glueLdifFile          => "",
++ siteName              => "",	### read from glueLdifFile instead???
++
++ URBox    =>  "$URCOLLECTOR_LOC/var/URbox",
++
++ collectorLockFileName => "$URCOLLECTOR_LOC/var/urCollector.lock",
++ collectorBufferFileName => "$URCOLLECTOR_LOC/var/urCollectorBuffer",
++ mainPollInterval  => "5",
++ timeInterval      =>"5",
++ jobPerTimeInterval =>"10",
++);
++
++####################################
++# End of initialization / executable code
++####################################
++1;
++
++####################################
++# Subroutines
++####################################
++sub parseConf {
++    my $fconf = $_[0];
++    open(FILE, "$fconf") || &error("Error: Cannot open configuration file $fconf\n");
++    while(<FILE>) {
++	if(/^lrmsType\s*=\s*\"(.*)\"$/){$configValues{lrmsType}=$1;}
++	if(/^pbsAcctLogDir\s*=\s*\"(.*)\"$/){$configValues{pbsAcctLogDir}=$1;}
++	if(/^lsfAcctLogDir\s*=\s*\"(.*)\"$/){$configValues{lsfAcctLogDir}=$1;}
++	if(/^ceJobMapLog\s*=\s*\"(.*)\"$/){$configValues{ceJobMapLog}=$1;}
++	if(/^useCEJobMap\s*=\s*\"(.*)\"$/){$configValues{useCEJobMap}=$1;}
++	if(/^writeGGFUR\s*=\s*\"(.*)\"$/){$configValues{writeGGFUR}=$1;}
++
++	if(/^keyList\s*=\s*\"(.*)\"$/){$configValues{keyList}=$1;}
++	if(/^ldifDefaultFiles\s*=\s*\"(.*)\"$/){$configValues{ldifDefaultFiles}=$1;}
++	if(/^glueLdifFile\s*=\s*\"(.*)\"$/){$configValues{glueLdifFile}=$1;}
++	if(/^siteName\s*=\s*\"(.*)\"$/){$configValues{siteName}=$1;}
++
++	if(/^URBox\s*=\s*\"(.*)\"$/){$configValues{URBox}=$1;}
++
++	if(/^collectorLockFileName\s*=\s*\"(.*)\"$/){$configValues{collectorLockFileName}=$1;}
++	if(/^collectorBufferFileName\s*=\s*\"(.*)\"$/){$configValues{collectorBufferFileName}=$1;}
++	if(/^mainPollInterval\s*=\s*\"(.*)\"$/){$configValues{mainPollInterval}=$1;}
++	if(/^timeInterval\s*=\s*\"(.*)\"$/){$configValues{timeInterval}=$1;}
++	if(/^jobPerTimeInterval\s*=\s*\"(.*)\"$/){$configValues{jobPerTimeInterval}=$1;}
++    }
++    close(FILE);
++}
++
++
++
++####################################
++# Only POD beyond here.
++####################################
++__END__
