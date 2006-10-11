@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.9m
+Version: 0.10
 Release: 1
 License: GPL
 Group: Applications/System
@@ -521,6 +521,10 @@ fi
 %endif
 
 %changelog
+* Wed Oct 11 2006  <greenc@fnal.gov> - 0.10-1
+- Make sure that the end time is correct even when processing more than
+one day worth of raw data (PSACCTProbeLib.py).
+
 * Fri Oct  6 2006  <greenc@fnal.gov> - 0.9m-1
 - Separate routines out of urCollector into Perl Modules, and use them
 in a perl Gratia probe for pbs-lsf.
