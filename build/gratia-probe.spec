@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.10
+Version: 0.10a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -521,6 +521,9 @@ fi
 %endif
 
 %changelog
+* Mon Oct 16 2006 Chris Green <greenc@fnal.gov> - 0.10a-1
+- Robustness updates for connection handling.
+
 * Wed Oct 11 2006  <greenc@fnal.gov> - 0.10-1
 - Make sure that the end time is correct even when processing more than
 one day worth of raw data (PSACCTProbeLib.py).

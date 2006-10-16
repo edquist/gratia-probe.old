@@ -199,6 +199,7 @@ OutstandingRecord = []
 RecordPid = os.getpid()
 RecordId = 0
 Config = ProbeConfiguration()
+MaxConnectionRetries = 2
 
 def Initialize(customConfig = "ProbeConfig"):
     "This function initializes the Gratia metering engine"
@@ -218,16 +219,18 @@ def Initialize(customConfig = "ProbeConfig"):
         # Need to initialize the list of possible directories
         InitDirList()
 
-        # Instantiate a global connection object so it can be reused for the lifetime of the server
-        # Instantiate a 'connected' flag as well, because at times we cannot interrogate a connection
+        # Instantiate a global connection object so it can be reused for
+        # the lifetime of the server Instantiate a 'connected' flag as
+        # well, because at times we cannot interrogate a connection
         # object to see if it has been connected yet or not
         global __connection
         global __connected
         global __connectionError
+        global __connectionRetries
         __connection = None
-        __connected = 0
+        __connected = False
         __connectionError = False
-        __connect()
+        __connectionRetries = 0
         # Need to look for left over files
         SearchOustandingRecord()
 
@@ -257,8 +260,16 @@ def __encodeXML(xmlData):
 def __connect():
     global __connection
     global __connected
+    global __connectionError
+    if __connectionError:
+        __disconnect()
+        ++__connectionRetries
+        if __connectionRetries > MaxConnectionRetries:
+            Error("Unable to reconnect after ", MaxConnectionRetries, " attempts")
+            sys.exit(1)
+        __connectionError = False
 
-    if __connected == 0:
+    if not __connected:
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
             __connection = httplib.HTTP(Config.get_SOAPHost())            
             DebugPrint(1, 'Connected via HTTP to:  ' + Config.get_SOAPHost())
@@ -282,7 +293,7 @@ def __connect():
             __connection.connect()
             DebugPrint(1, "Connected via HTTPS to: " + Config.get_SSLHost())
             #print "Using SSL protocol"
-        __connected = 1
+        __connected = True
 
 ##
 ## __disconnect
@@ -294,14 +305,17 @@ def __connect():
 def __disconnect():
     global __connection
     global __connected
-
+    global __connectionError
+    
     try:
-        if Config.get_UseSSL() != 0 and __connected == 1:
+        if Config.get_UseSSL() != 0 and __connected:
             __connection.system.logout()
-            __connected = 0
             DebugPrint(1, 'Disconnected from ' + Config.get_SSLHost() )
     except:
-        DebugPrint(0, 'Failed to disconnect from ' + Config.get_SSLHost() + ': ', sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+        if not __connectionError: # We've already complained, so shut up
+            DebugPrint(0, 'Failed to disconnect from ' + Config.get_SSLHost() + ': ', sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+
+    __connected = False
 
 ##
 ## sendUsageXML
@@ -316,11 +330,13 @@ def __disconnect():
 def __sendUsageXML(meterId, recordXml):
     global __connection
     global __connectionError
+    global __connectionRetries
 
     try:
-        # Connect to the web service, in case we aren't already connected.  If we are already connected, this call will do nothing
+        # Connect to the web service, in case we aren't already
+        # connected.  If we are already connected, this call will do
+        # nothing
         __connect()
-        __connectionError = False
 
         # Generate a unique Id for this transaction
         transactionId = meterId + TimeToString().replace(":","")
@@ -395,6 +411,9 @@ def __sendUsageXML(meterId, recordXml):
 
         response = Response(1,"Failed to send xml to web service")
 
+    if (__connectionRetries > 0) and (response.get_code() == 0):
+        # Successful transaction after a reconnect
+        __connectionRetries = 0
     return response
 
 LogFileIsWriteable = True;
@@ -970,7 +989,6 @@ def Reprocess():
 WroteTooManyFiles = False
 
 def Send(record):
-    global __connectionError
     global WroteTooManyFiles
 
     DebugPrint(0, "***********************************************************")
@@ -1050,8 +1068,7 @@ def Send(record):
                 responseString = "Fatal Error: Record not send and not cached.  Record will be lost."
 
         # Attempt to reprocess any outstanding records
-        if (not __connectionError):
-            Reprocess()
+        Reprocess()
 
         # When we are done sending outstanding records, we need to then disconnect from the web server
         __disconnect()
@@ -1064,7 +1081,6 @@ def Send(record):
 # writer of the XML files is responsible for making sure that it is
 # readable by the Gratia server.
 def SendXMLFiles(fileDir, removeOriginal = False):
-    global __connectionError
     global WroteTooManyFiles
     global Config
 
@@ -1180,8 +1196,7 @@ def SendXMLFiles(fileDir, removeOriginal = False):
                     responseString = "Fatal Error: Record not send and not cached.  Record will be lost."
 
     # Attempt to reprocess any outstanding records
-    if (not __connectionError):
-        Reprocess()
+    Reprocess()
 
     # When we are done sending outstanding records, we need to then
     # disconnect from the web server
