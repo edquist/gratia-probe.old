@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.10a
-Release: 1
+Version: 0.10b
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -22,8 +22,10 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 %{!?default_prefix: %define default_prefix %{vdt_loc}/gratia}
 
 %define osg_attr %{vdt_loc}/monitoring/osg-attributes.conf
-%define site_name "$( ( if [[ -r \"%{osg_attr}\" ]]; then . \"%{osg_attr}\" ; echo \"${OSG_SITE_NAME}\"; else echo \"Generic Site\"; fi ) )"
 
+%{!?site_name: %define site_name "$( ( if [[ -r \"%{osg_attr}\" ]]; then . \"%{osg_attr}\" ; echo \"${OSG_SITE_NAME}\"; else echo \"Generic Site\"; fi ) )"}
+
+%{!?meter_name: %define meter_name `uname -n`}
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
 Source2: %{name}-psacct-%{version}.tar.bz2
@@ -208,7 +210,7 @@ s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 %{?itb_soaphost_config}
-s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"pbs-lsf:'`uname -n`'"&;
+s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"pbs-lsf:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"'%{site_name}'"&;
 m&%{ProbeConfig_template_marker}& or print;
 ' \
@@ -328,7 +330,7 @@ s&gratia-osg\.fnal\.gov$&gratia-fermi.fnal.gov&;
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"psacct:'`uname -n`'"&;
+s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"psacct:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"'%{site_name}'"&;
 m&^/>& and print <<EOF;
     PSACCTFileRepository="$ENV{RPM_INSTALL_PREFIX1}/var/account/"
@@ -453,7 +455,7 @@ s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 %{?itb_soaphost_config}
-s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"condor:'`uname -n`'"&;
+s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"condor:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"'%{site_name}'"&;
 m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file" >/dev/null 2>&1
@@ -521,6 +523,9 @@ fi
 %endif
 
 %changelog
+* Wed Oct 18 2006 Chris Green <greenc@fnal.gov> - 0.10b-2
+- meter_name and site_name are now configurable macros.
+
 * Mon Oct 16 2006 Chris Green <greenc@fnal.gov> - 0.10a-1
 - Robustness updates for connection handling.
 
