@@ -19,8 +19,20 @@ specfile=~/gratia/probe/build/gratia-probe.spec
 usage() {
   cat 1>&2 <<EOF
 usage: build_all -h
-       build_all [-d <rpm-macro-definition>] [-r <rpmbuild-top>] \
+       build_all [-d <rpm-macro-definition>] [-P] [-p] [-r <rpmbuild-top>] \
                  [-s <specfile>] [--] <version> [<release>]
+
+Options:
+  [-d <rpm-macro-definition>]
+    Define an RPM macro
+  [-P]
+    Publish to AFS (gratia.fnal.gov/Files)
+  [-p]
+    Prepare-only (no RPM build)
+  [-r <rpmbuild-top>]
+    Top of RPM build area
+  [-s <specfile>]
+    Specfile to use for RPM build
 
 Defaults:
   rpmbuild-top=${rpmbuild_top}
@@ -30,7 +42,7 @@ EOF
   exit 1
 }
 
-while getopts :hd:r:s:p OPT; do
+while getopts :hd:r:s:pP OPT; do
     case $OPT in
 	d)
             if [[ -n "$defines" ]]; then
@@ -41,6 +53,9 @@ while getopts :hd:r:s:p OPT; do
             ;;
         h)
 	    usage
+            ;;
+        P)
+            publish=1
             ;;
         p)
             prepare_only=1
@@ -118,3 +133,17 @@ if (( $status == 0 )); then
 else
   exit $status
 fi
+
+if (( $status == 0 )); then
+  echo "Publishing files to AFS for web access ..." 1>&2
+  cp -pv `find "${rpmbuild_top}"/RPMS -name "gratia-probe*-$version-$release.*.rpm"` \
+   /afs/fnal.gov/files/expwww/gratia/html/Files/probe/RPMS/ && \
+  cp -pv "${rpmbuild_top}/SRPMS/gratia-probe-$version-$release.src.rpm" \
+   /afs/fnal.gov/files/expwww/gratia/html/Files/probe/SRPMS/
+  status=$?
+else
+  exit $status
+fi
+
+exit $status
+
