@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.10c
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -23,7 +23,7 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 
 %define osg_attr %{vdt_loc}/monitoring/osg-attributes.conf
 
-%{!?site_name: %define site_name "$( ( if [[ -r \"%{osg_attr}\" ]]; then . \"%{osg_attr}\" ; echo \"${OSG_SITE_NAME}\"; else echo \"Generic Site\"; fi ) )"}
+%{!?site_name: %define site_name '"$( ( if [[ -r \"%{osg_attr}\" ]]; then . \"%{osg_attr}\" ; echo \"${OSG_SITE_NAME}\"; else echo \"Generic Site\"; fi ) )"'}
 
 %{!?meter_name: %define meter_name `uname -n`}
 Source0: %{name}-common-%{version}.tar.bz2
@@ -211,7 +211,7 @@ s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 %{?itb_soaphost_config}
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"pbs-lsf:'"%{meter_name}"'"&;
-s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"'%{site_name}'"&;
+s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
 m&%{ProbeConfig_template_marker}& or print;
 ' \
 "$config_file" >/dev/null 2>&1
@@ -332,7 +332,7 @@ s&gratia-osg\.fnal\.gov$&gratia-fermi.fnal.gov&;
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"psacct:'"%{meter_name}"'"&;
-s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"'%{site_name}'"&;
+s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
 m&^/>& and print <<EOF;
     PSACCTFileRepository="$ENV{RPM_INSTALL_PREFIX1}/var/account/"
     PSACCTBackupFileRepository="$ENV{RPM_INSTALL_PREFIX1}/var/backup/"
@@ -457,7 +457,7 @@ s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 %{?itb_soaphost_config}
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"condor:'"%{meter_name}"'"&;
-s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"'%{site_name}'"&;
+s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
 m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file" >/dev/null 2>&1
 done
@@ -524,6 +524,9 @@ fi
 %endif
 
 %changelog
+* Thu Oct 19 2006 Chris Green <greenc@fnal.gov> - 0.10c-2
+- Change escaping of site_name macro internally for more robustness.
+
 * Thu Oct 19 2006 Chris Green <greenc@fnal.gov> - 0.10c-1
 - Remove unnecessary VDTSetup line from psacct ProbeConfig file.
 - Remove version no. from README files.
