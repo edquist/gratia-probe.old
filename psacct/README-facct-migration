@@ -1,0 +1,13 @@
+Migrating from facct to the Gratia psacct probe
+-----------------------------------------------
+
+1) Start the Gratia ps accounting service:
+
+     /etc/rc.d/init.d/gratia-psacct
+
+2) Remove the fermilab accounting entries from root's crontab (or
+elsewhwere if appropriate).
+
+3) Make sure ProbeConfig is customized according to README.
+
+4) Run facct-catchup from the <gratia-top-dir>/probe/psacct directory.

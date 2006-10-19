@@ -1,5 +1,5 @@
 Installing the Gratia psacct probe client
-Version 0.9c
+
 Penelope Constanta & Chris Green
 
 We recommend that the client software be placed in the directory $VDT_LOCATION
@@ -30,11 +30,6 @@ We recommend that the client software be placed in the directory $VDT_LOCATION
 |                                        |This is used in particular in the  |
 |                                        |report.                            |
 |________________________________________|___________________________________|
-|VDTSetupFile=                           |Path to the vdt setup.sh file.     |
-|  "MAGIC_VDT_LOCATION/setup.sh"         |Please expand the                  |
-|                                        |MAGIC_VDT_LOCATION variable.       |
-|________________________________________|___________________________________|
-
 
 3. The RPM install procedure makes appropriate entries in root's crontab
 for uploading accounting information to gratia at the appropriate
@@ -42,3 +37,7 @@ time. The time is appropriately randomized.
 
 4. The SOAPHost has been preconfigured to use the official OSG Gratia
 collector: change at your own risk.
+
+5. If this is the first time you have installed the ps-accounting probe
+on this node and you were previously running Fermilab Accountng (facct),
+please see README-facct-migration.

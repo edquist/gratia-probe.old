@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.10b
-Release: 2
+Version: 0.10c
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -298,7 +298,9 @@ The psacct probe for the Gratia OSG accounting system.
 %files psacct
 %defattr(-,root,root,-)
 %doc psacct/README
+%doc psacct/README-facct-migration
 %{default_prefix}/probe/psacct/README
+%{default_prefix}/probe/psacct/README-facct-migration
 %config %{default_prefix}/probe/psacct/facct-catchup
 %config %{default_prefix}/probe/psacct/facct-turnoff.sh
 %config %{default_prefix}/probe/psacct/psacct_probe.cron.sh
@@ -328,7 +330,6 @@ test -n "$config_file" || continue
 s&^(\s*SOAPHost\s*=\s*).*$&${1}"gratia-fermi.fnal.gov:8882"&;
 s&gratia-osg\.fnal\.gov$&gratia-fermi.fnal.gov&;
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-%{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"psacct:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"'%{site_name}'"&;
@@ -337,7 +338,7 @@ m&^/>& and print <<EOF;
     PSACCTBackupFileRepository="$ENV{RPM_INSTALL_PREFIX1}/var/backup/"
     PSACCTExceptionsRepository="$ENV{RPM_INSTALL_PREFIX1}/logs/exceptions/"
 EOF
-m&%{ProbeConfig_template_marker}& or print;' \
+m&^\s*VDTSetupFile\s*=& or m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file"
 done
 
@@ -523,6 +524,11 @@ fi
 %endif
 
 %changelog
+* Thu Oct 19 2006 Chris Green <greenc@fnal.gov> - 0.10c-1
+- Remove unnecessary VDTSetup line from psacct ProbeConfig file.
+- Remove version no. from README files.
+- new doc README-facct-migration for psacct.
+
 * Wed Oct 18 2006 Chris Green <greenc@fnal.gov> - 0.10b-2
 - meter_name and site_name are now configurable macros.
 
