@@ -6,7 +6,9 @@ Migrating from facct to the Gratia psacct probe
      /etc/rc.d/init.d/gratia-psacct
 
 2) Remove the fermilab accounting entries from root's crontab (or
-elsewhwere if appropriate).
+elsewhwere if appropriate) and run:
+
+    chkconfig facct off
 
 3) Make sure ProbeConfig is customized according to README.
 
