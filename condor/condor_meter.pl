@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.3 2006-09-19 21:57:33 pcanal Exp $
+# $Id: condor_meter.pl,v 1.4 2006-10-24 14:42:29 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -25,7 +25,7 @@ use File::Basename;
 
 $progname = "condor_meter.pl";
 $prog_version = "v0.4.0";
-$prog_revision = '$Revision: 1.3 $ ';   # CVS Version number
+$prog_revision = '$Revision: 1.4 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -347,7 +347,16 @@ sub Query_Condor_History {
   }
 
   if ($cluster_id) {
-    open(CHIST, "$condor_hist_cmd -backwards -match 1 -l $cluster_id |")
+    open(CONDOR_HISTORY_HELP, "$condor_hist_cmd -help|")
+      or die "Unable to open condor_history pipe\n";
+    my @condor_history_help_txt = <>;
+    close CONDOR_HISTORY_HELP;
+    chomp @condor_history_help_txt;
+    grep /-backwards\b/, @condor_history_help_text and
+      $condor_hist_cmd = "$condor_hist_cmd -backwards";
+    grep /-match\b/, @condor_history_help_text and
+      $condor_hist_cmd = "$condor_hist_cmd -match 1";
+    open(CHIST, "$condor_hist_cmd -l $cluster_id |")
       or die "Unable to open condor_history pipe\n";
   } else {
     warn "Tried to call condor_history with no cluster_id data.\n";
@@ -1037,6 +1046,9 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.3  2006/09/19 21:57:33  pcanal
+# use faster condor_history lookup
+#
 # Revision 1.2  2006/08/22 18:04:25  pcanal
 # use /bin/env
 #
