@@ -1,0 +1,48 @@
+#!/usr/bin/perl -w
+########################################################################
+# update_pm_in_place
+#
+# Perl script to update condor.pm and managedfork.pm files patched with
+# earlier versions of the log_to_gratia function
+#
+# 2006_11_02 CHG
+########################################################################
+use strict;
+
+my $in_sub;
+my $seen_condor_version;
+while (<>) {
+  if (!$seen_condor_version and m&^\s*sub\s+log_to_gratia&) {
+    $in_sub = 1;
+    print << 'EOF';
+my $condor_version_number = 0;
+sub log_to_gratia
+{
+    unless ($condor_version_number) {
+        my $condor_version_string = `condor_version 2>/dev/null`;
+        $condor_version_number =
+        join("",
+             map { m&^(\d+)&?sprintf("%03d", $1):"000" }
+             ($condor_version_string =~ m!^\$CondorVersion: ([^\.]+)\.([^\.]+)\.([^\.]+)!s));
+        return 1 if ($condor_version_number < 6009000);
+    }
+EOF
+    next;
+  }
+  if ($in_sub) {
+    if (m&^\s*my\s+\$self\s+&o) {
+      undef $in_sub;
+    } else {
+      next;
+    }
+  }
+  s&^(\s*my\s+\$log_dir\s*=\s*")(.*gratia[^"]+)&${1}\$env/gratia/var/data/&o;
+  if (m&\s*my\s+\$condor_version_number&) {
+    $seen_condor_version = 1;
+  } else {
+    undef $seen_condor_version;
+  }
+  print;
+}
+
+1;
