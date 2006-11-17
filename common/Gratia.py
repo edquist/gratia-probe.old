@@ -4,6 +4,7 @@ import re
 
 oldexitfunc = getattr(sys, 'exitfunc', None)
 def disconnect_at_exit(last_exit = oldexitfunc):
+    RemoveOldLogs(Config.get_LogRotate())
     DebugPrint(1, "End-of-execution disconnect ...")
     __disconnect();
     if last_exit: last_exit()
@@ -17,6 +18,7 @@ class ProbeConfiguration:
     __SiteName = None
     __DebugLevel = None
     __LogLevel = None
+    __LogRotate = None
 
     def __init__(self, customConfig = "ProbeConfig"):
         if os.path.exists(customConfig):
@@ -109,6 +111,15 @@ class ProbeConfiguration:
             else:
                 self.__LogLevel = int(val)
         return self.__LogLevel
+
+    def get_LogRotate(self):
+        if (self.__LogRotate == None):
+            val = self.__getConfigAttribute('LogRotate')
+            if val == None or val == "":
+                self.__LogRotate = 31
+            else:
+                self.__LogRotate = int(val)
+        return self.__LogRotate
 
     def get_GratiaExtension(self):
         return self.__getConfigAttribute('GratiaExtension')
@@ -453,6 +464,26 @@ def LogToFile(message):
     if file != None:
         # Close the log file
         file.close()
+
+def RemoveOldLogs(nDays = 31):
+
+   backupDir = Config.get_LogFolder()
+   cutoff = time.time() - nDays * 24 * 3600
+
+   DebugPrint(1, " Removing log files older than ", nDays, " days from " , backupDir)
+ 
+   # Get the list of all files in the PSACCT File Backup Repository
+   files = glob.glob(os.path.join(backupDir,"*")+".log")
+
+   DebugPrint(3, " Will check the files: ",files)
+        
+   for f in files:
+      if os.path.getmtime(f) < cutoff:
+         DebugPrint(2, "Will remove: " + f)
+         #os.remove(f)
+                
+   files = None
+
 
 def GenerateOutput(prefix,*arg):
     out = prefix
