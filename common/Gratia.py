@@ -19,6 +19,7 @@ class ProbeConfiguration:
     __DebugLevel = None
     __LogLevel = None
     __LogRotate = None
+    __UseSyslog = None
 
     def __init__(self, customConfig = "ProbeConfig"):
         if os.path.exists(customConfig):
@@ -120,6 +121,15 @@ class ProbeConfiguration:
             else:
                 self.__LogRotate = int(val)
         return self.__LogRotate
+
+    def get_UseSyslog(self):
+        if (self.__UseSyslog == None):
+            val = self.__getConfigAttribute('UseSyslog')
+            if val == None or val == "":
+                self.__UseSyslog = False
+            else:
+                self.__UseSyslog = int(val)
+        return self.__UseSyslog
 
     def get_GratiaExtension(self):
         return self.__getConfigAttribute('GratiaExtension')
@@ -465,6 +475,29 @@ def LogToFile(message):
         # Close the log file
         file.close()
 
+def LogToSyslog(level, message) :
+    import syslog
+    if (level == -1) : syslevel = syslog.LOG_ERR
+    else: 
+        if (level == 0) : syslevel = syslog.LOG_INFO
+        else: 
+           if (level == 1) : syslevel = syslog.LOG_INFO
+           else: syslevel = syslog.LOG_DEBUG
+
+    try:
+        syslog.openlog("Gratia ")
+        syslog.syslog( syslevel, message)
+
+        LogFileIsWriteable = True;
+    except:
+        if LogFileIsWriteable:
+            # Print the error message only once
+            print "Gratia: Unable to log to syslog:  ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1]
+        LogFileIsWriteable = False;
+        
+    syslog.closelog()
+
+
 def RemoveOldLogs(nDays = 31):
 
    backupDir = Config.get_LogFolder()
@@ -497,12 +530,18 @@ def DebugPrint(level, *arg):
         print out
     if level<Config.get_LogLevel():
         out = GenerateOutput("Gratia: ",*arg)
-        LogToFile(out)
+        if (Config.get_UseSyslog()):
+           LogToSyslog(level,GenerateOutput("",*arg))
+        else:
+           LogToFile(out)
 
 def Error(*arg):
     out = GenerateOutput("Error in Gratia probe: ",*arg)
     print out
-    LogToFile(out)
+    if (Config.get_UseSyslog()):
+       LogToSyslog(-1,GenerateOutput("",*arg))
+    else:
+       LogToFile(out)
 
 ##
 ## Mkdir
