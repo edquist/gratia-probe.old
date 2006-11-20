@@ -46,8 +46,22 @@ files that contain the changes to the Globus script. If gratia was
 installed originally with VDT and the RPMS have been installed as
 recommended under ${VDT_LOCATION}, nothing needs to be done. However, if
 you get a post-install message regarding condor.pm and/or
-managedfork.pm, please act upon that message.
+managedfork.pm, please act upon that message. Commands to apply and/or
+update patches to the pm files:
 
+  pacman -get Gratia-Patch # (preferred)
+
+OR
+
+  cd $VDT_LOCATION/lib/perl/Globus/GRAM/JobManager
+  if grep -e log_to_gratia condor.pm; then
+    perl -wapi.bak -f \
+     $VDT_LOCATION/gratia/condor-probes/gram_mods/update_pm_in_place \
+     condor.pm managedfork.pm condor.pm
+  else
+    patch -p0 < $VDT_LOCATION/gratia/condor-probes/gram_mods/condor.pm.diff
+    patch -p0 < $VDT_LOCATION/gratia/condor-probes/gram_mods/managedfork.pm.diff
+  fi
 
 5. The SOAPHost has been preconfigured to use the official OSG Gratia
 collector (or the official ITB Gratia if your installed the ITB RPMs):

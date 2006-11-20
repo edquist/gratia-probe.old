@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.11a
+Version: 0.11b
 Release: 1
 License: GPL
 Group: Applications/System
@@ -463,19 +463,22 @@ m&%{ProbeConfig_template_marker}& or print;' \
 done
 
 # Configure GRAM perl modules
-if ! %{__grep} -e 'log_to_gratia' \
+%{__grep} -le 'log_to_gratia' \
 "${RPM_INSTALL_PREFIX1}/../globus/lib/perl/Globus/GRAM/JobManager/condor.pm" \
->/dev/null 2>&1; then
+2>/dev/null | %{__grep} -e '\$condor_version_number' >/dev/null 2>&1
+if (( $? != 0 )); then
 %{__cat} 1>&2 <<EOF
 
-WARNING: check that
-\${VDT_LOCATION}/globus/lib/perl/Globus/GRAM/JobManager/condor.pm 
-and managedfork.pm contain the line, 'sub log_to_gratia'. If not, please patch
-using the diff files in:
+WARNING: please check that
+\${VDT_LOCATION}/globus/lib/perl/Globus/GRAM/JobManager/{condor,managedfork}.pm
+contain *both* lines:
+my $condor_version_number = 0;
+sub log_to_gratia
 
-${RPM_INSTALL_PREFIX1}/probe/condor/gram_mods/
+If not, please either install VDT:Gratia-Patch using pacman, or see the
+notes on the OSG accounting TWiki:
 
-or see ${RPM_INSTALL_PREFIX1}/probe/condor/README for more information.
+http://osg.ivdgl.org/twiki/bin/view/Accounting/ProbeConfigCondor#GratiaCondorGramPatch
 
 EOF
 fi
@@ -524,6 +527,9 @@ fi
 %endif
 
 %changelog
+* Mon Nov 20 2006 Chris Green <greenc@fnal.gov> - 0.11b-1
+- Improve documentation for GRAM script patches.
+
 * Mon Nov 20 2006 Chris Green <greenc@fnal.gov> - 0.11a-1
 - New option UseSyslog.
 - New option LogRotate.
