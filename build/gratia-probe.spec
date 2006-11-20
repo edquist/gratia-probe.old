@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.10c
-Release: 2
+Version: 0.11a
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -524,6 +524,13 @@ fi
 %endif
 
 %changelog
+* Mon Nov 20 2006 Chris Green <greenc@fnal.gov> - 0.11a-1
+- New option UseSyslog.
+- New option LogRotate.
+- condor.pl only uses -backwards and -match options to condor_history if
+  they are supported.
+- More robust GRAM patches.
+
 * Thu Oct 19 2006 Chris Green <greenc@fnal.gov> - 0.10c-2
 - Change escaping of site_name macro internally for more robustness.
 
