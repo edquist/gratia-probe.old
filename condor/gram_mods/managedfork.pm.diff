@@ -1,12 +1,44 @@
---- managedfork.pm~	2006-11-02 16:36:03.506036559 -0600
-+++ managedfork.pm	2006-11-02 16:34:57.082783004 -0600
-@@ -25,12 +25,56 @@
- BEGIN
- {
-     $condor_submit 	= '/opt/condor/bin/condor_submit';
-     $condor_rm	 	= '/opt/condor/bin/condor_rm';
+--- managedfork.pm.orig	2006-11-10 13:28:03.000000000 -0600
++++ managedfork.pm	2006-11-10 13:31:13.000000000 -0600
+@@ -490,15 +490,22 @@
+                 if $description->stdout() ne '';
+             $self->nfssync( $description->stderr(), 0 )
+                 if $description->stderr() ne '';
+-            if ( ${self}->{individual_condor_log} ) {
+-                unlink($self->{condor_logfile});
+-            }
++
++            # Should we really delete a file that we have not
++            # been able to read.  This leaves room for a race 
++            # condition So the following code is commented out:
++
++            #if ( ${self}->{individual_condor_log} ) {
++            #    $self->log_to_gratia();
++            #    unlink($self->{condor_logfile});
++            #}
+             return { JOB_STATE => Globus::GRAM::JobState::DONE };
+         }
+ 
+         if($num_abort > 0)
+         {
+             if ( ${self}->{individual_condor_log} ) {
++                $self->log_to_gratia();
+                 unlink($self->{condor_logfile});
+             }
+             $state = Globus::GRAM::JobState::FAILED;
+@@ -511,6 +518,7 @@
+                 if $description->stderr() ne '';
+ 
+             if ( ${self}->{individual_condor_log} ) {
++                $self->log_to_gratia();
+                 unlink($self->{condor_logfile});
+             }
+             $state = Globus::GRAM::JobState::DONE;
+@@ -561,4 +569,49 @@
+     }
  }
  
++# Patched by the VDT
 +my $condor_version_number = 0;
 +sub log_to_gratia
 +{
@@ -51,55 +83,4 @@
 +    return 1; # Should return a proper Globus success code
 +}
 +
- sub new
- {
-     my $proto = shift;
-     my $class = ref($proto) || $proto;
-     my $self = $class->SUPER::new(@_);
-     my $log_dir;
-@@ -487,33 +531,42 @@
-         else
-         {
-             $self->nfssync( $description->stdout(), 0 )
-                 if $description->stdout() ne '';
-             $self->nfssync( $description->stderr(), 0 )
-                 if $description->stderr() ne '';
--            if ( ${self}->{individual_condor_log} ) {
--                unlink($self->{condor_logfile});
--            }
-+ 
-+            # Should we really delete a file that we have not
-+            # been able to read.  This leaves room for a race 
-+            # condition So the following code is commented out:
-+
-+            #if ( ${self}->{individual_condor_log} ) {
-+            #    $self->log_to_gratia();
-+            #    unlink($self->{condor_logfile});
-+            #}
-+
-             return { JOB_STATE => Globus::GRAM::JobState::DONE };
-         }
- 
-         if($num_abort > 0)
-         {
-             if ( ${self}->{individual_condor_log} ) {
-+                $self->log_to_gratia();
-                 unlink($self->{condor_logfile});
-             }
-             $state = Globus::GRAM::JobState::FAILED;
-         }
-         elsif($num_done == $description->count())
-         {
-             $self->nfssync( $description->stdout(), 0 )
-                 if $description->stdout() ne '';
-             $self->nfssync( $description->stderr(), 0 )
-                 if $description->stderr() ne '';
- 
-             if ( ${self}->{individual_condor_log} ) {
-+                $self->log_to_gratia();
-                 unlink($self->{condor_logfile});
-             }
-             $state = Globus::GRAM::JobState::DONE;
-         }
-         elsif($num_run == 0)
-         {
+ 1;
