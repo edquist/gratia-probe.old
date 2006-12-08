@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.11b
+Version: 0.11d
 Release: 1
 License: GPL
 Group: Applications/System
@@ -527,6 +527,12 @@ fi
 %endif
 
 %changelog
+* Fri Dec  8 2006 Chris Green <greenc@fnal.gov> - 0.11d-1
+- GRAM patches tweaked slightly.
+- Gratia.py updated to offer VOfromUser(user) function, returning a
+  [ voi, VOc ] pair based on a username -- uses a local copy of the
+  grid3-user-vo-map.txt file.
+
 * Mon Nov 20 2006 Chris Green <greenc@fnal.gov> - 0.11b-1
 - Improve documentation for GRAM script patches.
 
