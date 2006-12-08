@@ -1,6 +1,6 @@
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
-import re
+import re, fileinput
 
 oldexitfunc = getattr(sys, 'exitfunc', None)
 def disconnect_at_exit(last_exit = oldexitfunc):
@@ -20,6 +20,7 @@ class ProbeConfiguration:
     __LogLevel = None
     __LogRotate = None
     __UseSyslog = None
+    __UserVOMapFile = None
 
     def __init__(self, customConfig = "ProbeConfig"):
         if os.path.exists(customConfig):
@@ -36,6 +37,20 @@ class ProbeConfiguration:
         # TODO:  Check if the ProbeConfiguration node exists
         # TODO:  Check if the requested attribute exists
         return self.__doc.getElementsByTagName('ProbeConfiguration')[0].getAttribute(attributeName)
+
+    def __findVDTTop(self):
+        mvt = self.__getConfigAttribute('VDTSetupFile')
+        if mvt and os.path.isfile(mvt):
+            return os.path.dirname(mvt)
+        else:
+            mvt = os.getenv('OSG_GRID') or \
+                  os.getenv('OSG_LOCATION') or \
+                  os.getenv('VDT_LOCATION') or \
+                  os.getenv('GRID3_LOCATIION')
+        if os.path.isdir(mvt):
+            return mvt
+        else:
+            return None
 
     def get_SSLHost(self):
         return self.__getConfigAttribute('SSLHost')
@@ -161,6 +176,35 @@ class ProbeConfiguration:
     def get_PSACCTExceptionsRepository(self):
         return self.__getConfigAttribute('PSACCTExceptionsRepository')
 
+    def get_UserVOMapFile(self):
+        if self.__UserVOMapFile:
+            return self.__UserVOMapFile
+        val = self.__getConfigAttribute('UserVOMapFile')
+        if val and re.search(r'MAGIC_VDT_LOCATION', val):
+            val = re.sub(r'MAGIC_VDT_LOCATION',
+                         self.__findVDTTop(),
+                         val)
+            if path.os.isfile(val): self.__UserVOMapFile = val
+        elif val and os.path.isfile(val):
+            self.__UserVOMapFile = val
+        else: # Invalid or missing config entry
+            # Locate mapfile from osg-attributes.conf
+            if val and os.path.isfile(val + '/monitoring/osg-attributes.conf'):
+                try:
+                    filehandle = open(val + '/monitoring/osg-attributes.conf')
+                    mapMatch = \
+                             re.search(r'^(?:OSG|GRID3)_USER_VO_MAP="(.*)"\s*(?:#.*)$',
+                                       filehandle.read(), re.DOTALL)
+                    filehandle.close()
+                    if mapMatch: self.__UserVOMapFile = mapMatch.group[0]
+                except IOError, e:
+                    pass
+            else: # Last ditch guess
+                self.__UserVOMapFile = self.__findVDTTop() + \
+                                  '/monitoring/grid3-user-vo-map.txt'
+                if not os.path.isfile(self.__UserVOMapFile): self.__UserVOMapFile = None
+        return self.__UserVOMapFile
+
 class Event:
     _xml = ""
     _id = ""
@@ -284,7 +328,7 @@ def __connect():
     global __connectionError
     if __connectionError:
         __disconnect()
-        ++__connectionRetries
+        __connectionRetries += 1
         if __connectionRetries > MaxConnectionRetries:
             Error("Unable to reconnect after ", MaxConnectionRetries, " attempts")
             sys.exit(1)
@@ -1275,3 +1319,32 @@ def SendXMLFiles(fileDir, removeOriginal = False):
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
     return responseString
+
+__UserVODictionary = { }
+
+def VOfromUser(user):
+    if (len(__UserVODictionary) == 0):
+        # Initialize dictionary
+        mapfile = Config.get_UserVOMapFile()
+        __voiToVOcDictionary = { }
+        __voi = []
+        __VOc = []
+        try:
+            entrycount = -1
+            for line in fileinput.input([mapfile]):
+                mapMatch = re.match(r'#(voi|VOc)\s', line)
+                if mapMatch:
+                    exec "__" + mapMatch.group(1) + " = re.split(r'\s*', line[mapMatch.end(0):])"
+                if re.match(r'\s*#', line): continue
+                mapMatch = re.match('\s*(?P<User>\S+)\s*(?P<voi>\S+)', line)
+                if mapMatch:
+                    if not len(__voiToVOcDictionary) and len(__voi) and len(__VOc):
+                        for index in xrange(0, len(__voi) - 1):
+                            __voiToVOcDictionary[__voi[index]] = __VOc[index]
+                    entrycount += 1
+                    __UserVODictionary[mapMatch.group('User')] = [ mapMatch.group('voi'),
+                                                                   __voiToVOcDictionary[mapMatch.group('voi')]]
+        except IOError, c:
+            print c
+            return None
+    return __UserVODictionary.get(user, None)
