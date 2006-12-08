@@ -134,7 +134,7 @@ else
   exit $status
 fi
 
-if (( $status == 0 )); then
+if (( $status == 0 )) && (( ${publish:-0} )); then
   echo "Publishing files to AFS for web access ..." 1>&2
   cp -pv `find "${rpmbuild_top}"/RPMS -name "gratia-probe*-$version-$release.*.rpm"` \
    /afs/fnal.gov/files/expwww/gratia/html/Files/probe/RPMS/ && \
