@@ -6,7 +6,7 @@ oldexitfunc = getattr(sys, 'exitfunc', None)
 def disconnect_at_exit(last_exit = oldexitfunc):
     RemoveOldLogs(Config.get_LogRotate())
     DebugPrint(1, "End-of-execution disconnect ...")
-    __disconnect();
+    __disconnect()
     if last_exit: last_exit()
 
 sys.exitfunc = disconnect_at_exit
@@ -28,7 +28,7 @@ class ProbeConfiguration:
 
     def loadConfiguration(self):
         self.__doc = xml.dom.minidom.parse(self.__configname)
-        DebugPrint(0, 'Using config file :' + self.__configname)
+        DebugPrint(0, 'Using config file: ' + self.__configname)
 
     def __getConfigAttribute(self, attributeName):
         if self.__doc == None:
@@ -263,7 +263,7 @@ BackupDirList = []
 OutstandingRecord = []
 RecordPid = os.getpid()
 RecordId = 0
-Config = ProbeConfiguration()
+Config = None
 MaxConnectionRetries = 2
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -481,7 +481,7 @@ def __sendUsageXML(meterId, recordXml):
         __connectionRetries = 0
     return response
 
-LogFileIsWriteable = True;
+LogFileIsWriteable = True
 
 def LogToFile(message):
     "Write a message to the Gratia log file"
@@ -508,12 +508,12 @@ def LogToFile(message):
         # Append the message to the log file
         file.write(message + "\n")
 
-        LogFileIsWriteable = True;
+        LogFileIsWriteable = True
     except:
         if LogFileIsWriteable:
             # Print the error message only once
             print "Gratia: Unable to log to file:  ", filename, " ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1]
-        LogFileIsWriteable = False;
+        LogFileIsWriteable = False
 
     if file != None:
         # Close the log file
@@ -532,12 +532,12 @@ def LogToSyslog(level, message) :
         syslog.openlog("Gratia ")
         syslog.syslog( syslevel, message)
 
-        LogFileIsWriteable = True;
+        LogFileIsWriteable = True
     except:
         if LogFileIsWriteable:
             # Print the error message only once
             print "Gratia: Unable to log to syslog:  ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1]
-        LogFileIsWriteable = False;
+        LogFileIsWriteable = False
         
     syslog.closelog()
 
@@ -635,8 +635,8 @@ def InitDirList():
 
     DirListAdd(Config.get_WorkingFolder())
     DirListAdd(os.getenv('DATA_DIR',""))
-    DirListAdd("/var/tmp");
-    DirListAdd("/tmp");
+    DirListAdd("/var/tmp")
+    DirListAdd("/tmp")
     DirListAdd(os.getenv('TMP_DIR',""))
     DirListAdd(os.getenv('TMP_WN_DIR ',""))
     DirListAdd(os.getenv('TMP',""))
@@ -653,8 +653,8 @@ def SearchOustandingRecord():
     "any record that has not been sent yet"
 
     for dir in BackupDirList:
-        path = os.path.join(dir,"gratiafiles");
-        path = os.path.join(path,"*"+"."+Config.get_GratiaExtension());
+        path = os.path.join(dir,"gratiafiles")
+        path = os.path.join(path,"*"+"."+Config.get_GratiaExtension())
         files = glob.glob(path)
         for f in files:
             if f not in OutstandingRecord:
@@ -704,7 +704,7 @@ def OpenNewRecordFile(DirIndex,RecordIndex):
             DirIndex = index
             return(f,DirIndex,RecordIndex)
         except:
-            continue;
+            continue
     f = sys.stdout
     DirIndex = index
     return (f,DirIndex,RecordIndex)
@@ -840,10 +840,10 @@ class UsageRecord:
         self.JobId = self.AddToList(self.JobId,"ProcessId","",str(value))
 
     def GlobalUsername(self,value): 
-        self.UserId = self.AddToList(self.UserId,"GlobalUsername","",value); 
+        self.UserId = self.AddToList(self.UserId,"GlobalUsername","",value)
 
     def LocalUserId(self,value):
-        self.UserId = self.AddToList(self.UserId,"LocalUserId","",value);
+        self.UserId = self.AddToList(self.UserId,"LocalUserId","",value)
 
     def UserKeyInfo(self,value):
         " Example: \
@@ -856,7 +856,11 @@ class UsageRecord:
         self.UserId = self.AddToList(self.UserId,"ds:KeyInfo","xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\" ",complete)
 
     def VOName(self,value):
-        self.UserId = self.AddToList(self.UserId,"VOName","",value);
+        self.UserId = self.AddToList(self.UserId,"VOName","",value)
+
+    def ReportableVOName(self,value):
+        " Set reportable VOName"
+        self.UserId = self.AddToList(self.UserId,"ReportableVOName","",value)
 
     def JobName(self, value, description = ""):
         self.RecordData = self.AddToList(self.RecordData, "JobName", self.Description(description) ,value)
@@ -984,18 +988,18 @@ class UsageRecord:
     # The following are not officially part of the Usage Record format
 
     def Njobs(self, value, description = "") :
-        self.__Njobs = value;
+        self.__Njobs = value
         self.__NjobsDescription = description
 
     # The following usually comes from the Configuration file
 
     def ProbeName(self, value, description = "") :
-        self.__ProbeName = value;
+        self.__ProbeName = value
         self.__ProbeNameDescription = description
 
     def SiteName(self, value, description = "") :
         " Indicates which site the service accounted for belong to"
-        self.__SiteName = value;
+        self.__SiteName = value
         self.__SiteNameDescription = description
 
     def GenericAddToList(self, xmlelem, value, description = "") :
@@ -1006,10 +1010,42 @@ class UsageRecord:
         self.GenericAddToList( "SiteName", self.__SiteName, self.__SiteNameDescription )
         self.GenericAddToList( "Njobs", str(self.__Njobs), self.__NjobsDescription )
 
+    def VerifyUserInfo(self):
+        " Verify user information: check for LocalUserId and add VOName and ReportableVOName if necessary"
+        id_info = { } # Store attributes of already-present information
+        interesting_keys = [ "LocalUserId", "VOName", "ReportableVOName" ]
+        for wanted_key in interesting_keys: # Loop over wanted keys
+            item_index = 0
+            for id_item in self.UserId: # Loop over existing entries in UserId block
+                # Look for key
+                match = re.search(r'<\s*'+wanted_key+r'\s*>\s*(?P<Value>.*?)\s*<\s*/', id_item, re.IGNORECASE)
+                # Store info
+                if match:
+                    id_info[wanted_key] = { "Value" : match.group("Value"),
+                                            "Index" : item_index }
+                    break
+
+                item_index += 1
+
+        if not id_info.has_key("LocalUserId") or \
+           len(id_info) == len(interesting_keys): return # Nothing to do
+        # Obtain user->VO info from reverse gridmap file.
+        vo_info = VOfromUser(id_info["LocalUserId"]["Value"])
+        if vo_info != None:
+            # If we already have one of the two, update both to remain consistent.
+            for key in "VOName", "ReportableVOName":
+                if id_info.has_key(key): # Replace existing value
+                    self.UserId[id_info[key]["Index"]] = re.sub(r'(>\s*)'+re.escape(id_info[key]["Value"])+r'(\s*<)',
+                                                                r'\1'+vo_info[key]+r'\2',
+                                                                self.UserId[id_info[key]["Index"]],
+                                                                1)
+                else: # Add new
+                    self.UserId = self.AddToList(self.UserId, key, "", vo_info[key])
+
     def XmlCreate(self):
         global RecordId
 
-        self.XmlAddMembers();
+        self.XmlAddMembers()
 
         self.XmlData.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         self.XmlData.append("<JobUsageRecord xmlns=\"http://www.gridforum.org/2003/ur-wg\"\n")
@@ -1019,8 +1055,8 @@ class UsageRecord:
 
         # Add the record indentity
         self.XmlData.append("<RecordIdentity urwg:recordId=\""+socket.getfqdn()+":"+
-                            str(RecordPid)+"."+str(RecordId)+"\" urwg:createTime=\""+TimeToString(time.gmtime())+"\" />\n");
-        RecordId = RecordId + 1;
+                            str(RecordPid)+"."+str(RecordId)+"\" urwg:createTime=\""+TimeToString(time.gmtime())+"\" />\n")
+        RecordId = RecordId + 1
 
         if len(self.JobId)>0 :
             self.XmlData.append("<JobIdentity>\n")
@@ -1030,6 +1066,7 @@ class UsageRecord:
                 self.XmlData.append("\n")
             self.XmlData.append("</JobIdentity>\n")
         if len(self.UserId)>0 :
+            self.VerifyUserInfo() # Add VOName and Reportable VOName if necessary.
             self.XmlData.append("<UserIdentity>\n")
             for data in self.UserId:
                 self.XmlData.append("\t")
@@ -1040,16 +1077,16 @@ class UsageRecord:
             self.XmlData.append("\t")
             self.XmlData.append(data)
             self.XmlData.append("\n")
-        self.XmlData.append("</JobUsageRecord>\n");
+        self.XmlData.append("</JobUsageRecord>\n")
 
 def LocalJobId(record,value):
-    record.LocalJobId(value);
+    record.LocalJobId(value)
 
 def GlobalJobId(record,value):
-    record.GlobalJobId(value);
+    record.GlobalJobId(value)
 
 def ProcessJobId(record,value):
-    record.ProcessJobId(value);
+    record.ProcessJobId(value)
 
 #
 # CanProcess
@@ -1137,7 +1174,7 @@ def Send(record):
                 try:
                     for line in record.XmlData:
                         f.write(line)
-                    f.flush();
+                    f.flush()
                     if f.tell() > 0:
                         success = True
                         DebugPrint(3,"suceeded to fill: ",f.name)
@@ -1262,7 +1299,7 @@ def SendXMLFiles(fileDir, removeOriginal = False):
                     try:
                         for line in xmlData:
                             f.write(line)
-                        f.flush();
+                        f.flush()
                         if f.tell() > 0:
                             success = True
                             DebugPrint(3,"suceeded to fill: ",f.name)
@@ -1323,6 +1360,7 @@ def SendXMLFiles(fileDir, removeOriginal = False):
 __UserVODictionary = { }
 
 def VOfromUser(user):
+    " Helper function to obtain the voi and VOc from the user name via the reverse gridmap file"
     if (len(__UserVODictionary) == 0):
         # Initialize dictionary
         mapfile = Config.get_UserVOMapFile()
@@ -1330,10 +1368,10 @@ def VOfromUser(user):
         __voi = []
         __VOc = []
         try:
-            entrycount = -1
             for line in fileinput.input([mapfile]):
                 mapMatch = re.match(r'#(voi|VOc)\s', line)
                 if mapMatch:
+                    # Translation line: fill translation tables
                     exec "__" + mapMatch.group(1) + " = re.split(r'\s*', line[mapMatch.end(0):])"
                 if re.match(r'\s*#', line): continue
                 mapMatch = re.match('\s*(?P<User>\S+)\s*(?P<voi>\S+)', line)
@@ -1341,9 +1379,8 @@ def VOfromUser(user):
                     if not len(__voiToVOcDictionary) and len(__voi) and len(__VOc):
                         for index in xrange(0, len(__voi) - 1):
                             __voiToVOcDictionary[__voi[index]] = __VOc[index]
-                    entrycount += 1
-                    __UserVODictionary[mapMatch.group('User')] = [ mapMatch.group('voi'),
-                                                                   __voiToVOcDictionary[mapMatch.group('voi')]]
+                    __UserVODictionary[mapMatch.group('User')] = { "VOName" : mapMatch.group('voi'),
+                                                                   "ReportableVOName" : __voiToVOcDictionary[mapMatch.group('voi')] }
         except IOError, c:
             print c
             return None
