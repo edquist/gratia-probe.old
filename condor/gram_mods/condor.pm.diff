@@ -48,7 +48,7 @@
 +        join("",
 +             map { m&^(\d+)&?sprintf("%03d", $1):"000" }
 +             ($condor_version_string =~ m!^\$CondorVersion: ([^\.]+)\.([^\.]+)\.([^\.]+)!s));
-+        return 1 if ($condor_version_number < 6009000);
++        return 1 if ($condor_version_number > 6009000);
 +    }
 +    my $self = shift;
 +    my $log_filename = $self->{condor_logfile};
