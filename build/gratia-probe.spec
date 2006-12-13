@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.11f
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -464,8 +464,13 @@ m&%{ProbeConfig_template_marker}& or print;' \
 done
 
 # Configure GRAM perl modules
+vdt_setup_sh=`%{__perl} -ne 's&^\s*VDTSetupFile\s*=\s*\"([^\"]+)\".*$&$1& and print;' \
+"${RPM_INSTALL_PREFIX1}/probe/condor/ProbeConfig"`
+vdt_location=`dirname "$vdt_setup_sh"`
+
 %{__grep} -e '\$condor_version_number' `%{__grep} -le 'log_to_gratia' \
 "${RPM_INSTALL_PREFIX1}/../globus/lib/perl/Globus/GRAM/JobManager/condor.pm" \
+"$vdt_location/globus/lib/perl/Globus/GRAM/JobManager/condor.pm" \
 2>/dev/null` >/dev/null 2>&1
 if (( $? != 0 )); then
 %{__cat} 1>&2 <<EOF
@@ -484,9 +489,17 @@ http://osg.ivdgl.org/twiki/bin/view/Accounting/ProbeConfigCondor#GratiaCondorGra
 EOF
 fi
 
+condor_pm="${RPM_INSTALL_PREFIX1}/../globus/lib/perl/Globus/GRAM/JobManager/condor.pm"
+[[ -f "$condor_pm" ]] || \
+condor_pm="$vdt_location/globus/lib/perl/Globus/GRAM/JobManager/condor.pm"
+
+managedfork_pm="${RPM_INSTALL_PREFIX1}/../globus/lib/perl/Globus/GRAM/JobManager/managedfork.pm"
+[[ -f "$managedfork_pm" ]] || \
+managedfork_pm="$vdt_location/globus/lib/perl/Globus/GRAM/JobManager/managedfork.pm"
+
 # Apply correctional patches
 patch_script="${RPM_INSTALL_PREFIX1}/probe/condor/gram_mods/update_pm_in_place"
-for jobmanager in "${RPM_INSTALL_PREFIX1}/../globus/lib/perl/Globus/GRAM/JobManager/"{condor,managedfork}".pm"; do
+for jobmanager in "$condor_pm" "$managedfork_pm"; do
 	[[ -x "$patch_script" ]] && [[ -w "$jobmanager" ]] && \
         perl -wi.gratia-`date +%Y%m%d` "$patch_script" "$jobmanager"
 done
@@ -535,6 +548,10 @@ fi
 %endif
 
 %changelog
+* Wed Dec 13 2006 Chris Green <greenc@fnal.gov> - 0.11f-2
+- Better application of GRAM patches where gratia is not installed under
+  $VDT_LOCATION.
+
 * Wed Dec 13 2006 Chris Green <greenc@fnal.gov> - 0.11f-1
 - Better correction to GRAM patches.
 
