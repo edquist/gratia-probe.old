@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.11e
+Version: 0.11f
 Release: 1
 License: GPL
 Group: Applications/System
@@ -535,6 +535,9 @@ fi
 %endif
 
 %changelog
+* Wed Dec 13 2006 Chris Green <greenc@fnal.gov> - 0.11f-1
+- Better correction to GRAM patches.
+
 * Tue Dec 12 2006 Chris Green <greenc@fnal.gov> - 0.11e-1
 - Correct GRAM patch problem.
 - post install now corrects (but does not install) GRAM patches if appropriate.

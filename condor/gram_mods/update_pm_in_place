@@ -12,7 +12,8 @@ use strict;
 my $in_sub;
 my $seen_condor_version;
 while (<>) {
-  s&\$condor_version_number < 6009000&\$condor_version_number > 6009000&g;
+  s&if (\$condor_version_number < 6009000)&unless (\$condor_version_number < 6009000)&g;
+  s&if (\$condor_version_number > 6009000)&unless (\$condor_version_number < 6009000)&g;
   if (!$seen_condor_version and m&^\s*sub\s+log_to_gratia&) {
     $in_sub = 1;
     print << 'EOF';
@@ -25,7 +26,7 @@ sub log_to_gratia
         join("",
              map { m&^(\d+)&?sprintf("%03d", $1):"000" }
              ($condor_version_string =~ m!^\$CondorVersion: ([^\.]+)\.([^\.]+)\.([^\.]+)!s));
-        return 1 if ($condor_version_number > 6009000);
+        return 1 unless ($condor_version_number < 6009000);
     }
 EOF
     next;
