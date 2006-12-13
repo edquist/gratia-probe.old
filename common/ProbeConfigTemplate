@@ -24,6 +24,7 @@
     KeyFile="/etc/grid-security/hostkey.pem"
 
     VDTSetupFile="MAGIC_VDT_LOCATION/setup.sh"
+    UserVOMapFile="MAGIC_VDT_LOCATION/monitoring/grid3-user-vo-map.txt"
 
     MaxPendingFiles="1000"
     DataFolder="MAGIC_VDT_LOCATION/gratia/var/data/"
