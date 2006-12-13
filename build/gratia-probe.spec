@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.11d
+Version: 0.11e
 Release: 1
 License: GPL
 Group: Applications/System
@@ -140,7 +140,7 @@ Probes for the Gratia OSG accounting system
 %package pbs-lsf%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for PBS and LSF batch systems.
 Group: Application/System
-Requires: %{name}-common = %{version}
+Requires: %{name}-common >= 0.11e
 License: See LICENSE.
 %{?config_itb:Obsoletes: %{name}-pbs-lsf}
 %{!?config_itb:Obsoletes: %{name}-pbs-lsf%{itb_suffix}}
@@ -288,7 +288,7 @@ Summary: A ps-accounting probe
 Group: Applications/System
 Requires: python >= 2.2
 Requires: psacct
-Requires: %{name}-common = %{version}
+Requires: %{name}-common >= 0.11e
 
 %description psacct
 The psacct probe for the Gratia OSG accounting system.
@@ -425,7 +425,7 @@ fi
 Summary: A Condor probe
 Group: Applications/System
 Requires: python >= 2.2
-Requires: %{name}-common = %{version}
+Requires: %{name}-common >= 0.11e
 %{?config_itb:Obsoletes: %{name}-condor}
 %{!?config_itb:Obsoletes: %{name}-condor%{itb_suffix}}
 
@@ -444,6 +444,7 @@ The condor probe for the Gratia OSG accounting system.
 %post condor%{?maybe_itb_suffix}
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
 %{__cat} <<EOF | while read config_file; do
 `%{__grep} -le '^%{ProbeConfig_template_marker}$' \
 "${RPM_INSTALL_PREFIX1}"/probe/condor/ProbeConfig{,.rpmnew} \
@@ -463,9 +464,9 @@ m&%{ProbeConfig_template_marker}& or print;' \
 done
 
 # Configure GRAM perl modules
-%{__grep} -le 'log_to_gratia' \
+%{__grep} -e '\$condor_version_number' `%{__grep} -le 'log_to_gratia' \
 "${RPM_INSTALL_PREFIX1}/../globus/lib/perl/Globus/GRAM/JobManager/condor.pm" \
-2>/dev/null | %{__grep} -e '\$condor_version_number' >/dev/null 2>&1
+2>/dev/null` >/dev/null 2>&1
 if (( $? != 0 )); then
 %{__cat} 1>&2 <<EOF
 
@@ -483,6 +484,12 @@ http://osg.ivdgl.org/twiki/bin/view/Accounting/ProbeConfigCondor#GratiaCondorGra
 EOF
 fi
 
+# Apply correctional patches
+patch_script="${RPM_INSTALL_PREFIX1}/probe/condor/gram_mods/update_pm_in_place"
+for jobmanager in "${RPM_INSTALL_PREFIX1}/../globus/lib/perl/Globus/GRAM/JobManager/"{condor,managedfork}".pm"; do
+	[[ -x "$patch_script" ]] && [[ -w "$jobmanager" ]] && \
+        perl -wi.gratia-`date +%Y%m%d` "$patch_script" "$jobmanager"
+done
 
 # Configure crontab entry
 if %{__grep} -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' \
@@ -496,6 +503,7 @@ EOF
 fi
 
 tmpfile=`mktemp /tmp/gratia-probe-condor-post.XXXXXXXXXX`
+
 crontab -l 2>/dev/null | \
 %{__grep} -v -e 'condor_meter.cron\.sh' \
         -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
@@ -527,6 +535,18 @@ fi
 %endif
 
 %changelog
+* Tue Dec 12 2006 Chris Green <greenc@fnal.gov> - 0.11e-1
+- Correct GRAM patch problem.
+- post install now corrects (but does not install) GRAM patches if appropriate.
+- Gratia.py now supports automatic user->VO translation for those probes
+  which allow Gratia.py routines to construct the XML (if it can find a
+  reverse mapfile). This does not apply to probes which upload a pre-made XML
+  blob such as the pbs-lsf probe.
+- UserVOMapFile key added to ProbeConfigTemplate.
+- Correct patch check.
+- Probes don't require *exactly* the same version of the gratia-probe-common
+  RPM, so this can be upgraded in isolation if necessary.
+
 * Fri Dec  8 2006 Chris Green <greenc@fnal.gov> - 0.11d-1
 - GRAM patches tweaked slightly.
 - Gratia.py updated to offer VOfromUser(user) function, returning a
