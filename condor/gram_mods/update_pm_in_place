@@ -12,8 +12,8 @@ use strict;
 my $in_sub;
 my $seen_condor_version;
 while (<>) {
-  s&if (\$condor_version_number < 6009000)&unless (\$condor_version_number < 6009000)&g;
-  s&if (\$condor_version_number > 6009000)&unless (\$condor_version_number < 6009000)&g;
+  s&if\s*\(\$condor_version_number < 6009000\)&unless (\$condor_version_number < 6009000)&g;
+  s&if\s*\(\$condor_version_number > 6009000\)&unless (\$condor_version_number < 6009000)&g;
   if (!$seen_condor_version and m&^\s*sub\s+log_to_gratia&) {
     $in_sub = 1;
     print << 'EOF';
