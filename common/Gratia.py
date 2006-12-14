@@ -297,7 +297,7 @@ def Initialize(customConfig = "ProbeConfig"):
         __connectionError = False
         __connectionRetries = 0
         # Need to look for left over files
-        SearchOustandingRecord()
+        SearchOutstandingRecord()
 
 
 ##
@@ -648,10 +648,12 @@ def InitDirList():
     DirListAdd(os.environ['HOME'])
     DebugPrint(1,"List of backup directories: ",BackupDirList)
 
-def SearchOustandingRecord():
+def SearchOutstandingRecord():
     "Search the list of backup directories for"
     "any record that has not been sent yet"
 
+    max_files_to_reprocess = Config.get_maxPendingFiles()
+    if max_files_to_reprocess == None: max_files_to_reprocess = 0
     for dir in BackupDirList:
         path = os.path.join(dir,"gratiafiles")
         path = os.path.join(path,"*"+"."+Config.get_GratiaExtension())
@@ -659,6 +661,10 @@ def SearchOustandingRecord():
         for f in files:
             if f not in OutstandingRecord:
                 OutstandingRecord.append(f)
+            if max_files_to_reprocess and len(OutstandingRecord) >= max_files_to_reprocess: break
+
+        if max_files_to_reprocess and len(OutstandingRecord) >= max_files_to_reprocess: break
+
     DebugPrint(1,"List of Outstanding records: ",OutstandingRecord)
 
 def GenerateFilename(dir,RecordIndex):
@@ -1089,24 +1095,12 @@ def ProcessJobId(record,value):
     record.ProcessJobId(value)
 
 #
-# CanProcess
-#
-#  Determines whether or not Gratia is in a state to process files
-#
-def CanProcess():
-    if len(OutstandingRecord) < int(Config.get_MaxPendingFiles()):
-        return True, ""
-    else:
-        return False, "Too many pending files (" + Config.get_MaxPendingFiles() + ")"
-
-#
 # Reprocess
 #
 #  Loops through all outstanding records and attempts to send them again
 #
 def Reprocess():
     responseString = ""
-    Reprocessed = []
 
     # Loop through and try to send any outstanding records
     for failedRecord in OutstandingRecord:
@@ -1126,10 +1120,7 @@ def Reprocess():
         # Determine if the call succeeded, and remove the file if it did
         if response.get_code() == 0:
             os.remove(failedRecord)
-            Reprocessed.append(failedRecord)
-
-    for record in Reprocessed:
-        OutstandingRecord.remove(record)
+            OutstandingRecord.remove(failedRecord)
 
     if responseString <> "":
         DebugPrint(0, responseString)
@@ -1137,23 +1128,128 @@ def Reprocess():
     return responseString
 
 
-WroteTooManyFiles = False
-
 def Send(record):
-    global WroteTooManyFiles
-
     DebugPrint(0, "***********************************************************")
     DebugPrint(1,"Record: ",record)
     DebugPrint(1,"Username: ", record.Username)
 
-    # Check if there are too many pending files
-    (canProcess, responseString) = CanProcess()
-    if not canProcess and not WroteTooManyFiles:
-        Error(responseString)
-    if canProcess:
+    # Assemble the record into xml
+    record.XmlCreate()
 
-        # Assemble the record into xml
-        record.XmlCreate()
+    dirIndex = 0
+    recordIndex = 0
+    success = False
+    ind = 0
+    f = 0
+
+    while not success:
+        (f,dirIndex,recordIndex) = OpenNewRecordFile(dirIndex,recordIndex)
+        DebugPrint(1,"Will save in the record in:",f.name)
+        DebugPrint(3,"DirIndex=",dirIndex," RecordIndex=",recordIndex)
+        if f.name == "<stdout>":
+            success = True
+        else:
+            try:
+                for line in record.XmlData:
+                    f.write(line)
+                f.flush()
+                if f.tell() > 0:
+                    success = True
+                    DebugPrint(3,"suceeded to fill: ",f.name)
+                else:
+                    DebugPrint(0,"failed to fill: ",f.name)
+                    if f.name != "<stdout>": os.remove(f.name)
+            except:
+                DebugPrint(0,"failed to fill with exception: ",f.name,"--", sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+                if f.name != "<stdout>": os.remove(f.name)
+
+    DebugPrint(0, 'Saved record to ' + f.name)
+
+    # Currently, the recordXml is in a list format, with each item being a line of xml.  
+    # the collectora web service requires the xml to be sent as a string.  
+    # This logic here turns the xml list into a single xml string.
+    usageXmlString = ""
+    for line in record.XmlData:
+        usageXmlString = usageXmlString + line
+    DebugPrint(3, 'UsageXml:  ' + usageXmlString)
+
+    # Attempt to send the record to the collector
+    response = __sendUsageXML(Config.get_MeterName(), usageXmlString)
+    responseString = response.get_message()
+
+    DebugPrint(0, 'Response code:  ' + str(response.get_code()))
+    DebugPrint(0, 'Response message:  ' + response.get_message())
+
+    # Determine if the call was successful based on the response
+    # code.  Currently, 0 = success
+    if response.get_code() == 0:
+        DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+        os.remove(f.name)
+    else:
+        DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
+        #OutstandingRecord.append(f.name)
+        if f.name == "<stdout>":
+            Error("Gratia was un-enable to send the record and was unable to\n"+
+                  "       find a location to store the xml backup file.  The record\n"+
+                  "       will be printed to stdout:")
+            for line in record.XmlData:
+                f.write(line)
+            responseString = "Fatal Error: Record not send and not cached.  Record will be lost."
+
+    # Attempt to reprocess any outstanding records
+    Reprocess()
+
+    # When we are done sending outstanding records, we need to then disconnect from the web server
+    __disconnect()
+
+    DebugPrint(0, responseString)
+    DebugPrint(0, "***********************************************************")
+    return responseString
+
+# This sends the file contents of the given directory as raw XML. The
+# writer of the XML files is responsible for making sure that it is
+# readable by the Gratia server.
+def SendXMLFiles(fileDir, removeOriginal = False):
+    global Config
+
+    path = os.path.join(fileDir, "*")
+    files = glob.glob(path)
+
+    probeNamePattern = re.compile(r'<(?:[^:]*:)?ProbeName>')
+    siteNamePattern = re.compile(r'<(?:[^:]*:)?SiteName>')
+    endUsageRecordPattern = re.compile(r'</(?:[^:]*:)?UsageRecord>')
+
+    responseString = ""
+
+    for xmlFilename in files:
+
+        DebugPrint(0, "***********************************************************")
+        DebugPrint(1,"xmlFilename: ",xmlFilename)
+
+        # Open the XML file
+        in_file = open(xmlFilename, "r")
+        xmlData = []
+
+        # Need to check for keys that may be missing and add them:
+        hasProbeName = False
+        hasSiteName = False
+
+        for line in in_file:
+            if probeNamePattern.match(line):
+                hasProbeName = True
+            if siteNamePattern.match(line):
+                hasSiteName = True
+            if endUsageRecordPattern.match(line):
+                if not hasProbeName:
+                    xmlData.append('<ProbeName>' +
+                                   Config.get_MeterName() +
+                                   '</ProbeName>\n')
+                if not hasSiteName:
+                    xmlData.append('<SiteName>' +
+                                   Config.get_SiteName() +
+                                   '</SiteName>\n')
+            xmlData.append(line)
+        in_file.close()
 
         # Open the back up file
         # fill the back up file
@@ -1172,7 +1268,7 @@ def Send(record):
                 success = True
             else:
                 try:
-                    for line in record.XmlData:
+                    for line in xmlData:
                         f.write(line)
                     f.flush()
                     if f.tell() > 0:
@@ -1182,28 +1278,31 @@ def Send(record):
                         DebugPrint(0,"failed to fill: ",f.name)
                         if f.name != "<stdout>": os.remove(f.name)
                 except:
-                    DebugPrint(0,"failed to fill with exception: ",f.name,"--", sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+                    DebugPrint(0,"failed to fill with exception: ",f.name,"--",
+                               sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
                     if f.name != "<stdout>": os.remove(f.name)
+
+        if removeOriginal and f.name != "<stdout>": os.remove(xmlFilename)
 
         DebugPrint(0, 'Saved record to ' + f.name)
 
-        # Currently, the recordXml is in a list format, with each item being a line of xml.  
-        # the collectora web service requires the xml to be sent as a string.  
-        # This logic here turns the xml list into a single xml string.
+        # Currently, the recordXml is in a list format, with each
+        # item being a line of xml. The collector web service
+        # requires the xml to be sent as a string. This logic here
+        # turns the xml list into a single xml string.
         usageXmlString = ""
-        for line in record.XmlData:
+        for line in xmlData:
             usageXmlString = usageXmlString + line
-        DebugPrint(3, 'UsageXml:  ' + usageXmlString)
+        DebugPrint(1, 'UsageXml:  ' + usageXmlString)
 
         # Attempt to send the record to the collector
         response = __sendUsageXML(Config.get_MeterName(), usageXmlString)
-        responseString = response.get_message()
 
         DebugPrint(0, 'Response code:  ' + str(response.get_code()))
         DebugPrint(0, 'Response message:  ' + response.get_message())
 
-        # Determine if the call was successful based on the response
-        # code.  Currently, 0 = success
+        # Determine if the call was successful based on the
+        # response code.  Currently, 0 = success
         if response.get_code() == 0:
             DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
             os.remove(f.name)
@@ -1217,134 +1316,6 @@ def Send(record):
                 for line in record.XmlData:
                     f.write(line)
                 responseString = "Fatal Error: Record not send and not cached.  Record will be lost."
-
-        # Attempt to reprocess any outstanding records
-        Reprocess()
-
-        # When we are done sending outstanding records, we need to then disconnect from the web server
-        __disconnect()
-
-    DebugPrint(0, responseString)
-    DebugPrint(0, "***********************************************************")
-    return responseString
-
-# This sends the file contents of the given directory as raw XML. The
-# writer of the XML files is responsible for making sure that it is
-# readable by the Gratia server.
-def SendXMLFiles(fileDir, removeOriginal = False):
-    global WroteTooManyFiles
-    global Config
-
-    path = os.path.join(fileDir, "*")
-    files = glob.glob(path)
-
-    probeNamePattern = re.compile(r'<(?:[^:]*:)?ProbeName>')
-    siteNamePattern = re.compile(r'<(?:[^:]*:)?SiteName>')
-    endUsageRecordPattern = re.compile(r'</(?:[^:]*:)?UsageRecord>')
-
-    responseString = ""
-
-    for xmlFilename in files:
-
-        DebugPrint(0, "***********************************************************")
-        DebugPrint(1,"xmlFilename: ",xmlFilename)
-
-        # Check if there are too many pending files
-        (canProcess, responseString) = CanProcess()
-        if not canProcess and not WroteTooManyFiles:
-            Error(responseString)
-        if canProcess:
-
-            # Open the XML file
-            in_file = open(xmlFilename, "r")
-            xmlData = []
-
-            # Need to check for keys that may be missing and add them:
-            hasProbeName = False
-            hasSiteName = False
-
-            for line in in_file:
-                if probeNamePattern.match(line):
-                    hasProbeName = True
-                if siteNamePattern.match(line):
-                    hasSiteName = True
-                if endUsageRecordPattern.match(line):
-                    if not hasProbeName:
-                        xmlData.append('<ProbeName>' +
-                                       Config.get_MeterName() +
-                                       '</ProbeName>\n')
-                    if not hasSiteName:
-                        xmlData.append('<SiteName>' +
-                                       Config.get_SiteName() +
-                                       '</SiteName>\n')
-                xmlData.append(line)
-            in_file.close()
-
-            # Open the back up file
-            # fill the back up file
-
-            dirIndex = 0
-            recordIndex = 0
-            success = False
-            ind = 0
-            f = 0
-
-            while not success:
-                (f,dirIndex,recordIndex) = OpenNewRecordFile(dirIndex,recordIndex)
-                DebugPrint(1,"Will save in the record in:",f.name)
-                DebugPrint(3,"DirIndex=",dirIndex," RecordIndex=",recordIndex)
-                if f.name == "<stdout>":
-                    success = True
-                else:
-                    try:
-                        for line in xmlData:
-                            f.write(line)
-                        f.flush()
-                        if f.tell() > 0:
-                            success = True
-                            DebugPrint(3,"suceeded to fill: ",f.name)
-                        else:
-                            DebugPrint(0,"failed to fill: ",f.name)
-                            if f.name != "<stdout>": os.remove(f.name)
-                    except:
-                        DebugPrint(0,"failed to fill with exception: ",f.name,"--",
-                                   sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
-                        if f.name != "<stdout>": os.remove(f.name)
-
-            if removeOriginal and f.name != "<stdout>": os.remove(xmlFilename)
-
-            DebugPrint(0, 'Saved record to ' + f.name)
-
-            # Currently, the recordXml is in a list format, with each
-            # item being a line of xml. The collector web service
-            # requires the xml to be sent as a string. This logic here
-            # turns the xml list into a single xml string.
-            usageXmlString = ""
-            for line in xmlData:
-                usageXmlString = usageXmlString + line
-            DebugPrint(1, 'UsageXml:  ' + usageXmlString)
-
-            # Attempt to send the record to the collector
-            response = __sendUsageXML(Config.get_MeterName(), usageXmlString)
-
-            DebugPrint(0, 'Response code:  ' + str(response.get_code()))
-            DebugPrint(0, 'Response message:  ' + response.get_message())
-
-            # Determine if the call was successful based on the
-            # response code.  Currently, 0 = success
-            if response.get_code() == 0:
-                DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
-                os.remove(f.name)
-            else:
-                DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
-                #OutstandingRecord.append(f.name)
-                if f.name == "<stdout>":
-                    Error("Gratia was un-enable to send the record and was unable to\n"+
-                          "       find a location to store the xml backup file.  The record\n"+
-                          "       will be printed to stdout:")
-                    for line in record.XmlData:
-                        f.write(line)
-                    responseString = "Fatal Error: Record not send and not cached.  Record will be lost."
 
     # Attempt to reprocess any outstanding records
     Reprocess()
