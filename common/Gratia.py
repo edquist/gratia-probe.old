@@ -4,7 +4,7 @@ import re, fileinput
 
 oldexitfunc = getattr(sys, 'exitfunc', None)
 def disconnect_at_exit(last_exit = oldexitfunc):
-    RemoveOldLogs(Config.get_LogRotate())
+    if Config: RemoveOldLogs(Config.get_LogRotate())
     DebugPrint(1, "End-of-execution disconnect ...")
     __disconnect()
     if last_exit: last_exit()
@@ -260,11 +260,12 @@ class Response:
         self._message = message
 
 BackupDirList = []
-OutstandingRecord = []
+OutstandingRecord = { }
 RecordPid = os.getpid()
 RecordId = 0
 Config = None
 MaxConnectionRetries = 2
+MaxFilesToReprocess = 100000
 
 def Initialize(customConfig = "ProbeConfig"):
     "This function initializes the Gratia metering engine"
@@ -296,8 +297,13 @@ def Initialize(customConfig = "ProbeConfig"):
         __connected = False
         __connectionError = False
         __connectionRetries = 0
+
         # Need to look for left over files
         SearchOutstandingRecord()
+
+        # Attempt to reprocess any outstanding records
+        Reprocess()
+
 
 
 ##
@@ -652,20 +658,17 @@ def SearchOutstandingRecord():
     "Search the list of backup directories for"
     "any record that has not been sent yet"
 
-    max_files_to_reprocess = Config.get_maxPendingFiles()
-    if max_files_to_reprocess == None: max_files_to_reprocess = 0
     for dir in BackupDirList:
         path = os.path.join(dir,"gratiafiles")
         path = os.path.join(path,"*"+"."+Config.get_GratiaExtension())
         files = glob.glob(path)
         for f in files:
-            if f not in OutstandingRecord:
-                OutstandingRecord.append(f)
-            if max_files_to_reprocess and len(OutstandingRecord) >= max_files_to_reprocess: break
+            OustandingRecord[f] = 1
+            if len(OutstandingRecord) >= MaxFilesToReprocess: break
 
-        if max_files_to_reprocess and len(OutstandingRecord) >= max_files_to_reprocess: break
+        if len(OutstandingRecord) >= MaxFilesToReprocess: break
 
-    DebugPrint(1,"List of Outstanding records: ",OutstandingRecord)
+    DebugPrint(1,"List of Outstanding records: ",OutstandingRecord.keys())
 
 def GenerateFilename(dir,RecordIndex):
     "Generate a filename of the for gratia/r$index.$pid.gratia.xml"
@@ -1103,7 +1106,7 @@ def Reprocess():
     responseString = ""
 
     # Loop through and try to send any outstanding records
-    for failedRecord in OutstandingRecord:
+    for failedRecord in OutstandingRecord.keys():
         #if os.path.isfile(failedRecord):
         DebugPrint(1, 'Reprocessing:  ' + failedRecord)
 
@@ -1120,18 +1123,24 @@ def Reprocess():
         # Determine if the call succeeded, and remove the file if it did
         if response.get_code() == 0:
             os.remove(failedRecord)
-            OutstandingRecord.remove(failedRecord)
+            del OutstandingRecord[failedRecord]
 
     if responseString <> "":
         DebugPrint(0, responseString)
 
     return responseString
 
+failedSendCount = 0
 
 def Send(record):
     DebugPrint(0, "***********************************************************")
     DebugPrint(1,"Record: ",record)
     DebugPrint(1,"Username: ", record.Username)
+    if failedSendCount >= Config.get_MaxPendingFiles():
+        responseString = "Fatal Error: too many pending files"
+        DebugPrint(0, responseString)
+        DebugPrint(0, "***********************************************************")
+        return responseString
 
     # Assemble the record into xml
     record.XmlCreate()
@@ -1186,21 +1195,15 @@ def Send(record):
         DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
         os.remove(f.name)
     else:
+        failedSendCount += 1
         DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
-        #OutstandingRecord.append(f.name)
         if f.name == "<stdout>":
             Error("Gratia was un-enable to send the record and was unable to\n"+
                   "       find a location to store the xml backup file.  The record\n"+
                   "       will be printed to stdout:")
             for line in record.XmlData:
                 f.write(line)
-            responseString = "Fatal Error: Record not send and not cached.  Record will be lost."
-
-    # Attempt to reprocess any outstanding records
-    Reprocess()
-
-    # When we are done sending outstanding records, we need to then disconnect from the web server
-    __disconnect()
+            responseString = "Fatal Error: Record not sent and not cached.  Record will be lost."
 
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
@@ -1225,6 +1228,11 @@ def SendXMLFiles(fileDir, removeOriginal = False):
 
         DebugPrint(0, "***********************************************************")
         DebugPrint(1,"xmlFilename: ",xmlFilename)
+        if failedSendCount >= Config.get_MaxPendingFiles():
+            responseString = "Fatal Error: too many pending files"
+            DebugPrint(0, responseString)
+            DebugPrint(0, "***********************************************************")
+            return responseString
 
         # Open the XML file
         in_file = open(xmlFilename, "r")
@@ -1307,22 +1315,15 @@ def SendXMLFiles(fileDir, removeOriginal = False):
             DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
             os.remove(f.name)
         else:
+            failedSendCount += 1
             DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
-            #OutstandingRecord.append(f.name)
             if f.name == "<stdout>":
                 Error("Gratia was un-enable to send the record and was unable to\n"+
                       "       find a location to store the xml backup file.  The record\n"+
                       "       will be printed to stdout:")
                 for line in record.XmlData:
                     f.write(line)
-                responseString = "Fatal Error: Record not send and not cached.  Record will be lost."
-
-    # Attempt to reprocess any outstanding records
-    Reprocess()
-
-    # When we are done sending outstanding records, we need to then
-    # disconnect from the web server
-    __disconnect()
+                responseString = responseString + "\nFatal Error: Record not sent and not cached.  Record will be lost."
 
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
