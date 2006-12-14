@@ -379,7 +379,7 @@ def __disconnect():
     global __connectionError
     
     try:
-        if Config.get_UseSSL() != 0 and __connected:
+        if __connected and Config.get_UseSSL() != 0:
             __connection.system.logout()
             DebugPrint(1, 'Disconnected from ' + Config.get_SSLHost() )
     except:
