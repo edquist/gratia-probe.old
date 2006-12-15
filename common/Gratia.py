@@ -1136,7 +1136,7 @@ def Send(record):
     DebugPrint(0, "***********************************************************")
     DebugPrint(1,"Record: ",record)
     DebugPrint(1,"Username: ", record.Username)
-    if failedSendCount >= Config.get_MaxPendingFiles():
+    if (failedSendCount + len(OutstandingRecord)) >= Config.get_MaxPendingFiles():
         responseString = "Fatal Error: too many pending files"
         DebugPrint(0, responseString)
         DebugPrint(0, "***********************************************************")
