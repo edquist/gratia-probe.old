@@ -47,7 +47,7 @@ class ProbeConfiguration:
                   os.getenv('OSG_LOCATION') or \
                   os.getenv('VDT_LOCATION') or \
                   os.getenv('GRID3_LOCATIION')
-        if os.path.isdir(mvt):
+        if mvt != None and os.path.isdir(mvt):
             return mvt
         else:
             return None
@@ -200,9 +200,11 @@ class ProbeConfiguration:
                 except IOError, e:
                     pass
             else: # Last ditch guess
-                self.__UserVOMapFile = self.__findVDTTop() + \
-                                  '/monitoring/grid3-user-vo-map.txt'
-                if not os.path.isfile(self.__UserVOMapFile): self.__UserVOMapFile = None
+                vdttop = self.__findVDTTop()
+                if vdttop != None: 
+                   self.__UserVOMapFile = self.__findVDTTop() + \
+                                     '/monitoring/grid3-user-vo-map.txt'
+                   if not os.path.isfile(self.__UserVOMapFile): self.__UserVOMapFile = None
         return self.__UserVOMapFile
 
 class Event:
@@ -1133,6 +1135,8 @@ def Reprocess():
 failedSendCount = 0
 
 def Send(record):
+    global failedSendCount
+
     DebugPrint(0, "***********************************************************")
     DebugPrint(1,"Record: ",record)
     DebugPrint(1,"Username: ", record.Username)
@@ -1336,6 +1340,8 @@ def VOfromUser(user):
     if (len(__UserVODictionary) == 0):
         # Initialize dictionary
         mapfile = Config.get_UserVOMapFile()
+        if mapfile == None:
+             return None
         __voiToVOcDictionary = { }
         __voi = []
         __VOc = []
