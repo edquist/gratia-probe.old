@@ -1109,14 +1109,26 @@ def Reprocess():
 
     # Loop through and try to send any outstanding records
     for failedRecord in OutstandingRecord.keys():
+        xmlData = None
         #if os.path.isfile(failedRecord):
         DebugPrint(1, 'Reprocessing:  ' + failedRecord)
 
         # Read the contents of the file into a string of xml
-        in_file = open(failedRecord,"r")
-        xmlData = in_file.read()
-        in_file.close()
+        try:
+            in_file = open(failedRecord,"r")
+            xmlData = in_file.read()
+            in_file.close()
+        except:
+            DebugPrint(1, 'Reprocess failure: unable to read file' + failedRecord)
+            responseString = responseString + '\nUnable to read from ' + failedRecord
+            continue
 
+        if not XmlData:
+            DebugPrint(1, 'Reprocess failure: ' + failedRecord +
+                       ' was empty: skip send')
+            responseString = responseString + '\nEmpty file ' + failedRecord + ': XML not sent'
+            continue
+        
         # Send the xml to the collector for processing
         response = __sendUsageXML(Config.get_MeterName(), xmlData)
         DebugPrint(1, 'Reprocess Response:  ' + response.get_message())
@@ -1160,7 +1172,10 @@ def Send(record):
         DebugPrint(1,"Will save in the record in:",f.name)
         DebugPrint(3,"DirIndex=",dirIndex," RecordIndex=",recordIndex)
         if f.name == "<stdout>":
-            success = True
+            responseString = "Fatal Error: unable to save record prior to send attempt"
+            DebugPrint(0, responseString)
+            DebugPrint(0, "***********************************************************")
+            return responseString    
         else:
             try:
                 for line in record.XmlData:
@@ -1179,7 +1194,7 @@ def Send(record):
     DebugPrint(0, 'Saved record to ' + f.name)
 
     # Currently, the recordXml is in a list format, with each item being a line of xml.  
-    # the collectora web service requires the xml to be sent as a string.  
+    # the collector web service requires the xml to be sent as a string.  
     # This logic here turns the xml list into a single xml string.
     usageXmlString = ""
     for line in record.XmlData:
@@ -1201,13 +1216,6 @@ def Send(record):
     else:
         failedSendCount += 1
         DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
-        if f.name == "<stdout>":
-            Error("Gratia was un-enable to send the record and was unable to\n"+
-                  "       find a location to store the xml backup file.  The record\n"+
-                  "       will be printed to stdout:")
-            for line in record.XmlData:
-                f.write(line)
-            responseString = "Fatal Error: Record not sent and not cached.  Record will be lost."
 
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
@@ -1232,7 +1240,7 @@ def SendXMLFiles(fileDir, removeOriginal = False):
 
         DebugPrint(0, "***********************************************************")
         DebugPrint(1,"xmlFilename: ",xmlFilename)
-        if failedSendCount >= Config.get_MaxPendingFiles():
+        if (failedSendCount + len(OutstandingRecord)) >= Config.get_MaxPendingFiles():
             responseString = "Fatal Error: too many pending files"
             DebugPrint(0, responseString)
             DebugPrint(0, "***********************************************************")
@@ -1277,7 +1285,10 @@ def SendXMLFiles(fileDir, removeOriginal = False):
             DebugPrint(1,"Will save in the record in:",f.name)
             DebugPrint(3,"DirIndex=",dirIndex," RecordIndex=",recordIndex)
             if f.name == "<stdout>":
-                success = True
+                responseString = "Fatal Error: unable to save record prior to send attempt"
+                DebugPrint(0, responseString)
+                DebugPrint(0, "***********************************************************")
+                return responseString    
             else:
                 try:
                     for line in xmlData:
@@ -1321,13 +1332,6 @@ def SendXMLFiles(fileDir, removeOriginal = False):
         else:
             failedSendCount += 1
             DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
-            if f.name == "<stdout>":
-                Error("Gratia was un-enable to send the record and was unable to\n"+
-                      "       find a location to store the xml backup file.  The record\n"+
-                      "       will be printed to stdout:")
-                for line in record.XmlData:
-                    f.write(line)
-                responseString = responseString + "\nFatal Error: Record not sent and not cached.  Record will be lost."
 
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
