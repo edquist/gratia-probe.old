@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.11f
-Release: 2
+Version: 0.12a
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -26,6 +26,7 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 %{!?site_name: %define site_name '"$( ( if [[ -r \"%{osg_attr}\" ]]; then . \"%{osg_attr}\" ; echo \"${OSG_SITE_NAME}\"; else echo \"Generic Site\"; fi ) )"'}
 
 %{!?meter_name: %define meter_name `uname -n`}
+
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
 Source2: %{name}-psacct-%{version}.tar.bz2
@@ -217,6 +218,9 @@ m&%{ProbeConfig_template_marker}& or print;
 "$config_file" >/dev/null 2>&1
 done
 
+# Check for sensible value of MaxPendingFiles in config file.
+(( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/pbs-lsf/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
+
 # Configure crontab entry
 if %{__grep} -re 'pbs-lsf_meter.cron\.sh' \
         /etc/crontab /etc/cron.* >/dev/null 2>&1; then
@@ -346,6 +350,10 @@ done
 /sbin/chkconfig --add gratia-psacct
 /sbin/chkconfig --level 35 gratia-psacct on
 
+# Check for sensible value of MaxPendingFiles in config file.
+(( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/psacct/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
+
+
 # Configure crontab entry
 if %{__grep} -re 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' \
         /etc/crontab /etc/cron.* >/dev/null 2>&1; then
@@ -384,7 +392,6 @@ to start process accounting
 EOF
 
 # Deal with legacy Fermilab psacct configuration:
-
 if %{__grep} -e 'fiscal/monacct\.log' >/dev/null 2>&1; then
   tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
   crontab -l 2>/dev/null | \
@@ -473,10 +480,10 @@ vdt_location=`dirname "$vdt_setup_sh"`
 "$vdt_location/globus/lib/perl/Globus/GRAM/JobManager/condor.pm" \
 2>/dev/null` >/dev/null 2>&1
 if (( $? != 0 )); then
-%{__cat} 1>&2 <<EOF
+%{__cat} 1>&2 <<\EOF
 
 WARNING: please check that
-\${VDT_LOCATION}/globus/lib/perl/Globus/GRAM/JobManager/{condor,managedfork}.pm
+${VDT_LOCATION}/globus/lib/perl/Globus/GRAM/JobManager/{condor,managedfork}.pm
 contain *both* lines:
 my $condor_version_number = 0;
 sub log_to_gratia
@@ -503,6 +510,9 @@ for jobmanager in "$condor_pm" "$managedfork_pm"; do
 	[[ -x "$patch_script" ]] && [[ -w "$jobmanager" ]] && \
         perl -wi.gratia-`date +%Y%m%d` "$patch_script" "$jobmanager"
 done
+
+# Check for sensible value of MaxPendingFiles in config file.
+(( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/condor/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
 
 # Configure crontab entry
 if %{__grep} -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' \
@@ -548,6 +558,14 @@ fi
 %endif
 
 %changelog
+* Wed Dec 20 2006 Chris Green <greenc@fnal.gov> - 0.12a-1
+- Upgrade version to match tag.
+- Processing of backlog files is now much more efficient.
+- Better handling of large backlog and MaxPendingFiles config option.
+- New default value of MaxPendingFiles of 100K.
+- Eliminate errors if we exit before full initialization.
+- Reprocess is now done as part of initialization.
+
 * Wed Dec 13 2006 Chris Green <greenc@fnal.gov> - 0.11f-2
 - Better application of GRAM patches where gratia is not installed under
   $VDT_LOCATION.

@@ -26,7 +26,7 @@
     VDTSetupFile="MAGIC_VDT_LOCATION/setup.sh"
     UserVOMapFile="MAGIC_VDT_LOCATION/monitoring/grid3-user-vo-map.txt"
 
-    MaxPendingFiles="10000000"
+    MaxPendingFiles="100000"
     DataFolder="MAGIC_VDT_LOCATION/gratia/var/data/"
     WorkingFolder="MAGIC_VDT_LOCATION/gratia/var/tmp"
     LogFolder="MAGIC_VDT_LOCATION/gratia/var/logs/"
