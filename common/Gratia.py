@@ -196,7 +196,7 @@ class ProbeConfiguration:
                              re.search(r'^(?:OSG|GRID3)_USER_VO_MAP="(.*)"\s*(?:#.*)$',
                                        filehandle.read(), re.DOTALL)
                     filehandle.close()
-                    if mapMatch: self.__UserVOMapFile = mapMatch.group[0]
+                    if mapMatch: self.__UserVOMapFile = mapMatch.group(1)
                 except IOError, e:
                     pass
             else: # Last ditch guess
