@@ -269,6 +269,16 @@ Config = None
 MaxConnectionRetries = 2
 MaxFilesToReprocess = 100000
 
+# Instantiate a global connection object so it can be reused for
+# the lifetime of the server Instantiate a 'connected' flag as
+# well, because at times we cannot interrogate a connection
+# object to see if it has been connected yet or not
+__connection = None
+__connected = False
+__connectionError = False
+__connectionRetries = 0
+
+
 def Initialize(customConfig = "ProbeConfig"):
     "This function initializes the Gratia metering engine"
     "We connect/register with the collector and load"
@@ -286,19 +296,6 @@ def Initialize(customConfig = "ProbeConfig"):
 
         # Need to initialize the list of possible directories
         InitDirList()
-
-        # Instantiate a global connection object so it can be reused for
-        # the lifetime of the server Instantiate a 'connected' flag as
-        # well, because at times we cannot interrogate a connection
-        # object to see if it has been connected yet or not
-        global __connection
-        global __connected
-        global __connectionError
-        global __connectionRetries
-        __connection = None
-        __connected = False
-        __connectionError = False
-        __connectionRetries = 0
 
         # Need to look for left over files
         SearchOutstandingRecord()
@@ -577,10 +574,10 @@ def GenerateOutput(prefix,*arg):
     return out
 
 def DebugPrint(level, *arg):
-    if (level<Config.get_DebugLevel()):
+    if (not Config or level<Config.get_DebugLevel()):
         out = GenerateOutput("Gratia: ",*arg)
         print out
-    if level<Config.get_LogLevel():
+    if Config and level<Config.get_LogLevel():
         out = GenerateOutput("Gratia: ",*arg)
         if (Config.get_UseSyslog()):
            LogToSyslog(level,GenerateOutput("",*arg))
@@ -1029,7 +1026,8 @@ class UsageRecord:
             item_index = 0
             for id_item in self.UserId: # Loop over existing entries in UserId block
                 # Look for key
-                match = re.search(r'<\s*'+wanted_key+r'\s*>\s*(?P<Value>.*?)\s*<\s*/', id_item, re.IGNORECASE)
+                match = re.search(r'<\s*(?:[^:]*:)?'+wanted_key+r'\s*>\s*(?P<Value>.*?)\s*<\s*/',
+                                  id_item, re.IGNORECASE)
                 # Store info
                 if match:
                     id_info[wanted_key] = { "Value" : match.group("Value"),
@@ -1185,7 +1183,7 @@ def Send(record):
                 f.close()
             except:
                 DebugPrint(0,"failed to fill with exception: ",f.name,"--", sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
-                
+
     # Currently, the recordXml is in a list format, with each item being a line of xml.  
     # the collector web service requires the xml to be sent as a string.  
     # This logic here turns the xml list into a single xml string.
