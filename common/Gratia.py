@@ -1234,10 +1234,13 @@ def SendXMLFiles(fileDir, removeOriginal = False):
     path = os.path.join(fileDir, "*")
     files = glob.glob(path)
 
-    probeNamePattern = re.compile(r'<(?:[^:]*:)?ProbeName>')
-    siteNamePattern = re.compile(r'<(?:[^:]*:)?SiteName>')
-    endUsageRecordPattern = re.compile(r'</(?:[^:]*:)?UsageRecord>')
-
+    probeNamePattern = re.compile(r'<\s*(?:[^:]*:)?ProbeName\s*>')
+    siteNamePattern = re.compile(r'<\s*(?:[^:]*:)?SiteName\s*>')
+    endUsageRecordPattern = re.compile(r'<\s*/\s*(?:[^:]*:)?UsageRecord\s*>')
+    LocalUserIdPattern = re.compile(r'<\s*(?:[^:]*:)?LocalUserId\s*>\s*(?P<Value>.*?)\s*<\s*/')
+    VONamePattern = re.compile(r'<\s*(?:[^:]*:)?VOName\s*>\s*(?P<Value>.*?)\s*<\s*/')
+    ReportableVONamePattern = re.compile(r'<\s*(?:[^:]*:)?ReportableVOName\s*>\s*(?P<Value>.*?)\s*<\s*/')
+    endUserIdentityPattern = re.compile(r'<\s*/\s*(?:[^:]*:)?UserIdentity\s*>')
     responseString = ""
 
     for xmlFilename in files:
@@ -1257,12 +1260,52 @@ def SendXMLFiles(fileDir, removeOriginal = False):
         # Need to check for keys that may be missing and add them:
         hasProbeName = False
         hasSiteName = False
+        LocalUserId = None
+        VOName = None
+        ReportableVOName = None
+        seenEndUserIdentity = None
 
         for line in in_file:
             if probeNamePattern.match(line):
                 hasProbeName = True
             if siteNamePattern.match(line):
                 hasSiteName = True
+            match = LocalUserIdPattern.search(line, re.IGNORECASE)
+            if match and not seenEndUserIdentity:
+                LocalUserId = match.group('Value')
+            match = VONamePattern.search(line, re.IGNORECASE)
+            if match and not seenEndUserIdentity:
+                VOName = match.group('Value')
+            match = ReportableVOName.search(line, re.IGNORECASE)
+            if match and not seenEndUserIdentity:
+                ReportableVOName = match.group('Value')
+            if endUserIdentityPattern.match(line, re.IGNORECASE):
+                # Check for VOName and ReportableVOName in UserIdentity
+                # clause and update or add if necessary
+                seenEndUserIdentity = True
+                if LocalUserId and not \
+                       (VOName and ReportableVOName):
+                    vo_info = VOfromUser(LocalUserId)
+                    if vo_info:
+                        if (VOName and VOName != vo_info[VOName]):
+                            # Update entry
+                            XmlData = map(lambda x: re.sub(r'(<\s*(?:[^:]*:)?VOName\s*>\s*).*?(\s*<\s*/)',
+                                                           r'\1' + vo_info[VOName] + r'\2',
+                                                           x))
+                        elif (not VOName):
+                            # New entry
+                            xmlData.append('<VOName>' + vo_info[VOName] + '</VOName>\n')
+
+                        if (ReportableVOName and ReportableVOName != vo_info[ReportableVOName]):
+                            # Update entry
+                            XmlData = map(lambda x: re.sub(r'(<\s*(?:[^:]*:)?ReportableVOName\s*>\s*).*?(\s*<\s*/)',
+                                                           r'\1' + vo_info[ReportableVOName] + r'\2',
+                                                           x))
+                        elif (not ReportableVOName):
+                            # New entry
+                            xmlData.append('<ReportableVOName>' + vo_info[ReportableVOName] + '</ReportableVOName>\n')
+
+
             if endUsageRecordPattern.match(line):
                 if not hasProbeName:
                     xmlData.append('<ProbeName>' +
