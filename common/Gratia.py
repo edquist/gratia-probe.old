@@ -1171,28 +1171,21 @@ def Send(record):
         (f,dirIndex,recordIndex) = OpenNewRecordFile(dirIndex,recordIndex)
         DebugPrint(1,"Will save in the record in:",f.name)
         DebugPrint(3,"DirIndex=",dirIndex," RecordIndex=",recordIndex)
-        if f.name == "<stdout>":
-            responseString = "Fatal Error: unable to save record prior to send attempt"
-            DebugPrint(0, responseString)
-            DebugPrint(0, "***********************************************************")
-            return responseString    
-        else:
+        if f.name != "<stdout>":
             try:
                 for line in record.XmlData:
                     f.write(line)
                 f.flush()
                 if f.tell() > 0:
                     success = True
-                    DebugPrint(3,"suceeded to fill: ",f.name)
+                    DebugPrint(0, 'Saved record to ' + f.name)
                 else:
                     DebugPrint(0,"failed to fill: ",f.name)
                     if f.name != "<stdout>": os.remove(f.name)
+                f.close()
             except:
                 DebugPrint(0,"failed to fill with exception: ",f.name,"--", sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
-                if f.name != "<stdout>": os.remove(f.name)
-
-    DebugPrint(0, 'Saved record to ' + f.name)
-
+                
     # Currently, the recordXml is in a list format, with each item being a line of xml.  
     # the collector web service requires the xml to be sent as a string.  
     # This logic here turns the xml list into a single xml string.
@@ -1215,7 +1208,20 @@ def Send(record):
         os.remove(f.name)
     else:
         failedSendCount += 1
-        DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
+        if (f.name == "<stdout>"):
+            DebugPrint(0, 'Record send failed and no backup made: record lost!')
+            responseString += "\nFatal: failed record lost!"
+            match = re.search(r'^<(?:[^:]*:)?RecordIdentity.*/>$', usageXmlString, re.MULTILINE)
+            if match:
+                DebugPrint(0, match.group(0))
+                responseString += "\n", match.group(0)
+            match = re.search(r'^<(?:[^:]*:)?GlobalJobId.*/>$', usageXmlString, re.MULTILINE)
+            if match:
+                DebugPrint(0, match.group(0))
+                responseString += "\n", match.group(0)
+            responseString += "\n" + usageXmlString
+        else:
+            DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
 
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
