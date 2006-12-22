@@ -1,46 +1,12 @@
-Installing the Gratia probe clients -- general information
-Version 0.9c
-Penelope Constanta & Chris Green
+For up-to-date documentation including installation and configuration instructions, please see:
 
+http://osg.ivdgl.org/bin/view/Accounting/ProbeInstallation
 
-We recommend that the client software be placed in the directory $VDT_LOCATION
+If you are installing a specific probe, please see the configuration
+instructions for that probe; if you are writing your own probe, please
+see the general notes at:
 
-1. Install the software:
+http://osg.ivdgl.org/bin/view/Accounting/ProbeConfigGeneral
 
-  rpm -Uvh --relocate /opt/vdt/gratia="$VDT_LOCATION/gratia" \
-      gratia-probe-common-<version>.noarch.rpm \
-
-
-2. Install a specific probe such as gratia-probe-condor or
-gratia-probe-psacct; or write your own based on samplemeter.pl or
-samplemeter.py.
-
-
-3. Customize the gratia ProbeConfig files for each probe, initializing
-from ProbeTemplate if necessary. The following variables (at least)
-should have appropriate values:
-
- ____________________________________________________________________________
-|   Gratia Configuration Variable        |   Set value information           |
-|________________________________________|___________________________________|
-|MeterName="generic"                     |This value will be entered in the  | 
-|                                        |database to indicate where the     |
-|                                        |record came from.  We recommend a  |
-|                                        |batchsystem:FQDN such as           |
-|                                        |  'condor:fermigrid1.fnal.gov'     |
-|________________________________________|___________________________________|
-|SiteName="Generic Site"                 |This value use in the report to    | 
-|                                        |refer to the site/farm/cluster     |
-|                                        |to which the head node give access.|
-|                                        |This is used in particular in the  |
-|                                        |report.                            |
-|________________________________________|___________________________________|
-|VDTSetupFile=                           |Path to the vdt setup.sh file.     |
-|  "MAGIC_VDT_LOCATION/setup.sh"         |Please expand the                  |
-|                                        |MAGIC_VDT_LOCATION variable.       |
-|________________________________________|___________________________________|
-
-
-4. For official Gratia-packaged probe RPMS, the SOAPHost is configured
-appropriately; for your own probe, please contact
-osg-accounting@opensciencegrid.org.
+------------------------------------------------------------------------
+2006/12/22 Chris Green

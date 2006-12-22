@@ -1,68 +1,10 @@
-Installing the Gratia Condor probe client
-Penelope Constanta & Chris Green
+For up-to-date documentation including installation and configuration instructions, please see:
 
-We recommend that the client software be placed in the directory $VDT_LOCATION
+http://osg.ivdgl.org/bin/view/Accounting/ProbeInstallation
 
-1. Install the software:
+and
 
-  rpm -Uvh --relocate /opt/vdt/gratia="$VDT_LOCATION/gratia" \
-      gratia-probe-common-<version>.noarch.rpm \
-      gratia-probe-condor-<version>.noarch.rpm
+http://osg.ivdgl.org/bin/view/Accounting/ProbeConfigCondor
 
-	
-2. Customize the gratia probe configuration file $VDT_LOCATION/gratia/probe/condor/ProbeConfig
-	o Edit the ProbeConfig file so that the following variables have the 
-	  correct values:
-
- ____________________________________________________________________________
-|   Gratia Configuration Variable        |   Set value information           |
-|________________________________________|___________________________________|
-|MeterName="generic"                     |This value will be entered in the  | 
-|                                        |database to indicate where the     |
-|                                        |record came from.  We recommend a  |
-|                                        |batchsystem:FQDN such as           |
-|                                        |  'condor:fermigrid1.fnal.gov'     |
-|________________________________________|___________________________________|
-|SiteName="Generic Site"                 |This value use in the report to    | 
-|                                        |refer to the site/farm/cluster     |
-|                                        |to which the head node give access.|
-|                                        |This is used in particular in the  |
-|                                        |report.                            |
-|________________________________________|___________________________________|
-|VDTSetupFile=                           |Path to the vdt setup.sh file.     |
-|  "MAGIC_VDT_LOCATION/setup.sh"         |Please expand the                  |
-|                                        |MAGIC_VDT_LOCATION variable.       |
-|________________________________________|___________________________________|
-
-
-
-3. The RPM install procedure makes appropriate entries in root's crontab
-for uploading accounting information to gratia at the appropriate
-time. The time is appropriately randomized.
-
-
-4. Under the directory gratia/condor-probes/gram_mods there are two
-files that contain the changes to the Globus script. If gratia was
-installed originally with VDT and the RPMS have been installed as
-recommended under ${VDT_LOCATION}, nothing needs to be done. However, if
-you get a post-install message regarding condor.pm and/or
-managedfork.pm, please act upon that message. Commands to apply and/or
-update patches to the pm files:
-
-  pacman -get Gratia-Patch # (preferred)
-
-OR
-
-  cd $VDT_LOCATION/lib/perl/Globus/GRAM/JobManager
-  if grep -e log_to_gratia condor.pm; then
-    perl -wapi.bak -f \
-     $VDT_LOCATION/gratia/condor-probes/gram_mods/update_pm_in_place \
-     condor.pm managedfork.pm condor.pm
-  else
-    patch -p0 < $VDT_LOCATION/gratia/condor-probes/gram_mods/condor.pm.diff
-    patch -p0 < $VDT_LOCATION/gratia/condor-probes/gram_mods/managedfork.pm.diff
-  fi
-
-5. The SOAPHost has been preconfigured to use the official OSG Gratia
-collector (or the official ITB Gratia if your installed the ITB RPMs):
-change at your own risk.
+------------------------------------------------------------------------
+2006/12/22 Chris Green
