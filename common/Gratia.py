@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.25 2007-01-03 23:02:09 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.26 2007-01-03 23:29:33 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
@@ -333,9 +333,11 @@ def __connect():
     global __connection
     global __connected
     global __connectionError
+    global __connectionRetries
+
     if __connectionError:
         __disconnect()
-        __connectionRetries += 1
+        __connectionRetries = __connectionRetries + 1
         if __connectionRetries > MaxConnectionRetries:
             Error("Unable to reconnect after ", MaxConnectionRetries, " attempts")
             sys.exit(1)
