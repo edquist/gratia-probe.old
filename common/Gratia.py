@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.24 2007-01-03 22:59:00 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.25 2007-01-03 23:02:09 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
@@ -1123,7 +1123,7 @@ def Reprocess():
             responseString = responseString + '\nUnable to read from ' + failedRecord
             continue
 
-        if not XmlData:
+        if not xmlData:
             DebugPrint(1, 'Reprocess failure: ' + failedRecord +
                        ' was empty: skip send')
             responseString = responseString + '\nEmpty file ' + failedRecord + ': XML not sent'
@@ -1291,7 +1291,7 @@ def SendXMLFiles(fileDir, removeOriginal = False):
                     if vo_info:
                         if (VOName and VOName != vo_info[VOName]):
                             # Update entry
-                            XmlData = map(lambda x: re.sub(r'(<\s*(?:[^:]*:)?VOName\s*>\s*).*?(\s*<\s*/)',
+                            xmlData = map(lambda x: re.sub(r'(<\s*(?:[^:]*:)?VOName\s*>\s*).*?(\s*<\s*/)',
                                                            r'\1' + vo_info[VOName] + r'\2',
                                                            x))
                         elif (not VOName):
@@ -1300,7 +1300,7 @@ def SendXMLFiles(fileDir, removeOriginal = False):
 
                         if (ReportableVOName and ReportableVOName != vo_info[ReportableVOName]):
                             # Update entry
-                            XmlData = map(lambda x: re.sub(r'(<\s*(?:[^:]*:)?ReportableVOName\s*>\s*).*?(\s*<\s*/)',
+                            xmlData = map(lambda x: re.sub(r'(<\s*(?:[^:]*:)?ReportableVOName\s*>\s*).*?(\s*<\s*/)',
                                                            r'\1' + vo_info[ReportableVOName] + r'\2',
                                                            x))
                         elif (not ReportableVOName):
