@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.23 2007-01-03 22:53:12 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.24 2007-01-03 22:59:00 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
@@ -664,7 +664,7 @@ def SearchOutstandingRecord():
         path = os.path.join(path,"*"+"."+Config.get_GratiaExtension())
         files = glob.glob(path)
         for f in files:
-            OustandingRecord[f] = 1
+            OutstandingRecord[f] = 1
             if len(OutstandingRecord) >= MaxFilesToReprocess: break
 
         if len(OutstandingRecord) >= MaxFilesToReprocess: break
