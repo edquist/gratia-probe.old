@@ -1,3 +1,5 @@
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.23 2007-01-03 22:53:12 pcanal Exp $
+
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
 import re, fileinput
