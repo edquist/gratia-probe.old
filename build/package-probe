@@ -38,9 +38,19 @@ sed -e 's/\/$//g' \
   find . -depth -print | \
   cpio -pmudv "${TMP}/${probe_dir_stem}" 2>/dev/null
   cd "${TMP}/${probe_dir_stem}"
+  ####################################
   # Clean up
+  #
+  # CVS directories
   find . -type d -name 'CVS' -exec rm -rf \{\} \; -prune 
+  # Backup files
   find . -name '*~' -exec rm -f \{\} \; 
+  # Files referenced by .cvignore
+  find . -name .cvsignore | while read cvsignore; do
+    cat ${cvsignore} | ( cd `dirname $cvsignore`; rm -fv `cat` )
+    rm -fv ${cvsignore}
+  done
+  ####################################
   cd "${TMP}"
   # Make tar file
   tar jcf "${tar_stem}.tar.bz2" "${probe_dir_stem}" 
