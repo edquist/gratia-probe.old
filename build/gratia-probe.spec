@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.12b
+Version: 0.12c
 Release: 1
 License: GPL
 Group: Applications/System
@@ -556,6 +556,9 @@ fi
 %endif
 
 %changelog
+* Thu Jan  4 2007 Chris Green <greenc@fnal.gov> - 0.12c-1
+- Fix a couple of bugs affecting pbs-lsf.
+
 * Thu Jan  4 2007 Chris Green <greenc@fnal.gov> - 0.12b-1
 - README files now mainly vestigial and refer to TWiki.
 - Fix various minor bugs in Gratia.py.

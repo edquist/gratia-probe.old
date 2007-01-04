@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.26 2007-01-03 23:29:33 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.27 2007-01-04 23:21:09 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
@@ -1234,6 +1234,7 @@ def Send(record):
 # readable by the Gratia server.
 def SendXMLFiles(fileDir, removeOriginal = False):
     global Config
+    global failedSendCount
 
     path = os.path.join(fileDir, "*")
     files = glob.glob(path)
@@ -1280,7 +1281,7 @@ def SendXMLFiles(fileDir, removeOriginal = False):
             match = VONamePattern.search(line, re.IGNORECASE)
             if match and not seenEndUserIdentity:
                 VOName = match.group('Value')
-            match = ReportableVOName.search(line, re.IGNORECASE)
+            match = ReportableVONamePattern.search(line, re.IGNORECASE)
             if match and not seenEndUserIdentity:
                 ReportableVOName = match.group('Value')
             if endUserIdentityPattern.match(line, re.IGNORECASE):
