@@ -1,12 +1,39 @@
 #! /usr/bin/env bash
 
+########################################################################
+# db-find-job
+#
+# [ Extended from from quicktest.sh, author Philippe Canal ]
+#
+# Check for a particular job in the Gratia DB to verify successful upload.
+#
+#
+# Examples
+#
+# * All jobs from new probe to the ITB server
+#
+#       ./db-find-job -ProbeName condor:my_new_CE.my.domain -schema gratia_itb -LocalJobId %
+#
+# * All aggregate records from new probe to ps-accounting server
+#
+#       ./db-find-job -ProbeName psacct:my_new_CE.my.domain -schema gratia_psacct
+#
+# * Job 18807 from new probe to production server
+#
+#       ./db-find-job -ProbeName pbs-lsf:my_new_CE.my.domain -LocalJobId 18807
+#
+#
+# 2007/01/04 CG
+#
+########################################################################
+
 # Default values.
 hostname=gratia-db01.fnal.gov 
 username=reader
 port=3320 
 password=reader 
 schema=gratia
-LocalJobId=0
+LocalJobId=""
 ProbeName=%
 
 Meter_BinDir=$(dirname $0)
@@ -72,18 +99,25 @@ else
   exit 1
 fi
 
+if [[ "$LocalJobId" == *'%'* ]]; then
+    LocalJobId_arg="LocalJobId like '$LocalJobId'"
+elif [[ -z "$LocalJobId" ]]; then
+    LocalJobId_arg="LocalJobId is NULL"
+else
+    LocalJobId_arg="LocalJobId=$LocalJobId"
+fi
 connection_string=" -h $hostname -u $username --port=$port --password=$password $schema "
-cmd="select recordId,StartTime,EndTime,WallDuration,LocalJobId,ProbeName from JobUsageRecord where LocalJobId=$LocalJobId and ProbeName like '$ProbeName';"
+cmd="select recordId,StartTime,EndTime,WallDuration,LocalJobId,ProbeName from JobUsageRecord where $LocalJobId_arg and ProbeName like '$ProbeName';"
 if test "x$verbose" != "x"; then 
-   echo mysql $connection_string -e "$cmd"
+    echo mysql $connection_string -e "$cmd"
 fi
 mysql $connection_string -e "$cmd" > /var/tmp/quicktest_$pid.out
 if test -s /var/tmp/quicktest_$pid.out; then
-   result=0
+    cat /var/tmp/quicktest_$pid.out
+    result=0
 else
-   result=1
+    result=1
 fi
-cat /var/tmp/quicktest_$pid.out
 rm /var/tmp/quicktest_$pid.out
 
 exit $result

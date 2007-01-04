@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.12a
+Version: 0.12b
 Release: 1
 License: GPL
 Group: Applications/System
@@ -286,6 +286,7 @@ Common files and examples for Gratia OSG accounting system probes.
 %{default_prefix}/probe/common/Clarens.py
 %{default_prefix}/probe/common/Gratia.py
 %{default_prefix}/probe/common/RegisterProbe.py
+%{default_prefix}/probe/common/test/db-find-job
 
 %package psacct
 Summary: A ps-accounting probe
@@ -558,6 +559,12 @@ fi
 %endif
 
 %changelog
+* Thu Jan  4 2007 Chris Green <greenc@fnal.gov> - 0.12b-1
+- README files now mainly vestigial and refer to TWiki.
+- Fix various minor bugs in Gratia.py.
+- Fix two annoying (but minor) bugs in condor_history capability check.
+- Add db-find-job test script to common package.
+
 * Wed Dec 20 2006 Chris Green <greenc@fnal.gov> - 0.12a-1
 - Upgrade version to match tag.
 - Processing of backlog files is now much more efficient.
