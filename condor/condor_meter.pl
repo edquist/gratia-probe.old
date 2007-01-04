@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.4 2006-10-24 14:42:29 greenc Exp $
+# $Id: condor_meter.pl,v 1.5 2007-01-04 17:47:30 pcanal Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -25,7 +25,7 @@ use File::Basename;
 
 $progname = "condor_meter.pl";
 $prog_version = "v0.4.0";
-$prog_revision = '$Revision: 1.4 $ ';   # CVS Version number
+$prog_revision = '$Revision: 1.5 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -349,9 +349,9 @@ sub Query_Condor_History {
   if ($cluster_id) {
     open(CONDOR_HISTORY_HELP, "$condor_hist_cmd -help|")
       or die "Unable to open condor_history pipe\n";
-    my @condor_history_help_txt = <>;
+    my @condor_history_help_text = <>;
     close CONDOR_HISTORY_HELP;
-    chomp @condor_history_help_txt;
+    chomp @condor_history_help_text;
     grep /-backwards\b/, @condor_history_help_text and
       $condor_hist_cmd = "$condor_hist_cmd -backwards";
     grep /-match\b/, @condor_history_help_text and
@@ -1046,6 +1046,9 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.4  2006/10/24 14:42:29  greenc
+# Only use -backwards and -match options if they are supported.
+#
 # Revision 1.3  2006/09/19 21:57:33  pcanal
 # use faster condor_history lookup
 #
