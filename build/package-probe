@@ -47,8 +47,8 @@ sed -e 's/\/$//g' \
   find . -name '*~' -exec rm -f \{\} \; 
   # Files referenced by .cvignore
   find . -name .cvsignore | while read cvsignore; do
-    cat ${cvsignore} | ( cd `dirname $cvsignore`; rm -fv `cat` )
-    rm -fv ${cvsignore}
+    cat ${cvsignore} | ( cd `dirname $cvsignore`; rm -f `cat` )
+    rm -f ${cvsignore}
   done
   ####################################
   cd "${TMP}"
