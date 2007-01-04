@@ -283,7 +283,6 @@ Common files and examples for Gratia OSG accounting system probes.
 %{default_prefix}/probe/common/samplemeter.pl
 %{default_prefix}/probe/common/samplemeter.py
 %{default_prefix}/probe/common/ProbeConfigTemplate
-%{default_prefix}/probe/common/Clarens.py
 %{default_prefix}/probe/common/Gratia.py
 %{default_prefix}/probe/common/RegisterProbe.py
 %{default_prefix}/probe/common/test/db-find-job
@@ -303,9 +302,7 @@ The psacct probe for the Gratia OSG accounting system.
 %files psacct
 %defattr(-,root,root,-)
 %doc psacct/README
-%doc psacct/README-facct-migration
 %{default_prefix}/probe/psacct/README
-%{default_prefix}/probe/psacct/README-facct-migration
 %config %{default_prefix}/probe/psacct/facct-catchup
 %config %{default_prefix}/probe/psacct/facct-turnoff.sh
 %config %{default_prefix}/probe/psacct/psacct_probe.cron.sh
@@ -564,6 +561,8 @@ fi
 - Fix various minor bugs in Gratia.py.
 - Fix two annoying (but minor) bugs in condor_history capability check.
 - Add db-find-job test script to common package.
+- Removed unnecessary Clarens.py.
+- Removed README-facct-migration (see TWiki docs for this information).
 
 * Wed Dec 20 2006 Chris Green <greenc@fnal.gov> - 0.12a-1
 - Upgrade version to match tag.
