@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.12c
+Version: 0.12d
 Release: 1
 License: GPL
 Group: Applications/System
@@ -235,10 +235,10 @@ fi
 tmpfile=`mktemp /tmp/gratia-probe-pbs-lsf-post.XXXXXXXXXX`
 crontab -l 2>/dev/null | \
 %{__grep} -v -e 'pbs-lsf_meter.cron\.sh' > "$tmpfile" 2>/dev/null
+(( min = $RANDOM % 15 ))
 %{__cat} >>"$tmpfile" <<EOF
-$(( $RANDOM % 15 ))-59/15 * * * * \
-"${RPM_INSTALL_PREFIX1}/probe/pbs-lsf/pbs-lsf_meter.cron.sh" > \
-"${RPM_INSTALL_PREFIX1}/var/logs/gratia-probe-pbs-lsf.log" 2>&1
+$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
+"${RPM_INSTALL_PREFIX1}/probe/pbs-lsf/pbs-lsf_meter.cron.sh"
 EOF
 
 crontab "$tmpfile" >/dev/null 2>&1
@@ -370,8 +370,7 @@ crontab -l 2>/dev/null | \
         -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
 %{__cat} >>"$tmpfile" <<EOF
 $(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * \
-"${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh" > \
-"${RPM_INSTALL_PREFIX1}/var/logs/gratia-probe-psacct.log" 2>&1
+"${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh"
 EOF
 
 crontab "$tmpfile" >/dev/null 2>&1
@@ -528,10 +527,10 @@ tmpfile=`mktemp /tmp/gratia-probe-condor-post.XXXXXXXXXX`
 crontab -l 2>/dev/null | \
 %{__grep} -v -e 'condor_meter.cron\.sh' \
         -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
+(( min = $RANDOM % 15 ))
 %{__cat} >>"$tmpfile" <<EOF
-$(( $RANDOM % 15 ))-59/15 * * * * \
-"${RPM_INSTALL_PREFIX1}/probe/condor/condor_meter.cron.sh" > \
-"${RPM_INSTALL_PREFIX1}/var/logs/gratia-probe-condor.log" 2>&1
+$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
+"${RPM_INSTALL_PREFIX1}/probe/condor/condor_meter.cron.sh"
 EOF
 
 crontab "$tmpfile" >/dev/null 2>&1
@@ -556,6 +555,15 @@ fi
 %endif
 
 %changelog
+* Fri Jan  5 2007 Chris Green <greenc@fnal.gov> - 0.12d-1
+- Fix problems with user-vo-name lookup under pbs-lsf.
+- Try to be more robust against not finding top of VDT distribution.
+- Honor request for crontab to not redirect output; and for crontab line
+   to be POSIX-compliant (/ notation for stepping is apparently a
+   vixie-cron extension).
+- Tweak ProbeConfigTemplate to suppress all but real errors in
+  stdout/stderr.
+
 * Thu Jan  4 2007 Chris Green <greenc@fnal.gov> - 0.12c-1
 - Fix a couple of bugs affecting pbs-lsf.
 
