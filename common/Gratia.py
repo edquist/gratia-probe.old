@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.28 2007-01-05 17:55:14 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.29 2007-01-05 21:31:31 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
@@ -1241,13 +1241,13 @@ def SendXMLFiles(fileDir, removeOriginal = False):
     path = os.path.join(fileDir, "*")
     files = glob.glob(path)
 
-    probeNamePattern = re.compile(r'<\s*(?:[^:]*:)?ProbeName\s*>')
-    siteNamePattern = re.compile(r'<\s*(?:[^:]*:)?SiteName\s*>')
-    endUsageRecordPattern = re.compile(r'<\s*/\s*(?:[^:]*:)?UsageRecord\s*>')
-    LocalUserIdPattern = re.compile(r'<\s*(?:[^:]*:)?LocalUserId\s*>\s*(?P<Value>.*?)\s*<\s*/')
-    VONamePattern = re.compile(r'<\s*(?:[^:]*:)?VOName\s*>\s*(?P<Value>.*?)\s*<\s*/')
-    ReportableVONamePattern = re.compile(r'<\s*(?:[^:]*:)?ReportableVOName\s*>\s*(?P<Value>.*?)\s*<\s*/')
-    endUserIdentityPattern = re.compile(r'<\s*/\s*(?:[^:]*:)?UserIdentity\s*>')
+    probeNamePattern = re.compile(r'<\s*(?:[^:]*:)?ProbeName\s*>', re.IGNORECASE)
+    siteNamePattern = re.compile(r'<\s*(?:[^:]*:)?SiteName\s*>', re.IGNORECASE)
+    endUsageRecordPattern = re.compile(r'<\s*/\s*(?:[^:]*:)?UsageRecord\s*>', re.IGNORECASE)
+    LocalUserIdPattern = re.compile(r'<\s*(?:(?P<Namespace>[^:]*):)?LocalUserId\s*>\s*(?P<Value>.*?)\s*<\s*/', re.IGNORECASE)
+    VONamePattern = re.compile(r'<\s*(?:[^:]*:)?VOName\s*>\s*(?P<Value>.*?)\s*<\s*/', re.IGNORECASE)
+    ReportableVONamePattern = re.compile(r'<\s*(?:[^:]*:)?ReportableVOName\s*>\s*(?P<Value>.*?)\s*<\s*/', re.IGNORECASE)
+    endUserIdentityPattern = re.compile(r'<\s*/\s*(?:[^:]*:)?UserIdentity\s*>', re.IGNORECASE)
     responseString = ""
 
     for xmlFilename in files:
@@ -1271,22 +1271,24 @@ def SendXMLFiles(fileDir, removeOriginal = False):
         VOName = None
         ReportableVOName = None
         seenEndUserIdentity = None
+        namespace = None
 
         for line in in_file:
             if probeNamePattern.match(line):
                 hasProbeName = True
             if siteNamePattern.match(line):
                 hasSiteName = True
-            match = LocalUserIdPattern.search(line, re.IGNORECASE)
+            match = LocalUserIdPattern.search(line)
             if match and not seenEndUserIdentity:
                 LocalUserId = match.group('Value')
-            match = VONamePattern.search(line, re.IGNORECASE)
+                namespace = match.group('Namespace')
+            match = VONamePattern.search(line)
             if match and not seenEndUserIdentity:
                 VOName = match.group('Value')
-            match = ReportableVONamePattern.search(line, re.IGNORECASE)
+            match = ReportableVONamePattern.search(line)
             if match and not seenEndUserIdentity:
                 ReportableVOName = match.group('Value')
-            if endUserIdentityPattern.match(line, re.IGNORECASE):
+            if endUserIdentityPattern.search(line):
                 # Check for VOName and ReportableVOName in UserIdentity
                 # clause and update or add if necessary
                 seenEndUserIdentity = True
@@ -1294,23 +1296,32 @@ def SendXMLFiles(fileDir, removeOriginal = False):
                        (VOName and ReportableVOName):
                     vo_info = VOfromUser(LocalUserId)
                     if vo_info:
-                        if (VOName and VOName != vo_info[VOName]):
+                        if (VOName and VOName != vo_info['VOName']):
                             # Update entry
                             xmlData = map(lambda x: re.sub(r'(<\s*(?:[^:]*:)?VOName\s*>\s*).*?(\s*<\s*/)',
-                                                           r'\1' + vo_info[VOName] + r'\2',
-                                                           x))
+                                                           r'\1' + vo_info['VOName'] + r'\2',
+                                                           x), xmlData)
                         elif (not VOName):
                             # New entry
-                            xmlData.append('<VOName>' + vo_info[VOName] + '</VOName>\n')
-
-                        if (ReportableVOName and ReportableVOName != vo_info[ReportableVOName]):
+                            appstring = '<'
+                            if namespace: appstring += namespace + ':'
+                            appstring += 'VOName>' + vo_info['VOName'] + '</'
+                            if namespace: appstring += namespace + ':'
+                            appstring += 'VOName>\n'
+                            xmlData.append(appstring)
+                        if (ReportableVOName and ReportableVOName != vo_info['ReportableVOName']):
                             # Update entry
                             xmlData = map(lambda x: re.sub(r'(<\s*(?:[^:]*:)?ReportableVOName\s*>\s*).*?(\s*<\s*/)',
-                                                           r'\1' + vo_info[ReportableVOName] + r'\2',
-                                                           x))
+                                                           r'\1' + vo_info['ReportableVOName'] + r'\2',
+                                                           x), xmlData)
                         elif (not ReportableVOName):
                             # New entry
-                            xmlData.append('<ReportableVOName>' + vo_info[ReportableVOName] + '</ReportableVOName>\n')
+                            appstring = '<'
+                            if namespace: appstring += namespace + ':'
+                            appstring += 'ReportableVOName>' + vo_info['ReportableVOName'] + '</'
+                            if namespace: appstring += namespace + ':'
+                            appstring += 'ReportableVOName>\n'
+                            xmlData.append(appstring)
 
 
             if endUsageRecordPattern.match(line):
