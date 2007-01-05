@@ -18,7 +18,7 @@
     MeterName="generic" 
     SiteName="Generic Site"
     LogLevel="2"
-    DebugLevel="1" 
+    DebugLevel="0" 
     GratiaExtension="gratia.xml"
     CertificateFile="/etc/grid-security/hostcert.pem"
     KeyFile="/etc/grid-security/hostkey.pem"
