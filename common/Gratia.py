@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.27 2007-01-04 23:21:09 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.28 2007-01-05 17:55:14 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
@@ -183,10 +183,12 @@ class ProbeConfiguration:
             return self.__UserVOMapFile
         val = self.__getConfigAttribute('UserVOMapFile')
         if val and re.search(r'MAGIC_VDT_LOCATION', val):
-            val = re.sub(r'MAGIC_VDT_LOCATION',
-                         self.__findVDTTop(),
-                         val)
-            if path.os.isfile(val): self.__UserVOMapFile = val
+            vdttop = self.__findVDTTop()
+            if vdttop != None:
+               val = re.sub(r'MAGIC_VDT_LOCATION',
+                            vdttop,
+                            val)
+               if path.os.isfile(val): self.__UserVOMapFile = val
         elif val and os.path.isfile(val):
             self.__UserVOMapFile = val
         else: # Invalid or missing config entry
