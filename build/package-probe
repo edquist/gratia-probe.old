@@ -44,7 +44,7 @@ sed -e 's/\/$//g' \
   # CVS directories
   find . -type d -name 'CVS' -exec rm -rf \{\} \; -prune 
   # Backup files
-  find . -name '*~' -exec rm -f \{\} \; 
+  find . \( -name '*~' -o -name '.#*' \) -exec rm -f \{\} \; 
   # Files referenced by .cvignore
   find . -name .cvsignore | while read cvsignore; do
     cat ${cvsignore} | ( cd `dirname $cvsignore`; rm -f `cat` )
