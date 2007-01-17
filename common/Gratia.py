@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.29 2007-01-05 21:31:31 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.30 2007-01-17 17:51:27 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
@@ -7,6 +7,8 @@ import re, fileinput
 oldexitfunc = getattr(sys, 'exitfunc', None)
 def disconnect_at_exit(last_exit = oldexitfunc):
     if Config: RemoveOldLogs(Config.get_LogRotate())
+    DebugPrint(0, "End of execution summary: records sent successfully: " + str(successfulSendCount))
+    DebugPrint(0, "                          records failed: " + str(failedSendCount))
     DebugPrint(1, "End-of-execution disconnect ...")
     __disconnect()
     if last_exit: last_exit()
@@ -182,13 +184,13 @@ class ProbeConfiguration:
         if self.__UserVOMapFile:
             return self.__UserVOMapFile
         val = self.__getConfigAttribute('UserVOMapFile')
-        if val and re.search(r'MAGIC_VDT_LOCATION', val):
+        if val and re.search(r"M\AGIC_VDT_LOCATION", val):
             vdttop = self.__findVDTTop()
             if vdttop != None:
-               val = re.sub(r'MAGIC_VDT_LOCATION',
+               val = re.sub(r"M\AGIC_VDT_LOCATION",
                             vdttop,
                             val)
-               if path.os.isfile(val): self.__UserVOMapFile = val
+               if os.path.isfile(val): self.__UserVOMapFile = val
         elif val and os.path.isfile(val):
             self.__UserVOMapFile = val
         else: # Invalid or missing config entry
@@ -555,23 +557,22 @@ def LogToSyslog(level, message) :
 
 def RemoveOldLogs(nDays = 31):
 
-   backupDir = Config.get_LogFolder()
+   logDir = Config.get_LogFolder()
+   # Get the list of all files in the log directory
+   files = glob.glob(os.path.join(logDir,"*")+".log")
+
+   if not files: return
+   
    cutoff = time.time() - nDays * 24 * 3600
 
-   DebugPrint(1, " Removing log files older than ", nDays, " days from " , backupDir)
+   DebugPrint(1, "Removing log files older than ", nDays, " days from " , logDir)
  
-   # Get the list of all files in the PSACCT File Backup Repository
-   files = glob.glob(os.path.join(backupDir,"*")+".log")
-
    DebugPrint(3, " Will check the files: ",files)
         
    for f in files:
       if os.path.getmtime(f) < cutoff:
          DebugPrint(2, "Will remove: " + f)
-         #os.remove(f)
-                
-   files = None
-
+         os.remove(f)
 
 def GenerateOutput(prefix,*arg):
     out = prefix
@@ -581,14 +582,15 @@ def GenerateOutput(prefix,*arg):
 
 def DebugPrint(level, *arg):
     if (not Config or level<Config.get_DebugLevel()):
-        out = GenerateOutput("Gratia: ",*arg)
+        out = time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + \
+              GenerateOutput("Gratia: ",*arg)
         print out
     if Config and level<Config.get_LogLevel():
         out = GenerateOutput("Gratia: ",*arg)
         if (Config.get_UseSyslog()):
            LogToSyslog(level,GenerateOutput("",*arg))
         else:
-           LogToFile(out)
+           LogToFile(time.strftime(r'%H:%M:%S %Z', time.localtime()) + " " + out)
 
 def Error(*arg):
     out = GenerateOutput("Error in Gratia probe: ",*arg)
@@ -736,13 +738,16 @@ def TimeToString(t = time.gmtime() ):
 #   nDays - remove file older than 'nDays' (default 31)
 #
 def RemoveOldBackups(self, probeConfig, nDays = 31):
-    logDir = Config.get_LogFolder()
-    cutoff = time.time() - nDays * 24 * 3600
-
-    DebugPrint(1, " Removing Gratia log files older than ", nDays, " days from " , backupDir)
+    backupDir = Config.get_PSACCTBackupFileRepository()
 
     # Get the list of all files in the PSACCT File Backup Repository
     files = glob.glob(os.path.join(backupDir,"*.log"))
+
+    if not files: return
+    
+    cutoff = time.time() - nDays * 24 * 3600
+
+    DebugPrint(1, " Removing Gratia data backup files older than ", nDays, " days from " , backupDir)
 
     DebugPrint(3, " Will check the files: ",files)
 
@@ -750,8 +755,6 @@ def RemoveOldBackups(self, probeConfig, nDays = 31):
         if os.path.getmtime(f) < cutoff:
             DebugPrint(2, "Will remove: " + f)
             os.remove(f)
-
-    files = None
 
 class UsageRecord:
     "Base class for the Gratia Usage Record"
@@ -1103,12 +1106,16 @@ def GlobalJobId(record,value):
 def ProcessJobId(record,value):
     record.ProcessJobId(value)
 
+failedSendCount = 0
+successfulSendCount = 0
+
 #
 # Reprocess
 #
 #  Loops through all outstanding records and attempts to send them again
 #
 def Reprocess():
+    global successfulSendCount
     responseString = ""
 
     # Loop through and try to send any outstanding records
@@ -1140,6 +1147,7 @@ def Reprocess():
 
         # Determine if the call succeeded, and remove the file if it did
         if response.get_code() == 0:
+            successfulSendCount += 1
             os.remove(failedRecord)
             del OutstandingRecord[failedRecord]
 
@@ -1148,10 +1156,9 @@ def Reprocess():
 
     return responseString
 
-failedSendCount = 0
-
 def Send(record):
     global failedSendCount
+    global successfulSendCount
 
     DebugPrint(0, "***********************************************************")
     DebugPrint(1,"Record: ",record)
@@ -1209,6 +1216,7 @@ def Send(record):
     # code.  Currently, 0 = success
     if response.get_code() == 0:
         DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+        successfulSendCount += 1
         os.remove(f.name)
     else:
         failedSendCount += 1
@@ -1237,6 +1245,7 @@ def Send(record):
 def SendXMLFiles(fileDir, removeOriginal = False):
     global Config
     global failedSendCount
+    global successfulSendCount
 
     path = os.path.join(fileDir, "*")
     files = glob.glob(path)
@@ -1393,6 +1402,7 @@ def SendXMLFiles(fileDir, removeOriginal = False):
         # response code.  Currently, 0 = success
         if response.get_code() == 0:
             DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+            successfulSendCount += 1
             os.remove(f.name)
         else:
             failedSendCount += 1
