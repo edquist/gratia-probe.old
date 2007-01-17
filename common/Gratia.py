@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.30 2007-01-17 17:51:27 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.31 2007-01-17 23:35:31 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
@@ -1416,6 +1416,8 @@ __UserVODictionary = { }
 
 def VOfromUser(user):
     " Helper function to obtain the voi and VOc from the user name via the reverse gridmap file"
+
+    global __UserVODictionary
     if (len(__UserVODictionary) == 0):
         # Initialize dictionary
         mapfile = Config.get_UserVOMapFile()
