@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.31 2007-01-17 23:35:31 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.32 2007-01-17 23:42:00 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
@@ -209,8 +209,13 @@ class ProbeConfiguration:
                 vdttop = self.__findVDTTop()
                 if vdttop != None: 
                    self.__UserVOMapFile = self.__findVDTTop() + \
+                                     '/monitoring/osg-user-vo-map.txt'
+                   if not os.path.isfile(self.__UserVOMapFile):
+                       self.__UserVOMapFile = self.__findVDTTop() + \
                                      '/monitoring/grid3-user-vo-map.txt'
-                   if not os.path.isfile(self.__UserVOMapFile): self.__UserVOMapFile = None
+                       if not os.path.isfile(self.__UserVOMapFile):
+                           self.__UserVOMapFile = None
+                           
         return self.__UserVOMapFile
 
 class Event:
