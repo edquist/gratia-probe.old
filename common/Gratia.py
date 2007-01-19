@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.32 2007-01-17 23:42:00 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.33 2007-01-19 21:08:13 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
@@ -184,10 +184,12 @@ class ProbeConfiguration:
         if self.__UserVOMapFile:
             return self.__UserVOMapFile
         val = self.__getConfigAttribute('UserVOMapFile')
-        if val and re.search(r"M\AGIC_VDT_LOCATION", val):
+        # The vestigial escape here is to prevent substitution during a
+        # VDT install.
+        if val and re.search("MAGIC\_VDT_LOCATION", val):
             vdttop = self.__findVDTTop()
             if vdttop != None:
-               val = re.sub(r"M\AGIC_VDT_LOCATION",
+               val = re.sub("MAGIC\_VDT_LOCATION",
                             vdttop,
                             val)
                if os.path.isfile(val): self.__UserVOMapFile = val
