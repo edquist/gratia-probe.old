@@ -91,7 +91,7 @@ s&^(\s*Version\s*:\s*).*$&${1}'"${version}"'&i;
 s&^(\s*Release\s*:\s*).*$&${1}'"${release}"'&i;
 ' ${specfile} > "${tmp_specfile}"
 
-build/package-probe "${version}" common condor pbs-lsf psacct
+build/package-probe "${version}" common condor pbs-lsf psacct sge
 status=$?
 
 if (( $status == 0 )); then

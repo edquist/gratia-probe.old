@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.12d
+Version: 0.12e
 Release: 1
 License: GPL
 Group: Applications/System
@@ -32,6 +32,7 @@ Source1: %{name}-condor-%{version}.tar.bz2
 Source2: %{name}-psacct-%{version}.tar.bz2
 Source3: %{name}-pbs-lsf-%{version}.tar.bz2
 Source4: urCollector-%{urCollector_version}.tgz
+Source5: %{name}-sge-%{version}.tar.bz2
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch2: urCollector-2006-06-13-createTime-timezone.patch
@@ -58,6 +59,7 @@ cd urCollector-%{urCollector_version}
 %patch -P 4 -b .modules-1
 %patch -P 5 -b .modules-2
 %endif
+%setup -q -D -T -a 5
 
 %build
 %ifnarch noarch
@@ -74,12 +76,13 @@ cd -
 
 %ifarch noarch
   # Obtain files
-  %{__cp} -pR {common,condor,psacct} "${RPM_BUILD_ROOT}%{default_prefix}/probe"
+  %{__cp} -pR {common,condor,psacct,sge} "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
   for probe_config in \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/condor/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/psacct/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/sge/ProbeConfig" \
       ; do
     %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
@@ -171,6 +174,8 @@ This product includes software developed by The EU EGEE Project
 %{default_prefix}/probe/pbs-lsf/urCollector/Configuration.pm
 %{default_prefix}/probe/pbs-lsf/etc
 %{default_prefix}/probe/pbs-lsf/libexec
+%{default_prefix}/probe/pbs-lsf/test/pbs-logdir/
+%{default_prefix}/probe/pbs-lsf/test/lsf-logdir/
 %config(noreplace) %{default_prefix}/probe/pbs-lsf/urCollector.conf
 %config(noreplace) %{default_prefix}/probe/pbs-lsf/ProbeConfig
 
@@ -434,7 +439,7 @@ Requires: %{name}-common >= 0.11e
 %{!?config_itb:Obsoletes: %{name}-condor%{itb_suffix}}
 
 %description condor%{?maybe_itb_suffix}
-The condor probe for the Gratia OSG accounting system.
+The Condor probe for the Gratia OSG accounting system.
 
 %files condor%{?maybe_itb_suffix}
 %defattr(-,root,root,-)
@@ -552,9 +557,105 @@ if [ $1 -eq 0 ]; then
   rm -f "$tmpfile"
 fi
 
+%package sge%{?maybe_itb_suffix}
+Summary: An SGE probe
+Group: Applications/System
+Requires: python >= 2.3
+Requires: %{name}-common >= 0.12e
+%{?config_itb:Obsoletes: %{name}-sge}
+%{!?config_itb:Obsoletes: %{name}-sge%{itb_suffix}}
+
+%description sge%{?maybe_itb_suffix}
+The SGE probe for the Gratia OSG accounting system.
+
+%files sge%{?maybe_itb_suffix}
+%defattr(-,root,root,-)
+%doc sge/README
+%{default_prefix}/probe/sge/README
+%{default_prefix}/probe/sge/sge_meter.cron.sh
+%{default_prefix}/probe/sge/sge.py
+%{default_prefix}/probe/sge/test/2007-01-26.log.snippet
+%config(noreplace) %{default_prefix}/probe/sge/ProbeConfig
+
+%post sge%{?maybe_itb_suffix}
+# /usr -> "${RPM_INSTALL_PREFIX0}"
+# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
+%{__cat} <<EOF | while read config_file; do
+`%{__grep} -le '^%{ProbeConfig_template_marker}$' \
+"${RPM_INSTALL_PREFIX1}"/probe/sge/ProbeConfig{,.rpmnew} \
+2>/dev/null`
+EOF
+test -n "$config_file" || continue
+%{__perl} -wni.orig -e \
+'
+s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
+%{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
+s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
+%{?itb_soaphost_config}
+s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"sge:'"%{meter_name}"'"&;
+s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
+m&^/>& and print <<EOF;
+    SGEAccountingFile="$ENV{RPM_INSTALL_PREFIX1}/probe/sge/test/2007-01-26.log.snippet"
+EOF
+m&%{ProbeConfig_template_marker}& or print;' \
+"$config_file" >/dev/null 2>&1
+done
+
+# Check for sensible value of MaxPendingFiles in config file.
+(( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/sge/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
+
+# Configure crontab entry
+if %{__grep} -re 'sge_meter.cron\.sh' -e 'sge\.py' \
+        /etc/crontab /etc/cron.* >/dev/null 2>&1; then
+%{__cat} <<EOF 1>&2
+
+WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
+         Please check and remove to avoid clashes with root's crontab
+
+EOF
+fi
+
+tmpfile=`mktemp /tmp/gratia-probe-sge-post.XXXXXXXXXX`
+
+crontab -l 2>/dev/null | \
+%{__grep} -v -e 'sge_meter.cron\.sh' \
+        -e 'sge\.py' > "$tmpfile" 2>/dev/null
+(( min = $RANDOM % 15 ))
+%{__cat} >>"$tmpfile" <<EOF
+$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
+"${RPM_INSTALL_PREFIX1}/probe/sge/sge_meter.cron.sh"
+EOF
+
+crontab "$tmpfile" >/dev/null 2>&1
+rm -f "$tmpfile"
+
+%preun sge%{?maybe_itb_suffix}
+# Only execute this if we're uninstalling the last package of this name
+if [ $1 -eq 0 ]; then
+  # Remove crontab entry
+  tmpfile=`mktemp /tmp/gratia-probe-sge-post.XXXXXXXXXX`
+  crontab -l 2>/dev/null | \
+  %{__grep} -v -e 'sge_meter.cron\.sh' \
+          -e 'sge\.py' > "$tmpfile" 2>/dev/null
+  if test -s "$tmpfile"; then
+    crontab "$tmpfile" >/dev/null 2>&1
+  else
+    crontab -r
+  fi
+  rm -f "$tmpfile"
+fi
+
 %endif
 
 %changelog
+* Mon Jan 29 2007 Chris Green <greenc@fnal.gov> - 0.12e-1
+- Keep track of suppressed, failed and successfully sent records
+  separately.
+- Better logging and error output.
+- Public ProbeConfiguration.getConfigAttribute(attribute) method.
+- New probe for SGE batch system.
+
 * Fri Jan  5 2007 Chris Green <greenc@fnal.gov> - 0.12d-1
 - Fix problems with user-vo-name lookup under pbs-lsf.
 - Try to be more robust against not finding top of VDT distribution.
