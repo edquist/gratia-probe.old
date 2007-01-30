@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.33 2007-01-19 21:08:13 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.34 2007-01-30 19:33:23 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import traceback
@@ -8,6 +8,7 @@ oldexitfunc = getattr(sys, 'exitfunc', None)
 def disconnect_at_exit(last_exit = oldexitfunc):
     if Config: RemoveOldLogs(Config.get_LogRotate())
     DebugPrint(0, "End of execution summary: records sent successfully: " + str(successfulSendCount))
+    DebugPrint(0, "                          records suppressed: " + str(suppressedCount))
     DebugPrint(0, "                          records failed: " + str(failedSendCount))
     DebugPrint(1, "End-of-execution disconnect ...")
     __disconnect()
@@ -30,10 +31,6 @@ class ProbeConfiguration:
         if os.path.exists(customConfig):
             self.__configname = customConfig
 
-    def loadConfiguration(self):
-        self.__doc = xml.dom.minidom.parse(self.__configname)
-        DebugPrint(0, 'Using config file: ' + self.__configname)
-
     def __getConfigAttribute(self, attributeName):
         if self.__doc == None:
             self.loadConfiguration()
@@ -55,6 +52,14 @@ class ProbeConfiguration:
             return mvt
         else:
             return None
+
+    # Public interface
+    def loadConfiguration(self):
+        self.__doc = xml.dom.minidom.parse(self.__configname)
+        DebugPrint(0, 'Using config file: ' + self.__configname)
+
+    def getConfigAttribute(self, attributeName):
+        return self.__getConfigAttribute(attributeName)
 
     def get_SSLHost(self):
         return self.__getConfigAttribute('SSLHost')
@@ -217,8 +222,19 @@ class ProbeConfiguration:
                                      '/monitoring/grid3-user-vo-map.txt'
                        if not os.path.isfile(self.__UserVOMapFile):
                            self.__UserVOMapFile = None
-                           
+
         return self.__UserVOMapFile
+
+    def get_SuppressUnknownVORecords(self):
+        result = self.__getConfigAttribute('SuppressUnknownVORecords')
+        if result:
+            match = re.search(r'^(True|1|t)$', result, re.IGNORECASE);
+            if match:
+                return True
+            else:
+                return False
+        else:
+            return None
 
 class Event:
     _xml = ""
@@ -428,7 +444,8 @@ def __sendUsageXML(meterId, recordXml):
         DebugPrint(1, 'TransactionId:  ' + transactionId)
 
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
-            # Use the following template to call the interface that has the 'Event' object as a paraeter
+            # Use the following template to call the interface that has
+            # the 'Event' object as a parameter
             soapServiceTemplate = """<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                 xmlns:xsd="http://www.w3.org/2001/XMLSchema"
                 xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
@@ -601,11 +618,11 @@ def DebugPrint(level, *arg):
 
 def Error(*arg):
     out = GenerateOutput("Error in Gratia probe: ",*arg)
-    print out
+    print time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + out
     if (Config.get_UseSyslog()):
        LogToSyslog(-1,GenerateOutput("",*arg))
     else:
-       LogToFile(out)
+       LogToFile(time.strftime(r'%H:%M:%S %Z', time.localtime()) + " " + out)
 
 ##
 ## Mkdir
@@ -1114,6 +1131,7 @@ def ProcessJobId(record,value):
     record.ProcessJobId(value)
 
 failedSendCount = 0
+suppressedCount = 0
 successfulSendCount = 0
 
 #
@@ -1165,6 +1183,7 @@ def Reprocess():
 
 def Send(record):
     global failedSendCount
+    global suppressedCount
     global successfulSendCount
 
     DebugPrint(0, "***********************************************************")
@@ -1202,7 +1221,8 @@ def Send(record):
                     if f.name != "<stdout>": os.remove(f.name)
                 f.close()
             except:
-                DebugPrint(0,"failed to fill with exception: ",f.name,"--", sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+                DebugPrint(0,"failed to fill with exception: ",f.name,"--",
+                           sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
 
     # Currently, the recordXml is in a list format, with each item being a line of xml.  
     # the collector web service requires the xml to be sent as a string.  
@@ -1252,6 +1272,7 @@ def Send(record):
 def SendXMLFiles(fileDir, removeOriginal = False):
     global Config
     global failedSendCount
+    global suppressedCount
     global successfulSendCount
 
     path = os.path.join(fileDir, "*")
@@ -1423,7 +1444,6 @@ __UserVODictionary = { }
 
 def VOfromUser(user):
     " Helper function to obtain the voi and VOc from the user name via the reverse gridmap file"
-
     global __UserVODictionary
     if (len(__UserVODictionary) == 0):
         # Initialize dictionary
