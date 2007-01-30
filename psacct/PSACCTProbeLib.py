@@ -500,12 +500,16 @@ def Read(PSACCTFileName, structFormat, structSize):
     #for data in PSACCTData:
     #    PSACCTRecords.append(struct.unpack(structFormat, data))
  
-    allPSACCTRecords = commands.getoutput("/usr/sbin/dump-acct " + PSACCTFileName).split("\n")
+    #allPSACCTRecords = commands.getoutput("/usr/sbin/dump-acct " + PSACCTFileName).split("\n")
+
+    output = os.popen("/usr/sbin/dump-acct " + PSACCTFileName);
 
     # Remove any records that do not have a full 8 fields (split by |)
     Aggregates = {}
     rcount = 0
-    for record in allPSACCTRecords:
+    #for record in allPSACCTRecords:
+    for record in output:
+        record = record.strip()
         data = record.split("|")
         if len(data) == 8:
             rcount = rcount + 1
@@ -516,7 +520,8 @@ def Read(PSACCTFileName, structFormat, structSize):
                 Aggregates[key].Add(cur)
             else:
                 Aggregates[key] = cur
-    
+
+    output.close()
 
     DebugPrint(1, "Read ", rcount,  " records into ", len(Aggregates), " aggregates.")
     DebugPrint(5, "Done Reading PSACCT file:  ", PSACCTFileName)
@@ -662,7 +667,7 @@ def PsAcct(enable = True):
             usageRecord = None            
 
         # Cleanup the old files
-        psacct.RemoveOldBackups(probeConfig)
+        psacct.RemoveOldBackups(probeConfig,probeConfig.get_LogRotate())
 
     except:
         # TODO:  Handle unexpected errors gracefully
