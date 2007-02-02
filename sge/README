@@ -1,62 +1,11 @@
-README for SGE Probe
+For up-to-date documentation including installation and configuration
+instructions, please see:
 
-We recommend that the client software be placed in the directory $VDT_LOCATION
+http://osg.ivdgl.org/bin/view/Accounting/ProbeInstallation
 
-1. Install the software:
+and
 
-  rpm -Uvh --relocate /opt/vdt/gratia="$VDT_LOCATION/gratia" \
-      gratia-probe-common-<version>.noarch.rpm \
-      gratia-probe-sge-<version>.noarch.rpm
+http://osg.ivdgl.org/bin/view/Accounting/ProbeConfigSGE
 
-
-2. Customize the gratia probe configuration file
-$VDT_LOCATION/gratia/probe/sge/ProbeConfig
-
-o Edit the ProbeConfig file so that the following variables have the correct values:
-
- ____________________________________________________________________________
-|   Gratia Configuration Variable        |   Set value information           |
-|________________________________________|___________________________________|
-|MeterName="generic"                     |This value will be entered in the  |
-|                                        |database to indicate where the     |
-|                                        |record came from.  We recommend a  |
-|                                        |batchsystem:FQDN such as           |
-|                                        |  'condor:fermigrid1.fnal.gov'     |
-|________________________________________|___________________________________|
-|SiteName="Generic Site"                 |This value use in the report to    |
-|                                        |refer to the site/farm/cluster     |
-|                                        |to which the head node give access.|
-|                                        |This is used in particular in the  |
-|                                        |report.                            |
-|________________________________________|___________________________________|
-|VDTSetupFile=                           |Path to the vdt setup.sh file.     |
-|  "MAGIC_VDT_LOCATION/setup.sh"         |Please expand the                  |
-|                                        |MAGIC_VDT_LOCATION variable.       |
-|________________________________________|___________________________________|
-
-3. The RPM install procedure makes appropriate entries in root's crontab
-for uploading accounting information to gratia at the appropriate
-time. The time is appropriately randomized. Make sure that the $SGE_ROOT
-environment variable is set in root's environment, so the the probe has access
-to the SGE accounting file.
-
-4. The SOAPHost has been preconfigured to use the official OSG Gratia
-collector (or the official ITB Gratia if your installed the ITB RPMs):
-change at your own risk.
-
-5. The SGE Probe assumes a single SGE accounting file for processing records.
-
-If the accounting file needs to be moved or rotated, you will need to make sure to do
-the following:
-- Disable the SGE Probe, if there is a chance it will run during the steps
-  below.
-- Move or Rotate the accounting file.
-- Run sge.py against the old (moved) accounting file
-  sge.py -c -a $ACCOUNTING_FILE
-  (Omit the -c if you do not use checkpointing. This will report all records
-  to Gratia, instead of records after the last checkpoint).
-- Delete with checkpoint file (which resets the checkpoint)
-  rm MAGIC_VDT_LOCATION/gratia/var/tmp/checkpoint
-- Continue running the SGE probe as before. It will now run against the new SGE
-  accounting file.
-
+------------------------------------------------------------------------
+2006/02/02 Chris Green
