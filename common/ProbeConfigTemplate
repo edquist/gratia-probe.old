@@ -32,5 +32,6 @@
     LogFolder="MAGIC_VDT_LOCATION/gratia/var/logs/"
     LogRotate="31"
     UseSyslog="0"
+    SuppressUnknownVORecords="0"
 
 />
