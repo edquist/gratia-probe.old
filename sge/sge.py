@@ -22,9 +22,18 @@
 
 
 import Gratia
-import os, copy, pwd, time
+import os, copy, pwd, time, sys
+
+if not Gratia.requirePythonVersion(2,3):
+    Gratia.Error("SGE Probe requires python version >= 2.3 (current version " + sys.version + ")")
+    sys.exit(1)
+
+# This module requires python v2.3
 from optparse import OptionParser
 
+info_level = 0
+verbose_level = 0
+debug_level = 0
 
 class SGE:
     sgeRecord = {}
@@ -247,10 +256,10 @@ class SGE:
 	
 
     def printRecord(self):
-        print "================================="
+        Gratia.DebugPrint(debug_level, "=================================")
         for key in self.__sgeFields__:
-            print key, ":", self.sgeRecord[key]
-        print "================================="
+            Gratia.DebugPrint(debug_level, key +  " : " + self.sgeRecord[key])
+        Gratia.DebugPrint(debug_level, "=================================")
                 
             
 
@@ -298,8 +307,17 @@ if __name__ == '__main__':
     gridmapFile = opts.gridmap
 
     checkpointFile=os.path.join(Gratia.Config.get_WorkingFolder(), "checkpoint")
+    
     if debug:
-        print("Using " + checkpointFile)
+        info_level = 0
+        verbose_level = 0
+        debug_level = 0
+    else:
+        info_level = 1
+        verbose_level = 2
+        debug_level = 3
+    
+    Gratia.DebugPrint(info_level, "Using " + checkpointFile)
    
 
     if opts.checkpoint:	
@@ -312,8 +330,8 @@ if __name__ == '__main__':
           checkpoint=0
              
 
-    print "Using Accounting file: " + opts.accounting
-    print "Using grid-mapfile: " + opts.gridmap
+    Gratia.DebugPrint(0, "Using Accounting file: " + opts.accounting)
+    Gratia.DebugPrint(0, "Using grid-mapfile: " + opts.gridmap)
 
 
     # get the accounting file name
@@ -336,13 +354,11 @@ if __name__ == '__main__':
 
         # break up line into fields
         sgeList = line.rstrip("\r\n").split(":")
-        if debug:
-            print sgeList
+        Gratia.DebugPrint(debug_level, sgeList)
 
         # create sgeRecord
         rec = SGE(sgeList)
-        if debug:
-            rec.printRecord()
+        rec.printRecord()
 
         # convert sgeRecord into Gratia UsageRecord
 	gratiaRec = rec.createUsageRecord()
@@ -350,8 +366,8 @@ if __name__ == '__main__':
         if debug:
             xmlRec = copy.deepcopy(gratiaRec)
 	    xmlRec.XmlCreate()
-            for field in xmlRec.XmlData:
-                print field,
+            Gratia.DebugPrint(debug_level, string.join(" ", xmlRec.XmlData))
+
         # send UsageRecord
         Gratia.Send(gratiaRec)
 
