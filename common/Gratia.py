@@ -1,6 +1,7 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.34 2007-01-30 19:33:23 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.35 2007-02-02 17:39:07 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
+import StringIO
 import traceback
 import re, fileinput
 
@@ -488,7 +489,7 @@ def __sendUsageXML(meterId, recordXml):
 
             # Parse the response string into a response object
             try: 
-                doc = xml.dom.minidom.parseString(responseString)
+                doc = safeParseXML(responseString)
                 codeNode = doc.getElementsByTagName('ns1:_code')
                 messageNode = doc.getElementsByTagName('ns1:_message')
                 if codeNode.length == 1 and messageNode.length == 1:
@@ -605,7 +606,7 @@ def GenerateOutput(prefix,*arg):
     return out
 
 def DebugPrint(level, *arg):
-    if (not Config or level<Config.get_DebugLevel()):
+    if ((not Config) or level<Config.get_DebugLevel()):
         out = time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + \
               GenerateOutput("Gratia: ",*arg)
         print out
@@ -1069,7 +1070,7 @@ class UsageRecord:
 
                 item_index += 1
 
-        if not id_info.has_key("LocalUserId") or \
+        if (not id_info.has_key("LocalUserId")) or \
            len(id_info) == len(interesting_keys): return # Nothing to do
         # Obtain user->VO info from reverse gridmap file.
         vo_info = VOfromUser(id_info["LocalUserId"]["Value"])
@@ -1198,6 +1199,70 @@ def Send(record):
     # Assemble the record into xml
     record.XmlCreate()
 
+    # Parse it into nodes, etc (transitional: this will eventually be native format)
+    xmlDoc = safeParseXML(string.join(record.XmlData,""))
+
+    if not xmlDoc:
+        responseString = "Internal Error: cannot parse internally generated XML record"
+        DebugPrint(0, responseString)
+        DebugPrint(0, "***********************************************************")
+        return reponseString
+    
+    xmlDoc.normalize()
+
+    namespace = xmlDoc.documentElement.namespaceURI
+    # Loop over (posibly multiple) jobUsageRecords
+    for usageRecord in getUsageRecords(xmlDoc):
+        # Local namespace and prefix, if any
+        prefix = None
+        for child in usageRecord.childNodes:
+            if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
+                   child.prefix:
+                prefix = child.prefix + ":"
+                break
+
+        UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
+        if not UserIdentityNodes:
+            DebugPrint(0, "Badly formed XML in " + xmlFilename + ": no UserIdentity block")
+            usageRecord.parentNode.removeChild(usageRecord)
+            usageRecord.unlink()
+            continue
+        elif len(UserIdentityNodes) > 1:
+            DebugPrint(0, "Badly formed XML in " + xmlFilename + ": too many UserIdentity blocks")
+            usageRecord.parentNode.removeChild(usageRecord)
+            usageRecord.unlink()
+            continue
+
+        [VOName, ReportableVOName] = \
+                 CheckAndExtendUserIdentity(xmlDoc,
+                                            UserIdentityNodes[0],
+                                            namespace,
+                                            prefix)
+
+        # If we are trying to handle only GRID jobs, suppress records
+        # with a null or unknown VOName
+        if Config.get_SuppressUnknownVORecords() and ((not VOName) or VOName == "Unknown"):
+            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            DebugPrint(0, "Suppressing record with " + jobIdType + " " +
+                       jobId + "due to unknown or null VOName")
+            usageRecord.parentNode.removeChild(usageRecord)
+            usageRecord.unlink()
+            continue
+
+    if not len(getUsageRecords(xmlDoc)):
+        xmlDoc.unlink()
+        responseString = "No unsuppressed usage records in this packet: not sending"
+        suppressedCount += 1
+        DebugPrint(0, responseString)
+        DebugPrint(0, "***********************************************************")
+        return responseString
+
+    # Generate the XML
+    record.XmlData = safeEncodeXML(xmlDoc)
+    
+    # Close and clean up the document2
+    xmlDoc.unlink()
+
     dirIndex = 0
     recordIndex = 0
     success = False
@@ -1278,13 +1343,6 @@ def SendXMLFiles(fileDir, removeOriginal = False):
     path = os.path.join(fileDir, "*")
     files = glob.glob(path)
 
-    probeNamePattern = re.compile(r'<\s*(?:[^:]*:)?ProbeName\s*>', re.IGNORECASE)
-    siteNamePattern = re.compile(r'<\s*(?:[^:]*:)?SiteName\s*>', re.IGNORECASE)
-    endUsageRecordPattern = re.compile(r'<\s*/\s*(?:[^:]*:)?UsageRecord\s*>', re.IGNORECASE)
-    LocalUserIdPattern = re.compile(r'<\s*(?:(?P<Namespace>[^:]*):)?LocalUserId\s*>\s*(?P<Value>.*?)\s*<\s*/', re.IGNORECASE)
-    VONamePattern = re.compile(r'<\s*(?:[^:]*:)?VOName\s*>\s*(?P<Value>.*?)\s*<\s*/', re.IGNORECASE)
-    ReportableVONamePattern = re.compile(r'<\s*(?:[^:]*:)?ReportableVOName\s*>\s*(?P<Value>.*?)\s*<\s*/', re.IGNORECASE)
-    endUserIdentityPattern = re.compile(r'<\s*/\s*(?:[^:]*:)?UserIdentity\s*>', re.IGNORECASE)
     responseString = ""
 
     for xmlFilename in files:
@@ -1298,80 +1356,91 @@ def SendXMLFiles(fileDir, removeOriginal = False):
             return responseString
 
         # Open the XML file
-        in_file = open(xmlFilename, "r")
-        xmlData = []
+        xmlDoc = xml.dom.minidom.parse(xmlFilename)
+        if not xmlDoc:
+            DebugPrint(0, "Unable to parse XML in file " + xmlFilename)
+            xmlDoc.unlink()
+            continue
 
-        # Need to check for keys that may be missing and add them:
-        hasProbeName = False
-        hasSiteName = False
-        LocalUserId = None
-        VOName = None
-        ReportableVOName = None
-        seenEndUserIdentity = None
-        namespace = None
+        xmlDoc.normalize()
 
-        for line in in_file:
-            if probeNamePattern.match(line):
-                hasProbeName = True
-            if siteNamePattern.match(line):
-                hasSiteName = True
-            match = LocalUserIdPattern.search(line)
-            if match and not seenEndUserIdentity:
-                LocalUserId = match.group('Value')
-                namespace = match.group('Namespace')
-            match = VONamePattern.search(line)
-            if match and not seenEndUserIdentity:
-                VOName = match.group('Value')
-            match = ReportableVONamePattern.search(line)
-            if match and not seenEndUserIdentity:
-                ReportableVOName = match.group('Value')
-            if endUserIdentityPattern.search(line):
-                # Check for VOName and ReportableVOName in UserIdentity
-                # clause and update or add if necessary
-                seenEndUserIdentity = True
-                if LocalUserId and not \
-                       (VOName and ReportableVOName):
-                    vo_info = VOfromUser(LocalUserId)
-                    if vo_info:
-                        if (VOName and VOName != vo_info['VOName']):
-                            # Update entry
-                            xmlData = map(lambda x: re.sub(r'(<\s*(?:[^:]*:)?VOName\s*>\s*).*?(\s*<\s*/)',
-                                                           r'\1' + vo_info['VOName'] + r'\2',
-                                                           x), xmlData)
-                        elif (not VOName):
-                            # New entry
-                            appstring = '<'
-                            if namespace: appstring += namespace + ':'
-                            appstring += 'VOName>' + vo_info['VOName'] + '</'
-                            if namespace: appstring += namespace + ':'
-                            appstring += 'VOName>\n'
-                            xmlData.append(appstring)
-                        if (ReportableVOName and ReportableVOName != vo_info['ReportableVOName']):
-                            # Update entry
-                            xmlData = map(lambda x: re.sub(r'(<\s*(?:[^:]*:)?ReportableVOName\s*>\s*).*?(\s*<\s*/)',
-                                                           r'\1' + vo_info['ReportableVOName'] + r'\2',
-                                                           x), xmlData)
-                        elif (not ReportableVOName):
-                            # New entry
-                            appstring = '<'
-                            if namespace: appstring += namespace + ':'
-                            appstring += 'ReportableVOName>' + vo_info['ReportableVOName'] + '</'
-                            if namespace: appstring += namespace + ':'
-                            appstring += 'ReportableVOName>\n'
-                            xmlData.append(appstring)
+        # Loop over (posibly multiple) jobUsageRecords
+        namespace = usageRecord.namespaceURI
+        for usageRecord in getUsageRecords(xmlDoc):
+            # Local namespace and prefix, if any
+            prefix = None
+            for child in usageRecord.childNodes:
+                if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
+                   child.prefix:
+                    prefix = child.prefix + ":"
+                    break
 
+            # ProbeName and SiteName?
+            ProbeNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'ProbeName')
+            if not ProbeNameNodes:
+                node = xmlDoc.createElementNS(namespace, prefix + 'ProbeName')
+                textNode = xmlDoc.createTextNode(Config.get_MeterName())
+                node.appendChild(textNode)
+                usageRecord.appendChild(node)
+            elif len(ProbeNameNodes) > 1:
+                DebugPrint(0, "Badly formed XML in " + xmlFilename + ": too many ProbeName entities")
+                usageRecord.parentNode.removeChild(usageRecord)
+                usageRecord.unlink()
+                continue
+            
+            SiteNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'SiteName')
+            if not SiteNameNodes:
+                node = xmlDoc.createElementNS(namespace, prefix + 'SiteName')
+                textNode = xmlDoc.createTextNode(Config.get_SiteName())
+                node.appendChild(textNode)
+                usageRecord.appendChild(node)
+            elif len(SiteNameNodes) > 1:
+                DebugPrint(0, "Badly formed XML in " + xmlFilename + ": too many SiteName entities")
+                usageRecord.parentNode.removeChild(usageRecord)
+                usageRecord.unlink()
+                continue
+            
+            UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
+            if not UserIdentityNodes:
+                DebugPrint(0, "Badly formed XML in " + xmlFilename + ": no UserIdentity block")
+                usageRecord.parentNode.removeChild(usageRecord)
+                usageRecord.unlink()
+                continue
+            elif len(UserIdentityNodes) > 1:
+                DebugPrint(0, "Badly formed XML in " + xmlFilename + ": too many UserIdentity blocks")
+                usageRecord.parentNode.removeChild(usageRecord)
+                usageRecord.unlink()
+                continue
 
-            if endUsageRecordPattern.match(line):
-                if not hasProbeName:
-                    xmlData.append('<ProbeName>' +
-                                   Config.get_MeterName() +
-                                   '</ProbeName>\n')
-                if not hasSiteName:
-                    xmlData.append('<SiteName>' +
-                                   Config.get_SiteName() +
-                                   '</SiteName>\n')
-            xmlData.append(line)
-        in_file.close()
+            [VOName, ReportableVOName] = \
+                     CheckAndExtendUserIdentity(xmlDoc,
+                                                UserIdentityNodes[0],
+                                                namespace,
+                                                prefix)
+
+            # If we are trying to handle only GRID jobs, suppress records
+            # with a null or unknown VOName
+            if Config.get_SuppressUnknownVORecords() and \
+                   ((not VOName) or VOName == "Unknown"):
+                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                DebugPrint(0, "Suppressing record with " + jobIdType + " " +
+                           jobId + "due to unknown or null VOName")
+                usageRecord.parentNode.removeChild(usageRecord)
+                usageRecord.unlink()
+                continue
+
+        if not len(getUsageRecords(xmlDoc)):
+            xmlDoc.unlink()
+            DebugPrint(0, "No unsuppressed usage records in " + \
+                       xmlFilename + ": not sending")
+            suppressedCount += 1
+            continue
+            
+        # Generate the XML
+        xmlData = safeEncodeXML(xmlDoc)
+
+        # Close and clean up the document
+        xmlDoc.unlink()
 
         # Open the back up file
         # fill the back up file
@@ -1440,6 +1509,138 @@ def SendXMLFiles(fileDir, removeOriginal = False):
     DebugPrint(0, "***********************************************************")
     return responseString
 
+def FindBestJobId(usageRecord, namespace, prefix):
+    # Get GlobalJobId first, next recordId
+    JobIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'JobIdentity')
+    if JobIdentityNodes:
+        GlobalJobIdNodes = JobIdentityNodes[0].getElementsByTagNameNS(namespace, 'GlobalJobId')
+        if GlobalJobIdNodes and GlobalJobIdNodes[0].firstChild and \
+               GlobalJobIdNodes[0].firstChild.data:
+            return [GlobalJobIdNodes[0].localName, GlobalJobIdNodes[0].firstChild.data]
+
+    RecordIdNodes = usageRecord.getElementsByTagNameNS(namespace, 'RecordId')
+    if RecordIdNodes and RecordIdNodes[0].firstChild and \
+           RecordIdNodes[0].firstChild.data:
+        return [RecordIdNodes[0].localName, RecordIdNodes[0].firstChild.data]
+    else:
+        return [None, None]
+
+
+def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
+    "Check the contents of the UserIdentity block and extend if necessary"
+
+    # LocalUserId
+    LocalUserIdNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'LocalUserId')
+    if len(LocalUserIdNodes) != 1 or not \
+           (LocalUserIdNodes[0].firstChild and
+            LocalUserIdNodes[0].firstChild.data):
+        DebugPrint(0, "Badly formed XML in " + xmlFilename + 
+                   ": UserIdentity block does not have exactly one populated LocalUserId node - uploading anyway")
+        return [None, None]
+
+    LocalUserId = LocalUserIdNodes[0].firstChild.data
+
+    # VOName
+    VONameNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'VOName')
+    if len(VONameNodes) > 1:
+        DebugPrint(0, "Badly formed XML in " + xmlFilename +
+                   ": UserIdentity block has multiple VOName nodes - uploading anyway")
+        return [None, None]
+    elif not VONameNodes:
+        VONameNodes.append(xmlDoc.createElementNS(namespace, prefix + 'VOName'))
+        textNode = xmlDoc.createTextNode(r'');
+        VONameNodes[0].appendChild(textNode);
+        userIdentityNode.appendChild(VONameNodes[0])
+
+    # ReportableVOName
+    ReportableVONameNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'ReportableVOName')
+    if len(ReportableVONameNodes) > 1:
+        DebugPrint(0, "Badly formed XML in " + xmlFilename +
+                   ": UserIdentity block has multiple ReportableVOName nodes - uploading anyway")
+        return [None, None]
+    elif not ReportableVONameNodes:
+        ReportableVONameNodes.append(xmlDoc.createElementNS(namespace, prefix + 'VOName'))
+        textNode = xmlDoc.createTextNode(r'');
+        ReportableVONameNodes[0].appendChild(textNode);
+        userIdentityNode.appendChild(ReportableVONameNodes[0])
+
+    VOName = VONameNodes[0].firstChild.data
+    ReportableVOName = ReportableVONameNodes[0].firstChild.data
+    
+    vo_info = VOfromUser(LocalUserId)
+
+    if vo_info:
+        if not (VOName and ReportableVOName) or VOName == "Unknown":
+            VONameNodes[0].firstChild.data = vo_info['VONAme']
+            ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
+
+    return [VONameNodes[0].firstChild.data, ReportableVONameNodes[0].firstChild.data]
+
+def getUsageRecords(xmlDoc):
+    namespace = xmlDoc.documentElement.namespaceURI
+    return xmlDoc.getElementsByTagNameNS(namespace, 'UsageRecord') + \
+           xmlDoc.getElementsByTagNameNS(namespace, 'JobUsageRecord')
+
+# Check Python version number against requirements
+def pythonVersionRequire(major, minor = 0, micro = 0,
+                           releaseLevel = "final", serial = 0):
+    if not 'version_info' in dir(sys):
+        if major < 2: # Unlikely
+            return True
+        else:
+            return False
+    releaseLevelsDir = { "alpha" : 0,
+                         "beta" : 1,
+                         "candidate" : 2,
+                         "final": 3 }
+    if major > sys.version_info[0]:
+        return False
+    elif major < sys.version_info[0]:
+        return True
+    elif minor > sys.version_info[1]:
+        return False
+    elif minor < sys.version_info[1]:
+        return True
+    elif micro > sys.version_info[2]:
+        return False
+    elif micro < sys.version_info[2]:
+        return True
+    else:
+        try:
+            releaseLevelIndex = releaseLevelsDir[string.lower(releaseLevel)]
+            releaseCompareIndex = releaseLevelsDir[string.lower(sys.version_info[3])]
+        except KeyError, e:
+            return False
+        if releaseLevelIndex > releaseCompareIndex:
+            return False
+        elif releaseLevelIndex < releaseCompareIndex:
+            return True
+        elif serial > sys.version_info[4]:
+            return False
+        else:
+            return True
+
+def safeEncodeXML(xmlDoc):
+    if (pythonVersionRequire(2,3)):
+        xmlOutput = xmlDoc.toxml(encoding="utf-8")
+    else:
+        xmlOutput = xmlDoc.toxml() # No UTF-8 encoding for python < 2.3
+        re.sub(r'(<\?xml version="1\.0")( \?>)',
+               r'\1 encoding="utf-8"\2',
+               xmlOutput, 1)
+
+    return xmlOutput
+
+def safeParseXML(xmlString):
+    if (pythonVersionRequire(2,3)):
+        return xml.dom.minidom.parseString(xmlString)
+    else: # python < 2.3
+        # stringParse is not UTF-safe: use StringIO instead
+        stringBuf = StringIO.StringIO(xmlString)
+        xmlDoc = xml.dom.minidom.parse(stringBuf)
+        stringBuf.close()
+        return xmlDoc
+
 __UserVODictionary = { }
 
 def VOfromUser(user):
@@ -1462,7 +1663,8 @@ def VOfromUser(user):
                 if re.match(r'\s*#', line): continue
                 mapMatch = re.match('\s*(?P<User>\S+)\s*(?P<voi>\S+)', line)
                 if mapMatch:
-                    if not len(__voiToVOcDictionary) and len(__voi) and len(__VOc):
+                    if (not len(__voiToVOcDictionary)) and \
+                           len(__voi) and len(__VOc):
                         for index in xrange(0, len(__voi) - 1):
                             __voiToVOcDictionary[__voi[index]] = __VOc[index]
                     __UserVODictionary[mapMatch.group('User')] = { "VOName" : mapMatch.group('voi'),
