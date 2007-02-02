@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.12e
+Version: 0.12f
 Release: 1
 License: GPL
 Group: Applications/System
@@ -144,7 +144,7 @@ Probes for the Gratia OSG accounting system
 %package pbs-lsf%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for PBS and LSF batch systems.
 Group: Application/System
-Requires: %{name}-common >= 0.11e
+Requires: %{name}-common >= 0.12f
 License: See LICENSE.
 %{?config_itb:Obsoletes: %{name}-pbs-lsf}
 %{!?config_itb:Obsoletes: %{name}-pbs-lsf%{itb_suffix}}
@@ -297,7 +297,7 @@ Summary: A ps-accounting probe
 Group: Applications/System
 Requires: python >= 2.2
 Requires: psacct
-Requires: %{name}-common >= 0.11e
+Requires: %{name}-common >= 0.12f
 
 %description psacct
 The psacct probe for the Gratia OSG accounting system.
@@ -434,7 +434,7 @@ fi
 Summary: A Condor probe
 Group: Applications/System
 Requires: python >= 2.2
-Requires: %{name}-common >= 0.11e
+Requires: %{name}-common >= 0.12f
 %{?config_itb:Obsoletes: %{name}-condor}
 %{!?config_itb:Obsoletes: %{name}-condor%{itb_suffix}}
 
@@ -596,7 +596,7 @@ s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"sge:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
 m&^/>& and print <<EOF;
-    SGEAccountingFile="$ENV{RPM_INSTALL_PREFIX1}/probe/sge/test/2007-01-26.log.snippet"
+    SGEAccountingFile=""
 EOF
 m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file" >/dev/null 2>&1
@@ -649,6 +649,18 @@ fi
 %endif
 
 %changelog
+* Fri Feb  2 2007 Chris Green <greenc@fnal.gov> - 0.12f-1
+- SGE probe requires python v2.3 or better -- put check in code as well
+  as RPM requirements.
+- SGE probe now uses DebugPrint instead of straight print.
+- Use xml.dom for XML parsing where appropriate.
+- Cope with multiple usage records in one XML packet.
+- Optional suppression of records with no VOName.
+- Python version checking and handling of libraries that behave
+  differently in different versions.
+- Psacct probe now more intelligent about memory use for large
+  accounting files.
+
 * Mon Jan 29 2007 Chris Green <greenc@fnal.gov> - 0.12e-1
 - Keep track of suppressed, failed and successfully sent records
   separately.
