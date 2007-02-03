@@ -48,6 +48,7 @@ if __name__ == '__main__':
 
         r.ProjectName("cms reco")
 
+        r.ResourceType("Batch")
 
         r.AdditionalInfo("RemoteWallTime",94365)
         r.Resource("RemoteCpuTime","PT23H")

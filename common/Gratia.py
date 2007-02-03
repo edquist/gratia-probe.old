@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.35 2007-02-02 17:39:07 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.36 2007-02-03 07:47:36 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -793,6 +793,7 @@ class UsageRecord:
     __SiteNameDescription = ""
     __Njobs = 1
     __NjobsDescription = ""
+    __ResourceType = None
 
     def __init__(self):
         DebugPrint(0,"Creating a usage Record "+TimeToString())
@@ -1033,6 +1034,15 @@ class UsageRecord:
         self.__Njobs = value
         self.__NjobsDescription = description
 
+    def ResourceType(self, value) :
+        " Indicate the type of resource this record has been generated on."
+        " The supported values are: "
+        " 	Batch (aka Condor, pbs, lsf)"
+        "	Storage (aka Dcache)"
+        "	WorkerNode (aka process level sacct)"
+
+        self.__ResourceType = value
+
     # The following usually comes from the Configuration file
 
     def ProbeName(self, value, description = "") :
@@ -1051,6 +1061,8 @@ class UsageRecord:
         self.GenericAddToList( "ProbeName", self.__ProbeName, self.__ProbeNameDescription )
         self.GenericAddToList( "SiteName", self.__SiteName, self.__SiteNameDescription )
         self.GenericAddToList( "Njobs", str(self.__Njobs), self.__NjobsDescription )
+        if (self.__ResourceType != None) : 
+                self.Resource( "ResourceType", self.__ResourceType )
 
     def VerifyUserInfo(self):
         " Verify user information: check for LocalUserId and add VOName and ReportableVOName if necessary"
