@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.6 2007-01-04 18:05:21 greenc Exp $
+# $Id: condor_meter.pl,v 1.7 2007-02-05 17:48:36 pcanal Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -25,7 +25,7 @@ use File::Basename;
 
 $progname = "condor_meter.pl";
 $prog_version = "v0.4.0";
-$prog_revision = '$Revision: 1.6 $ ';   # CVS Version number
+$prog_revision = '$Revision: 1.7 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -79,7 +79,7 @@ sub Feed_Gratia {
   }
 
   print $py "# initialize and populate r\n";
-  print $py "r = Gratia.UsageRecord()\n";
+  print $py "r = Gratia.UsageRecord("Batch")\n";
 	
   # 2.1 RecordIdentity must be set by Philippe's module?
         # RecordIdentity is a required string which must be unique
@@ -1046,6 +1046,9 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.6  2007/01/04 18:05:21  greenc
+# As Burt notes, <> should be <CONDOR_HISTORY_HELP>.
+#
 # Revision 1.5  2007/01/04 17:47:30  pcanal
 # fix typo
 #

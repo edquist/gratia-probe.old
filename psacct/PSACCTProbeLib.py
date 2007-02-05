@@ -203,7 +203,7 @@ class Aggregate:
         # We create a Gratia Record
         DebugPrint(5, "Processing record")
 
-        usageRecord = Gratia.UsageRecord()
+        usageRecord = Gratia.UsageRecord("RawCPU")
         usageRecord.LocalUserId(self.Username)
         usageRecord.JobName(self.JobName)
         usageRecord.CpuDuration(self.CpuUserDuration, "user")
