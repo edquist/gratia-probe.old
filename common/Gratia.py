@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.37 2007-02-05 17:39:05 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.38 2007-02-05 17:46:52 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -795,7 +795,9 @@ class UsageRecord:
     __NjobsDescription = ""
     __ResourceType = None
 
-    def __init__(self):
+    def __init__(self, resourceType = None):
+        # See the function ResourceType for details on the 
+        # parameter
         DebugPrint(0,"Creating a usage Record "+TimeToString())
         self.XmlData = []
         self.RecordData = []
@@ -804,6 +806,7 @@ class UsageRecord:
         self.Username = "none"
         self.__ProbeName = Config.get_MeterName()
         self.__SiteName = Config.get_SiteName()
+        self.__ResourceType = resourceType
 
     def Description(self,value):
         " Helper Function to generate the xml (Do not call directly)"
@@ -1037,9 +1040,9 @@ class UsageRecord:
     def ResourceType(self, value) :
         " Indicate the type of resource this record has been generated on."
         " The supported values are: "
-        " 	Batch (aka Condor, pbs, lsf)"
+        " 	Batch (aka Condor, pbs, lsf, glexec)"
         "	Storage (aka Dcache)"
-        "	WorkerNode (aka process level sacct)"
+        "	RawCPU (aka process level sacct)"
 
         self.__ResourceType = value
 
