@@ -109,7 +109,7 @@ class SGE:
                 
     
     def createUsageRecord(self):
-   	r=Gratia.UsageRecord()
+   	r=Gratia.UsageRecord("Batch")
         # do a straight mapping where applicable
         dn=self.reverseGridMap()
 
