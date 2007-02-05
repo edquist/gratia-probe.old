@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.38 2007-02-05 17:46:52 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.39 2007-02-05 21:21:09 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1574,7 +1574,7 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
                    ": UserIdentity block has multiple ReportableVOName nodes - uploading anyway")
         return [None, None]
     elif not ReportableVONameNodes:
-        ReportableVONameNodes.append(xmlDoc.createElementNS(namespace, prefix + 'VOName'))
+        ReportableVONameNodes.append(xmlDoc.createElementNS(namespace, prefix + 'ReportableVOName'))
         textNode = xmlDoc.createTextNode(r'');
         ReportableVONameNodes[0].appendChild(textNode);
         userIdentityNode.appendChild(ReportableVONameNodes[0])
@@ -1589,7 +1589,18 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
             VONameNodes[0].firstChild.data = vo_info['VONAme']
             ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
 
-    return [VONameNodes[0].firstChild.data, ReportableVONameNodes[0].firstChild.data]
+    VOName = VONameNodes[0].firstChild.data
+    ReportableVOName = ReportableVONameNodes[0].firstChild.data
+
+    if not VOName:
+        userIdentityNode.removeChild(VONameNodes[0])
+        VONameNodes[0].unlink()
+
+    if not ReportableVOName:
+        userIdentityNode.removeChild(ReportableVONameNodes[0])
+        ReportableVONameNodes[0].unlink()
+
+    return [VOName, ReportableVOName]
 
 def getUsageRecords(xmlDoc):
     namespace = xmlDoc.documentElement.namespaceURI
