@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.39 2007-02-05 21:21:09 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.40 2007-02-05 22:41:36 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -690,13 +690,17 @@ def SearchOutstandingRecord():
     "Search the list of backup directories for"
     "any record that has not been sent yet"
 
+    fragment = FilenameProbeCollectorFragment()
+
     for dir in BackupDirList:
         path = os.path.join(dir,"gratiafiles")
-        path = os.path.join(path,"*"+"."+Config.get_GratiaExtension())
+        path = os.path.join(path,"r*."+Config.get_GratiaExtension())
         files = glob.glob(path)
         for f in files:
-            OutstandingRecord[f] = 1
-            if len(OutstandingRecord) >= MaxFilesToReprocess: break
+            # Legacy reprocess files or ones with the correct fragment
+            if re.search(r'/?r[0-9]+\.[0-9]+(?:\.'+fragment+r')?\.'+Config.get_GratiaExtension()+r'$',f):
+                OutstandingRecord[f] = 1
+                if len(OutstandingRecord) >= MaxFilesToReprocess: break
 
         if len(OutstandingRecord) >= MaxFilesToReprocess: break
 
@@ -705,9 +709,22 @@ def SearchOutstandingRecord():
 def GenerateFilename(dir,RecordIndex):
     "Generate a filename of the for gratia/r$index.$pid.gratia.xml"
     "in the directory 'dir'"
-    filename = "r"+str(RecordIndex)+"."+str(RecordPid)+"."+Config.get_GratiaExtension()
+    filename = "r"+str(RecordIndex)+"."+str(RecordPid)+ \
+               "."+FilenameProbeCollectorFragment()+ \
+               "."+Config.get_GratiaExtension()
     filename = os.path.join(dir,filename)
     return filename
+
+def FilenameProbeCollectorFragment():
+    "Generate a filename fragment based on the collector destination"
+    fragment = Config.get_MeterName()
+    if fragment: fragment += '_'
+    if Config.get_UseSSL() == "1":
+        fragment += Config.get_SSLHost()
+    else:
+        fragment += Config.get_SOAPHost()
+
+    return re.sub(r'[:/]', r'_', fragment)
 
 def OpenNewRecordFile(DirIndex,RecordIndex):
     "Try to open the first available file"
