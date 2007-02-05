@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.36 2007-02-03 07:47:36 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.37 2007-02-05 17:39:05 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1226,7 +1226,7 @@ def Send(record):
     # Loop over (posibly multiple) jobUsageRecords
     for usageRecord in getUsageRecords(xmlDoc):
         # Local namespace and prefix, if any
-        prefix = None
+        prefix = ""
         for child in usageRecord.childNodes:
             if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
                    child.prefix:
@@ -1380,7 +1380,7 @@ def SendXMLFiles(fileDir, removeOriginal = False):
         namespace = usageRecord.namespaceURI
         for usageRecord in getUsageRecords(xmlDoc):
             # Local namespace and prefix, if any
-            prefix = None
+            prefix = ""
             for child in usageRecord.childNodes:
                 if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
                    child.prefix:
