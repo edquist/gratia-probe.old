@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.12f
+Version: 0.12g
 Release: 1
 License: GPL
 Group: Applications/System
@@ -649,6 +649,17 @@ fi
 %endif
 
 %changelog
+* Wed Feb  7 2007 Chris Green <greenc@fnal.gov> - 0.12g-1
+- Records now have a ResourceType: batch, rawCPU or storage.
+- ResetAndRetry mechanism for continuously-running probes.
+- Stats now include failed reprocess attempts.
+- New naming scheme for backup files distinguishes different probes
+  running on the same node.
+- Fix minor internal problems with XML prefix parsing.
+- VOName and ReportableVOName keys should not be in the XML record if
+  they are empty.
+- Preserve type of Record.XmlData
+
 * Fri Feb  2 2007 Chris Green <greenc@fnal.gov> - 0.12f-1
 - SGE probe requires python v2.3 or better -- put check in code as well
   as RPM requirements.
