@@ -1,21 +1,21 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.40 2007-02-05 22:41:36 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.41 2007-02-07 23:13:43 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
 import traceback
 import re, fileinput
+import atexit
 
-oldexitfunc = getattr(sys, 'exitfunc', None)
-def disconnect_at_exit(last_exit = oldexitfunc):
+def disconnect_at_exit():
     if Config: RemoveOldLogs(Config.get_LogRotate())
-    DebugPrint(0, "End of execution summary: records sent successfully: " + str(successfulSendCount))
-    DebugPrint(0, "                          records suppressed: " + str(suppressedCount))
-    DebugPrint(0, "                          records failed: " + str(failedSendCount))
+    DebugPrint(0, "End of execution summary: new records sent successfully: " + str(successfulSendCount))
+    DebugPrint(0, "                          new records suppressed: " + str(suppressedCount))
+    DebugPrint(0, "                          new records failed: " + str(failedSendCount))
+    DebugPrint(0, "                          reprocessed records failed: " + str(failedReprocessCount))
     DebugPrint(1, "End-of-execution disconnect ...")
     __disconnect()
-    if last_exit: last_exit()
 
-sys.exitfunc = disconnect_at_exit
+atexit.register(disconnect_at_exit)
 
 class ProbeConfiguration:
     __doc = None
@@ -349,6 +349,24 @@ def Initialize(customConfig = "ProbeConfig"):
 def __encodeXML(xmlData):
     return string.rstrip(xmlData).replace("<", "&lt;").replace(">", "&gt;").replace("'", "&apos;").replace('"', "&quot;")
 
+
+def DefaultConnectionFailureHandler():
+    Error(__connectionRetries, " consecutive connection failures ... exit")
+    sys.exit(1)
+
+# Alternative ConnectionFailureHandler for continuously-running probes.
+#
+# After importing the Gratia module, your probe should say:
+#
+# Gratia.ConnectionFailureHandler = ResetAndRetry
+def ResetAndRetry():
+    global __connectionRetries
+    Error(__connectionRetries, " consecutive connection failures ... reset and retry")
+    __connectionRetries = 0
+    return
+
+ConnectionFailureHandler = DefaultConnectionFailureHandler
+
 ##
 ## __connect
 ##
@@ -366,10 +384,9 @@ def __connect():
     if __connectionError:
         __disconnect()
         __connectionRetries = __connectionRetries + 1
-        if __connectionRetries > MaxConnectionRetries:
-            Error("Unable to reconnect after ", MaxConnectionRetries, " attempts")
-            sys.exit(1)
         __connectionError = False
+        if __connectionRetries > MaxConnectionRetries:
+            ConnectionFailureHandler()
 
     if not __connected:
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
@@ -506,6 +523,8 @@ def __sendUsageXML(meterId, recordXml):
             __connection.request("POST",Config.get_SSLCollectorService(),"command=update&arg1=" + recordXml)
             responseString = __connection.getresponse().read()
             response = Response(-1, responseString)
+    except SystemExit:
+        raise
     except:
         DebugPrint(0,'Failed to send xml to web service:  ', sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1])
         # Upon a connection error, we will stop to try to reprocess but will continue to
@@ -1166,6 +1185,7 @@ def ProcessJobId(record,value):
 failedSendCount = 0
 suppressedCount = 0
 successfulSendCount = 0
+failedReprocessCount = 0
 
 #
 # Reprocess
@@ -1174,6 +1194,7 @@ successfulSendCount = 0
 #
 def Reprocess():
     global successfulSendCount
+    global failedReprocessCount
     responseString = ""
 
     # Loop through and try to send any outstanding records
@@ -1190,12 +1211,14 @@ def Reprocess():
         except:
             DebugPrint(1, 'Reprocess failure: unable to read file' + failedRecord)
             responseString = responseString + '\nUnable to read from ' + failedRecord
+            failedReprocessCount += 1
             continue
 
         if not xmlData:
             DebugPrint(1, 'Reprocess failure: ' + failedRecord +
                        ' was empty: skip send')
             responseString = responseString + '\nEmpty file ' + failedRecord + ': XML not sent'
+            failedReprocessCount += 1
             continue
         
         # Send the xml to the collector for processing
@@ -1208,6 +1231,8 @@ def Reprocess():
             successfulSendCount += 1
             os.remove(failedRecord)
             del OutstandingRecord[failedRecord]
+        else:
+            failedReprocessCount += 1
 
     if responseString <> "":
         DebugPrint(0, responseString)
