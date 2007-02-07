@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.41 2007-02-07 23:13:43 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.42 2007-02-07 23:46:34 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1315,7 +1315,7 @@ def Send(record):
         return responseString
 
     # Generate the XML
-    record.XmlData = safeEncodeXML(xmlDoc)
+    record.XmlData = safeEncodeXML(xmlDoc).splitlines(True)
     
     # Close and clean up the document2
     xmlDoc.unlink()
