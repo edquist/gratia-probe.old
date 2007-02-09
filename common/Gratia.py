@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.43 2007-02-09 15:04:43 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.44 2007-02-09 21:31:40 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -350,18 +350,6 @@ def __encodeXML(xmlData):
     return string.rstrip(xmlData).replace("<", "&lt;").replace(">", "&gt;").replace("'", "&apos;").replace('"', "&quot;")
 
 
-__last_retry_time = None
-
-def ConnectionFailureHandler():
-    global __last_retry_time
-    global __connectionRetries
-    current_time = time.time()
-    if ((not __last_retry_time) or (current_time - __last_retry_time > 3600)):
-        __last_retry_time = current_time
-        Error(__connectionRetries, " consecutive connection failures ... reset and retry")
-    __connectionRetries = 0
-    return
-
 ##
 ## __connect
 ##
@@ -370,22 +358,36 @@ def ConnectionFailureHandler():
 ## Connect to the web service on the given server, sets the module-level object __connection
 ##  equal to the new connection.  Will not reconnect if __connection is already connected.
 ##
+__maximumDelay = 3600
+__initialDelay = 30
+__retryDelay = __initialDelay
+__backoff_factor = 2
+__last_retry_time = None
 def __connect():
     global __connection
     global __connected
     global __connectionError
     global __connectionRetries
+    global __retryDelay
+    global __last_retry_time
 
     if __connectionError:
         __disconnect()
-        __connectionRetries = __connectionRetries + 1
         __connectionError = False
         if __connectionRetries > MaxConnectionRetries:
-            __connected = False
-            ConnectionFailureHandler()
-            return __connected
+            current_time = time.time()
+            if not __last_retry_time: # Set time but do not reset failures
+                __last_retry_time = current_time
+                return
+            if (current_time - __last_retry_time) > __retryDelay:
+                __last_retry_time = current_time
+                DebugPrint(1, "Retry connection after", __retryDelay, "s")
+                __retryDelay = __retryDelay * __backoff_factor
+                if __retryDelay > __maximumDelay: __retryDelay = __maximumDelay
+                __connectionRetries = 0
+        __connectionRetries = __connectionRetries + 1
 
-    if not __connected:
+    if (not __connected) and (__connectionRetries <= MaxConnectionRetries):
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
             __connection = httplib.HTTP(Config.get_SOAPHost())            
             DebugPrint(1, 'Connected via HTTP to:  ' + Config.get_SOAPHost())
@@ -409,7 +411,11 @@ def __connect():
             __connection.connect()
             DebugPrint(1, "Connected via HTTPS to: " + Config.get_SSLHost())
             #print "Using SSL protocol"
+        # Successful
         __connected = True
+        # Reset connection retry count to 0 and the retry delay to its initial value
+        __connectionRetries = 0
+        __retryDelay = __initialDelay
     return __connected
 
 ##
@@ -535,6 +541,10 @@ def __sendUsageXML(meterId, recordXml):
     if (__connectionRetries > 0) and (response.get_code() == 0):
         # Successful transaction after a reconnect
         __connectionRetries = 0
+        # Reprocess failed records before attempting more new ones
+        SearchOutstandingRecord()
+        Reprocess()
+
     return response
 
 LogFileIsWriteable = True
@@ -1198,6 +1208,11 @@ def Reprocess():
 
     # Loop through and try to send any outstanding records
     for failedRecord in OutstandingRecord.keys():
+        if __connectionError:
+            # Fail record without attempting to send.
+            failedReprocessCount += 1
+            continue
+
         xmlData = None
         #if os.path.isfile(failedRecord):
         DebugPrint(1, 'Reprocessing:  ' + failedRecord)
@@ -1231,6 +1246,9 @@ def Reprocess():
             os.remove(failedRecord)
             del OutstandingRecord[failedRecord]
         else:
+            if __connectionError:
+                DebugPrint(1,
+                           "Connection problems: reprocessing suspended; new record processing shall continue")
             failedReprocessCount += 1
 
     if responseString <> "":
@@ -1390,7 +1408,7 @@ def Send(record):
 # This sends the file contents of the given directory as raw XML. The
 # writer of the XML files is responsible for making sure that it is
 # readable by the Gratia server.
-def SendXMLFiles(fileDir, removeOriginal = False, resourceType):
+def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
     global Config
     global failedSendCount
     global suppressedCount
@@ -1421,7 +1439,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType):
         xmlDoc.normalize()
 
         # Local namespace
-        namespace = xmlDoc.namespaceURI
+        namespace = xmlDoc.documentElement.namespaceURI
         # Loop over (posibly multiple) jobUsageRecords
         for usageRecord in getUsageRecords(xmlDoc):
             # Local prefix, if any
@@ -1487,9 +1505,10 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType):
                 usageRecord.unlink()
                 continue
 
-            # Add ResourceType
-            UpdateResource(xmlDoc, usageRecord, namespace, prefix,
-                           'ResourceType', resourceType)
+            # Add ResourceType if appropriate
+            if resourceType != None:
+                UpdateResource(xmlDoc, usageRecord, namespace, prefix,
+                               'ResourceType', resourceType)
 
         if not len(getUsageRecords(xmlDoc)):
             xmlDoc.unlink()
@@ -1549,7 +1568,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType):
         usageXmlString = ""
         for line in xmlData:
             usageXmlString = usageXmlString + line
-        DebugPrint(1, 'UsageXml:  ' + usageXmlString)
+        DebugPrint(3, 'UsageXml:  ' + usageXmlString)
 
         # Attempt to send the record to the collector
         response = __sendUsageXML(Config.get_MeterName(), usageXmlString)
@@ -1589,11 +1608,12 @@ def FindBestJobId(usageRecord, namespace, prefix):
 
 def UpdateResource(xmlDoc, usageRecord, namespace, prefix, key, value):
     "Update a resource key in the XML record"
-    ResourceNodes = userIdentityNode.getElementsByTagNameNS(namespace,
-                                                            'Resource')
-    WantedResource = None
+
+    resourceNodes = usageRecord.getElementsByTagNameNS(namespace,
+                                                       'Resource')
+    wantedResource = None
     # Look for existing resource of desired type
-    for resource in ResourceNode:
+    for resource in resourceNodes:
         description = resource.getAttributeNS(namespace, 'description')
         if description == key:
             wantedResource = resource
@@ -1610,7 +1630,7 @@ def UpdateResource(xmlDoc, usageRecord, namespace, prefix, key, value):
         # Create Resource node
         wantedResource = xmlDoc.createElementNS(namespace,
                                                 prefix + 'Resource')
-        setAttribute(prefix + 'description', key)
+        wantedResource.setAttribute(prefix + 'description', key)
         textNode = xmlDoc.createTextNode(value)
         wantedResource.appendChild(textNode)
         usageRecord.appendChild(wantedResource)

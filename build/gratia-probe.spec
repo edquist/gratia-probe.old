@@ -496,7 +496,7 @@ sub log_to_gratia
 If not, please either install VDT:Gratia-Patch using pacman, or see the
 notes on the OSG accounting TWiki:
 
-http://osg.ivdgl.org/twiki/bin/view/Accounting/ProbeConfigCondor#GratiaCondorGramPatch
+https://twiki.grid.iu.edu/bin/view/Accounting/ProbeConfigCondor#GratiaCondorGramPatch
 
 EOF
 fi
@@ -653,10 +653,12 @@ fi
 
 %changelog
 * Fri Feb  9 2007 Chris Green <greenc@fnal.gov> - 0.12h-1
-- ResetAndRetry mechanism altered to 1 hour delay.
+- ResetAndRetry mechanism altered to geometric backoff delay up to 1
+  hour.
 - Suspension of reprocessing on connect failure now works as desired.
 - Reprocessing gets re-done on successful re-connect.
 - LICENSE file now part of main pbs-lsf directory as well as the docs.
+- URL pointers to TWiki updated to new secure URLs.
 
 * Wed Feb  7 2007 Chris Green <greenc@fnal.gov> - 0.12g-1
 - Records now have a ResourceType: batch, rawCPU or storage.
