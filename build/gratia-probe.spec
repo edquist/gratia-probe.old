@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.12g
+Version: 0.12h
 Release: 1
 License: GPL
 Group: Applications/System
@@ -104,6 +104,8 @@ cd -
   cd urCollector-%{urCollector_version}
   %{__cp} -p urCreator urCollector.pl \
   "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf"
+  %{__install} -m 0644 LICENSE \
+  "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf"
   %{__cp} -p urCollector.conf-template \
   "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector.conf"
   echo "%{pbs_lsf_template_marker}" >> \
@@ -165,6 +167,7 @@ This product includes software developed by The EU EGEE Project
 %doc urCollector-%{urCollector_version}/urCollector.conf-template
 %doc pbs-lsf/README
 %{default_prefix}/probe/pbs-lsf/README
+%{default_prefix}/probe/pbs-lsf/LICENSE
 %{default_prefix}/probe/pbs-lsf/pbs-lsf.py
 %{default_prefix}/probe/pbs-lsf/pbs-lsf_meter.cron.sh
 %{default_prefix}/probe/pbs-lsf/pbs-lsf_meter.pl
@@ -649,6 +652,12 @@ fi
 %endif
 
 %changelog
+* Fri Feb  9 2007 Chris Green <greenc@fnal.gov> - 0.12h-1
+- ResetAndRetry mechanism altered to 1 hour delay.
+- Suspension of reprocessing on connect failure now works as desired.
+- Reprocessing gets re-done on successful re-connect.
+- LICENSE file now part of main pbs-lsf directory as well as the docs.
+
 * Wed Feb  7 2007 Chris Green <greenc@fnal.gov> - 0.12g-1
 - Records now have a ResourceType: batch, rawCPU or storage.
 - ResetAndRetry mechanism for continuously-running probes.
