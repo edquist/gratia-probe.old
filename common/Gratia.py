@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.42 2007-02-07 23:46:34 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.43 2007-02-09 15:04:43 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -350,22 +350,17 @@ def __encodeXML(xmlData):
     return string.rstrip(xmlData).replace("<", "&lt;").replace(">", "&gt;").replace("'", "&apos;").replace('"', "&quot;")
 
 
-def DefaultConnectionFailureHandler():
-    Error(__connectionRetries, " consecutive connection failures ... exit")
-    sys.exit(1)
+__last_retry_time = None
 
-# Alternative ConnectionFailureHandler for continuously-running probes.
-#
-# After importing the Gratia module, your probe should say:
-#
-# Gratia.ConnectionFailureHandler = ResetAndRetry
-def ResetAndRetry():
+def ConnectionFailureHandler():
+    global __last_retry_time
     global __connectionRetries
-    Error(__connectionRetries, " consecutive connection failures ... reset and retry")
+    current_time = time.time()
+    if ((not __last_retry_time) or (current_time - __last_retry_time > 3600)):
+        __last_retry_time = current_time
+        Error(__connectionRetries, " consecutive connection failures ... reset and retry")
     __connectionRetries = 0
     return
-
-ConnectionFailureHandler = DefaultConnectionFailureHandler
 
 ##
 ## __connect
@@ -386,7 +381,9 @@ def __connect():
         __connectionRetries = __connectionRetries + 1
         __connectionError = False
         if __connectionRetries > MaxConnectionRetries:
+            __connected = False
             ConnectionFailureHandler()
+            return __connected
 
     if not __connected:
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
@@ -413,6 +410,7 @@ def __connect():
             DebugPrint(1, "Connected via HTTPS to: " + Config.get_SSLHost())
             #print "Using SSL protocol"
         __connected = True
+    return __connected
 
 ##
 ## __disconnect
@@ -455,8 +453,9 @@ def __sendUsageXML(meterId, recordXml):
         # Connect to the web service, in case we aren't already
         # connected.  If we are already connected, this call will do
         # nothing
-        __connect()
-
+        if not __connect(): # Failed to connect
+            raise IOError # Kick out to except: clause
+        
         # Generate a unique Id for this transaction
         transactionId = meterId + TimeToString().replace(":","")
         DebugPrint(1, 'TransactionId:  ' + transactionId)
@@ -1391,7 +1390,7 @@ def Send(record):
 # This sends the file contents of the given directory as raw XML. The
 # writer of the XML files is responsible for making sure that it is
 # readable by the Gratia server.
-def SendXMLFiles(fileDir, removeOriginal = False):
+def SendXMLFiles(fileDir, removeOriginal = False, resourceType):
     global Config
     global failedSendCount
     global suppressedCount
@@ -1421,10 +1420,11 @@ def SendXMLFiles(fileDir, removeOriginal = False):
 
         xmlDoc.normalize()
 
+        # Local namespace
+        namespace = xmlDoc.namespaceURI
         # Loop over (posibly multiple) jobUsageRecords
-        namespace = usageRecord.namespaceURI
         for usageRecord in getUsageRecords(xmlDoc):
-            # Local namespace and prefix, if any
+            # Local prefix, if any
             prefix = ""
             for child in usageRecord.childNodes:
                 if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
@@ -1456,7 +1456,8 @@ def SendXMLFiles(fileDir, removeOriginal = False):
                 usageRecord.parentNode.removeChild(usageRecord)
                 usageRecord.unlink()
                 continue
-            
+
+            # VOName, ReportableVOName
             UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
             if not UserIdentityNodes:
                 DebugPrint(0, "Badly formed XML in " + xmlFilename + ": no UserIdentity block")
@@ -1486,13 +1487,17 @@ def SendXMLFiles(fileDir, removeOriginal = False):
                 usageRecord.unlink()
                 continue
 
+            # Add ResourceType
+            UpdateResource(xmlDoc, usageRecord, namespace, prefix,
+                           'ResourceType', resourceType)
+
         if not len(getUsageRecords(xmlDoc)):
             xmlDoc.unlink()
             DebugPrint(0, "No unsuppressed usage records in " + \
                        xmlFilename + ": not sending")
             suppressedCount += 1
             continue
-            
+
         # Generate the XML
         xmlData = safeEncodeXML(xmlDoc)
 
@@ -1582,6 +1587,33 @@ def FindBestJobId(usageRecord, namespace, prefix):
     else:
         return [None, None]
 
+def UpdateResource(xmlDoc, usageRecord, namespace, prefix, key, value):
+    "Update a resource key in the XML record"
+    ResourceNodes = userIdentityNode.getElementsByTagNameNS(namespace,
+                                                            'Resource')
+    WantedResource = None
+    # Look for existing resource of desired type
+    for resource in ResourceNode:
+        description = resource.getAttributeNS(namespace, 'description')
+        if description == key:
+            wantedResource = resource
+            break
+
+    # Found
+    if wantedResource:
+        if wantedResource.firstChild:
+            wantedResource.firstChild.data = value
+        else: # No text data node
+            textNode = xmlDoc.createTextNode(value)
+            wantedResource.appendChild(textNode)
+    else:
+        # Create Resource node
+        wantedResource = xmlDoc.createElementNS(namespace,
+                                                prefix + 'Resource')
+        setAttribute(prefix + 'description', key)
+        textNode = xmlDoc.createTextNode(value)
+        wantedResource.appendChild(textNode)
+        usageRecord.appendChild(wantedResource)
 
 def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     "Check the contents of the UserIdentity block and extend if necessary"
