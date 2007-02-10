@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.12h
+Version: 0.12i
 Release: 1
 License: GPL
 Group: Applications/System
@@ -652,6 +652,10 @@ fi
 %endif
 
 %changelog
+* Fri Feb  9 2007 Chris Green <greenc@fnal.gov> - 0.12i-1
+- Fix reported problem with PBS probe.
+- Make requested change to maximum backoff delay.
+
 * Fri Feb  9 2007 Chris Green <greenc@fnal.gov> - 0.12h-1
 - ResetAndRetry mechanism altered to geometric backoff delay up to 1
   hour.

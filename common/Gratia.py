@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.44 2007-02-09 21:31:40 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.45 2007-02-10 04:28:42 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -358,7 +358,7 @@ def __encodeXML(xmlData):
 ## Connect to the web service on the given server, sets the module-level object __connection
 ##  equal to the new connection.  Will not reconnect if __connection is already connected.
 ##
-__maximumDelay = 3600
+__maximumDelay = 900
 __initialDelay = 30
 __retryDelay = __initialDelay
 __backoff_factor = 2
@@ -1680,7 +1680,7 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
 
     if vo_info:
         if not (VOName and ReportableVOName) or VOName == "Unknown":
-            VONameNodes[0].firstChild.data = vo_info['VONAme']
+            VONameNodes[0].firstChild.data = vo_info['VOName']
             ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
 
     VOName = VONameNodes[0].firstChild.data
