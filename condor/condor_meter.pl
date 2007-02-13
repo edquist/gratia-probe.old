@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.8 2007-02-05 17:49:41 pcanal Exp $
+# $Id: condor_meter.pl,v 1.9 2007-02-13 22:32:05 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -25,7 +25,7 @@ use File::Basename;
 
 $progname = "condor_meter.pl";
 $prog_version = "v0.4.0";
-$prog_revision = '$Revision: 1.8 $ ';   # CVS Version number
+$prog_revision = '$Revision: 1.9 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -325,6 +325,45 @@ sub Feed_Gratia {
   # Moved to outer block
   # $py->close;
 } # End of subroutine Feed_Gratia
+
+#------------------------------------------------------------------
+# Subroutine Read_ClassAd
+#   This routine will read in a ClassAd from the given
+# file name and return a hash containing the data.
+#------------------------------------------------------------------
+sub Read_ClassAd {
+
+    my $filename = shift;
+
+    unless (open(FH, $filename)) {
+        warn "error opening $filename: $!\n";
+		return ();
+	}
+
+    my %condor_hist_data;
+    while ($line = <FH>) {
+
+        # Most lines look something like:  MyType = "Job"
+        if ($line =~ /(\S+) = (.*)/) {
+	
+            $element = $1;  $value=$2;
+
+            # Strip double quotes where needed
+            if ($value =~ /"(.*)"/) {
+                $value = $1;
+            }
+
+            # Place attribute in the hash
+            $condor_hist_data{$element} = $value;
+        }
+        elsif ($record_in =~ /\S+/) {
+            warn "Invalid line in ClassAd: $line\n";
+			return ();
+        }
+    }
+
+    return %condor_hist_data;
+}
 
 #------------------------------------------------------------------
 # Subroutine Query_Condor_History
@@ -658,7 +697,7 @@ sub Usage_message {
   print "$progname version $prog_version ($prog_revision)\n\n";
   print "USAGE: $0 [-dlrvx] <directoryname|filename> [ filename . . .]\a\n";
   print "       where -d enable delete of processed log files\n";
-  print "         and -l output a listing of what was done\n";
+  print "         and -l outputs a listing of what was done\n";
   print "         and -r forces reprocessing of pending transmissions\n";
   print "         and -v causes verbose output\n";
   print "         and -x enters debug mode\n\n";
@@ -675,7 +714,6 @@ autoflush STDERR 1; autoflush STDOUT 1;
 # Initialization and Setup.
 use Getopt::Std;
 
-#use vars qw/$opt_d $opt_v/;
 $opt_d = $opt_l = $opt_r = $opt_v = $opt_x = 0;
 
 # Get command line arguments
@@ -761,6 +799,10 @@ foreach $name_arg (@ARGV) {
 	# This plain, non-empty file looks like one of our log files
 	push(@logfiles, "$name_arg/$file"); $logs_found++;
       }
+      if ($file =~ /history.\d+.\d+/ && -f "$name_arg/$file" && -s _ ) {
+	# This plain, non-empty file looks like a ClassAd
+	push(@logfiles, "$name_arg/$file"); $logs_found++;
+      }
     }
     closedir(DIR);
   }
@@ -816,13 +858,34 @@ my $count_xml = $count_xml_004 = $count_xml_005 = $count_xml_009 = 0;
 my $ctag_depth = 0;
 
 foreach $logfile (@logfiles) {
+
   open(LOGF, $logfile)
     or die "Unable to open logfile: $logfile\n";
+
   if ($verbose) { print "Processing file: $logfile\n"; }
+
   $logfile_errors = 0;
 
-  # Get the first record to test format of the file
-  if (defined ( $record_in = <LOGF> )) {
+  # See if the file is a per-job history file (a ClassAd)
+  if ($logfile =~ /history.(\d+).(\d+)/) {
+
+      # get the class ad from the file
+      unless (%condor_data_hash = Read_ClassAd($logfile)) {
+	      $logfile_errors++;
+      }
+
+      # add-in UniqGlobalJobId
+      if ($condor_hist_data{'GlobalJobId'}) {
+          $condor_hist_data{'UniqGlobalJobId'} =
+              'condor.' . $condor_hist_data{'GlobalJobId'};
+      }
+
+	  # hand data off to gratia
+      Feed_Gratia(%condor_data_hash);
+  }
+
+  # otherwise, get the first record to test format of the file
+  elsif (defined ( $record_in = <LOGF> )) {
     # Clear the variables for each new event processed
     %condor_data_hash = ();
     #%logfile_hash = ();  @logfile_clusterids = ();
@@ -1046,9 +1109,6 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
-# Revision 1.7  2007/02/05 17:48:36  pcanal
-# set the ResourceType
-#
 # Revision 1.6  2007/01/04 18:05:21  greenc
 # As Burt notes, <> should be <CONDOR_HISTORY_HELP>.
 #
