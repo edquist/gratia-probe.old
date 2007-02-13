@@ -1,8 +1,8 @@
-#!/bin/env perl 
+#!/bin/env perl
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.9 2007-02-13 22:32:05 greenc Exp $
+# $Id: condor_meter.pl,v 1.10 2007-02-13 22:37:47 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -11,7 +11,7 @@
 
 # The name of one or more condor log files should be passed as
 # parameters.  This script will parse the log and generate records which
-# include the grid accounting data. 
+# include the grid accounting data.
 
 #==================================================================
 # Globl Variable definitions
@@ -23,9 +23,13 @@ use FileHandle;
 use File::Basename;
 #use XML::Parser;
 
-$progname = "condor_meter.pl";
-$prog_version = "v0.4.0";
-$prog_revision = '$Revision: 1.9 $ ';   # CVS Version number
+sub create_unique_id(\%);
+
+my $progname = "condor_meter.pl";
+my $prog_version = '$Name: not supported by cvs2svn $';
+$prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
+$prog_version or $prog_version = "unknown";
+my $prog_revision = '$Revision: 1.10 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -362,6 +366,8 @@ sub Read_ClassAd {
         }
     }
 
+    create_unique_id(%condor_hist_data);
+
     return %condor_hist_data;
 }
 
@@ -439,12 +445,7 @@ sub Query_Condor_History {
   }
 
   if ($condor_hist_data{'GlobalJobId'}) {
-    $condor_hist_data{'UniqGlobalJobId'} =
-      'condor.' . $condor_hist_data{'GlobalJobId'};
-    if ($verbose && $debug_mode) {
-      print "Unique ID: $condor_hist_data{'UniqGlobalJobId'}\n";
-    }
-
+    create_unique_id(%condor_hist_data);
     return %condor_hist_data;
   } else {
     if ($verbose) {
@@ -453,6 +454,24 @@ sub Query_Condor_History {
     }
   }
 } # End of subroutine Query_Condor_History
+
+#------------------------------------------------------------------
+# Subroutine create_unique_id
+#   Handle creation of a unique ID based on the job's GlobalJobId, if it
+# has one.
+#------------------------------------------------------------------
+sub create_unique_id(\%) {
+  my ($condor_hist_data) = @_;
+
+  if ($condor_hist_data->{'GlobalJobId'}) {
+    $condor_hist_data->{'UniqGlobalJobId'} =
+      'condor.' . $condor_hist_data->{'GlobalJobId'};
+    if ($verbose && $debug_mode) {
+      print "Unique ID: $condor_hist_data->{'UniqGlobalJobId'}\n";
+    }
+  }
+}
+
 #------------------------------------------------------------------
 # Subroutine Process_004
 #   This routine will process a type 004 eviction record
@@ -884,7 +903,7 @@ foreach $logfile (@logfiles) {
       Feed_Gratia(%condor_data_hash);
   }
 
-  # otherwise, get the first record to test format of the file
+  # Otherwise, get the first record to test format of the file
   elsif (defined ( $record_in = <LOGF> )) {
     # Clear the variables for each new event processed
     %condor_data_hash = ();
@@ -1109,6 +1128,11 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.9  2007/02/13 22:32:05  greenc
+# Copy of condor_meter.pl as provided by Greg Quinn, only altered to
+# include differences between version upon which his was based (1.6) and
+# current HEAD version (1.8).
+#
 # Revision 1.6  2007/01/04 18:05:21  greenc
 # As Burt notes, <> should be <CONDOR_HISTORY_HELP>.
 #
