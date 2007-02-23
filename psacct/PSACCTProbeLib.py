@@ -1,4 +1,4 @@
-#@(#)gratia/probe/psacct:$Name: not supported by cvs2svn $:$Id: PSACCTProbeLib.py,v 1.6 2007-02-23 13:45:20 pcanal Exp $
+#@(#)gratia/probe/psacct:$Name: not supported by cvs2svn $:$Id: PSACCTProbeLib.py,v 1.7 2007-02-23 15:20:38 pcanal Exp $
 
 #
 # Author:  Tim Byrne
@@ -487,6 +487,8 @@ class PsacctFiles:
 
         target = os.path.join(probeConfig.get_PSACCTBackupFileRepository(),os.path.basename(pendingFile))
         os.rename(pendingFile, target)
+
+        commands.getstatusoutput("gzip -9 " + target)
 
         DebugPrint(5, "Done backing up " + pendingFile)
 
