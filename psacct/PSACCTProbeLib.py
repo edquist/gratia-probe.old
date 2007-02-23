@@ -1,3 +1,5 @@
+#@(#)gratia/probe/psacct:$Name: not supported by cvs2svn $:$Id: PSACCTProbeLib.py,v 1.6 2007-02-23 13:45:20 pcanal Exp $
+
 #
 # Author:  Tim Byrne
 #
@@ -262,6 +264,24 @@ class PsacctFiles:
         return pendingFiles
 
     #
+    # DisableLogrotate
+    #
+    # If /var/account/pacct is not empty, the default psacct logrotate will
+    # delete it and more importantly reset the accounting to that file (hence
+    # preventing us from collecting the data!)
+    # 
+    def DisableLogrotate(self):
+
+        # Prevent psacct logrotate from messing with us.
+        OfficalPsacctFile = "/var/account/pacct"
+        if os.access(OfficalPsacctFile, os.R_OK) and (os.path.getsize(OfficalPsacctFile) != 0):
+            DebugPrint(3, "Write empty account file ("+OfficalPsacctFile+") to disable psacct logrotate")
+            os.remove(OfficalPsacctFile)
+            emptyFile = open(OfficalPsacctFile, "w")
+            emptyFile.close()
+ 
+
+    #
     # IsAccounting
     #
     # Is Accounting will test the given file to see if it is currently being logged to by an accounting process
@@ -324,6 +344,8 @@ class PsacctFiles:
         # Start accton on a new file
         commands.getstatusoutput("/usr/sbin/accton " + newAcctFile)
 
+        self.DisableLogrotate()
+ 
         DebugPrint(1, " New accounting log file: " + newAcctFile)
         DebugPrint(5, "Started new accounting process")
 
@@ -367,14 +389,19 @@ class PsacctFiles:
             newFile = open(AcctFileStatus, "w")
             newFile.close()
 
+
         # Start accton on a new file
         res = commands.getstatusoutput("/usr/sbin/accton " + AcctFile)
         if res[0] != 0:
             Error("Could not enable accounting with log file: " + AcctFile+"res=",res)
         else:
             DebugPrint(1, "New accounting log file: " + AcctFile)
+
+        self.DisableLogrotate()
+
         DebugPrint(5, "Started new accounting process")
 
+ 
     #
     # Remove old backups
     #
