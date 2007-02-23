@@ -1,4 +1,4 @@
-#@(#)gratia/probe/psacct:$Name: not supported by cvs2svn $:$Id: PSACCTProbeLib.py,v 1.7 2007-02-23 15:20:38 pcanal Exp $
+#@(#)gratia/probe/psacct:$Name: not supported by cvs2svn $:$Id: PSACCTProbeLib.py,v 1.8 2007-02-23 16:42:58 pcanal Exp $
 
 #
 # Author:  Tim Byrne
@@ -270,14 +270,26 @@ class PsacctFiles:
     # delete it and more importantly reset the accounting to that file (hence
     # preventing us from collecting the data!)
     # 
-    def DisableLogrotate(self):
+    def DisableDefaultPsacct(self,probeConfig):
 
         # Prevent psacct logrotate from messing with us.
-        OfficalPsacctFile = "/var/account/pacct"
-        if os.access(OfficalPsacctFile, os.R_OK) and (os.path.getsize(OfficalPsacctFile) != 0):
-            DebugPrint(3, "Write empty account file ("+OfficalPsacctFile+") to disable psacct logrotate")
-            os.remove(OfficalPsacctFile)
-            emptyFile = open(OfficalPsacctFile, "w")
+        defaultPsacctFile = "/var/account/pacct"
+        if os.access(defaultPsacctFile, os.R_OK) and (os.path.getsize(defaultPsacctFile) != 0):
+
+            files = glob.glob("/var/account/pacct*gz")
+            for f in files:
+                commands.getstatusoutput("gunzip " + f)
+
+            files = glob.glob("/var/account/pacct.*")
+            for f in files:
+                target = os.path.join(probeConfig.get_DataFolder(),"s"+os.path.basename(f))
+                shutil.move(f,target)
+
+            target = os.path.join(probeConfig.get_DataFolder(),"s"+os.path.basename(defaultPsacctFile))
+            shutil.move(defaultPsacctFile,target)
+
+            DebugPrint(3, "Write empty account file ("+defaultPsacctFile+") to disable psacct logrotate")
+            emptyFile = open(defaultPsacctFile, "w")
             emptyFile.close()
  
 
@@ -344,7 +356,7 @@ class PsacctFiles:
         # Start accton on a new file
         commands.getstatusoutput("/usr/sbin/accton " + newAcctFile)
 
-        self.DisableLogrotate()
+        self.DisableDefaultPsacct(probeConfig)
  
         DebugPrint(1, " New accounting log file: " + newAcctFile)
         DebugPrint(5, "Started new accounting process")
@@ -397,7 +409,7 @@ class PsacctFiles:
         else:
             DebugPrint(1, "New accounting log file: " + AcctFile)
 
-        self.DisableLogrotate()
+        self.DisableDefaultPsacct(probeConfig)
 
         DebugPrint(5, "Started new accounting process")
 
