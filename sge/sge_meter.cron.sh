@@ -3,7 +3,7 @@
 # sge_meter.cron.sh - Shell script used with cron to parse sge log 
 #   files for OSG accounting data collection.
 
-# $Id: sge_meter.cron.sh,v 1.1 2007-01-30 19:32:13 greenc Exp $
+# $Id: sge_meter.cron.sh,v 1.2 2007-03-08 18:24:34 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/sge/sge_meter.cron.sh,v $
 
 Logger='/usr/bin/logger -s -t sge_meter'
@@ -41,7 +41,7 @@ done
 
 # Need to be sure there is not one of these running already
 #   This may not be the best way to test this for the long term ??? ###
-NCMeter=`ps -ef | grep sge.py | grep -v grep | wc -l`
+NCMeter=`ps -ef | grep sge_meter.py | grep -v grep | wc -l`
 if [ ${NCMeter} -eq 0 ]; then
   
   # Set the working directory, where we expect to find the following
@@ -54,8 +54,8 @@ if [ ${NCMeter} -eq 0 ]; then
   fi
   
   # We need to locate the sge probe script and it must be executable
-  if [ ! -x sge.py ]; then
-    ${Logger} "The sge.py file is not in this directory: $(pwd)"
+  if [ ! -x sge_meter.py ]; then
+    ${Logger} "The sge_meter.py file is not in this directory: $(pwd)"
     exit -2
   fi
   
@@ -71,7 +71,7 @@ if [ ${NCMeter} -eq 0 ]; then
   
   # This is what we expect in a normal Gratia install
   pp_dir=$(cd "$Meter_BinDir/../common"; pwd)
-  if test -n "$PYTHONPATH" ; then
+  if test -n "$PqYTHONPATH" ; then
     if echo "$PYTHONPATH" | grep -e ':$' >/dev/null 2>&1; then
       PYTHONPATH="${PYTHONPATH}${pp_dir}:"
     else
@@ -83,7 +83,7 @@ if [ ${NCMeter} -eq 0 ]; then
   export PYTHONPATH
 
   # Note: location of accounting file should be specified in ProbeConfig
-  ./sge.py -c
+  ./sge_meter.py -c
   ExitCode=$?
   # If the probe ended in error, report this in Syslog and exit
   if [ $ExitCode != 0 ]; then
@@ -96,7 +96,7 @@ if [ ${NCMeter} -eq 0 ]; then
   # The following debug statement needs to be removed after testing. ###
   # ls -ltrAF /tmp/py*
 else
-  ${Logger} "There is a 'sge.py' task running already."
+  ${Logger} "There is a 'sge_meter.py' task running already."
 fi
 
 exit 0
@@ -104,3 +104,6 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.1  2007/01/30 19:32:13  greenc
+# New probe for SGE. Related changes to package and build scripts.
+#
