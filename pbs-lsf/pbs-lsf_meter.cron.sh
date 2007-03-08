@@ -3,10 +3,46 @@
 # pbs-lsfr_meter.cron.sh - Shell script used with cron to parse PBS and LSF
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: pbs-lsf_meter.cron.sh,v 1.2 2006-10-09 16:40:26 greenc Exp $
+# $Id: pbs-lsf_meter.cron.sh,v 1.3 2007-03-08 18:25:00 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/pbs-lsf/pbs-lsf_meter.cron.sh,v $
-
-Logger='/usr/bin/logger -s -t pbs-lsf_meter'
+###################################################################
+function check_if_running {
+  # Need to be sure there is not one of these running already
+  # This may not be the best way to test this for the long term ??? ###
+  # If one is not running, then we need to remove a lock file that the
+  # ./urCollector.pl and ./pbs-lsf_meter.pl processes check for.
+  # Note: this lock file gets left behind when either of these processes
+  #       ends prematurely like on a system shutdown.
+    
+  NCMeter=`ps -ef | egrep "\./urCollector.pl|\./pbs-lsf_meter.pl" | grep -v grep | wc -l`
+  if [ ${NCMeter} -ne 0 ]; then
+    return 1 
+  fi
+  get_lockfile
+  if [ -f $LOCKFILE ];then
+    rm -f $LOCKFILE
+  fi
+  return 0
+} # end of terminate_if_running
+#------------------------
+function get_lockfile {
+  conf=$URCOLLECTOR_LOCATION/urCollector.conf
+  if [ ! -f $conf ];then
+    ${Logger} "ERROR: Unable to locate $conf"
+    exit -1
+  fi
+  LOCKFILE=$(perl <<EOF
+use urCollector::Configuration;
+# Parse configuration file
+&parseConf("$conf");
+print "\$configValues{collectorLockFileName}";
+exit(0);
+EOF
+)
+} # end of get_lockfile
+###################################################################
+PGM=$(basename $0)
+Logger="/usr/bin/logger -s -t $PGM"
 
 Meter_BinDir=$(dirname $0)
 
@@ -58,6 +94,15 @@ fi
 export PYTHONPATH
 
 export URCOLLECTOR_LOCATION=`pwd`  
+
+#--- check to see if processes still running --
+check_if_running;rtn=$?
+if [ $rtn -eq 1 ];then
+   ${Logger} "urCollector.pl or pbs-lsf_meter.pl probes still running... exiting"
+  exit 0
+fi
+
+#--- run the probes ----
 ./urCollector.pl --nodaemon
 ./pbs-lsf_meter.pl
 
@@ -74,6 +119,9 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.2  2006/10/09 16:40:26  greenc
+# Invoke the perl Gratia wrapper immediately after the urCollector run.
+#
 # Revision 1.1  2006/09/07 22:20:41  greenc
 # Gratia-specific files for pbs-lsf probe.
 #
