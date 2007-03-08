@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.45 2007-02-10 04:28:42 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.46 2007-03-08 18:26:05 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1295,29 +1295,29 @@ def Send(record):
                 prefix = child.prefix + ":"
                 break
 
+        [VOName, ReportableVOName] = [None, None]
+
         UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
         if not UserIdentityNodes:
-            DebugPrint(0, "Badly formed XML in " + xmlFilename + ": no UserIdentity block")
-            usageRecord.parentNode.removeChild(usageRecord)
-            usageRecord.unlink()
-            continue
-        elif len(UserIdentityNodes) > 1:
-            DebugPrint(0, "Badly formed XML in " + xmlFilename + ": too many UserIdentity blocks")
-            usageRecord.parentNode.removeChild(usageRecord)
-            usageRecord.unlink()
-            continue
-
-        [VOName, ReportableVOName] = \
-                 CheckAndExtendUserIdentity(xmlDoc,
-                                            UserIdentityNodes[0],
-                                            namespace,
-                                            prefix)
+            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            DebugPrint(0, "Warning: no UserIdentity block in " + jobIdType + " " +
+                       jobId)
+        else:
+            if len(UserIdentityNodes) > 1:
+                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                DebugPrint(0, "Warning: too many UserIdentity blocks  in " +  jobIdType + " " +
+                           jobId)
+            [VOName, ReportableVOName] = \
+                     CheckAndExtendUserIdentity(xmlDoc,
+                                                UserIdentityNodes[0],
+                                                namespace,
+                                                prefix)
 
         # If we are trying to handle only GRID jobs, suppress records
         # with a null or unknown VOName
         if Config.get_SuppressUnknownVORecords() and ((not VOName) or VOName == "Unknown"):
             [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-            DebugPrint(0, "Suppressing record with " + jobIdType + " " +
+            DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
                        jobId + "due to unknown or null VOName")
             usageRecord.parentNode.removeChild(usageRecord)
             usageRecord.unlink()
@@ -1450,6 +1450,8 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
                     prefix = child.prefix + ":"
                     break
 
+            [VOName, ReportableVOName] = [None, None]
+            
             # ProbeName and SiteName?
             ProbeNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'ProbeName')
             if not ProbeNameNodes:
@@ -1458,10 +1460,9 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
                 node.appendChild(textNode)
                 usageRecord.appendChild(node)
             elif len(ProbeNameNodes) > 1:
-                DebugPrint(0, "Badly formed XML in " + xmlFilename + ": too many ProbeName entities")
-                usageRecord.parentNode.removeChild(usageRecord)
-                usageRecord.unlink()
-                continue
+                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                DebugPrint(0, "Warning: too many ProbeName entities in " + jobIdType + " " +
+                       jobId + "(" + xmlFilename + ")")
             
             SiteNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'SiteName')
             if not SiteNameNodes:
@@ -1470,36 +1471,33 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
                 node.appendChild(textNode)
                 usageRecord.appendChild(node)
             elif len(SiteNameNodes) > 1:
-                DebugPrint(0, "Badly formed XML in " + xmlFilename + ": too many SiteName entities")
-                usageRecord.parentNode.removeChild(usageRecord)
-                usageRecord.unlink()
-                continue
+                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                DebugPrint(0, "Warning: too many SiteName entities in " + jobIdType + " " +
+                       jobId + "(" + xmlFilename + ")");
 
             # VOName, ReportableVOName
             UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
             if not UserIdentityNodes:
-                DebugPrint(0, "Badly formed XML in " + xmlFilename + ": no UserIdentity block")
-                usageRecord.parentNode.removeChild(usageRecord)
-                usageRecord.unlink()
-                continue
-            elif len(UserIdentityNodes) > 1:
-                DebugPrint(0, "Badly formed XML in " + xmlFilename + ": too many UserIdentity blocks")
-                usageRecord.parentNode.removeChild(usageRecord)
-                usageRecord.unlink()
-                continue
-
-            [VOName, ReportableVOName] = \
-                     CheckAndExtendUserIdentity(xmlDoc,
-                                                UserIdentityNodes[0],
-                                                namespace,
-                                                prefix)
+                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                DebugPrint(0, "Warning: no UserIdentity block in " + jobIdType + " " +
+                           jobId + "(" + xmlFilename + ")")
+            else:
+                if len(UserIdentityNodes) > 1:
+                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                    DebugPrint(0, "Warning: too many UserIdentity blocks in " + jobIdType + " " +
+                               jobId + "(" + xmlFilename + "): too many UserIdentity blocks")
+                [VOName, ReportableVOName] = \
+                         CheckAndExtendUserIdentity(xmlDoc,
+                                                    UserIdentityNodes[0],
+                                                    namespace,
+                                                    prefix)
 
             # If we are trying to handle only GRID jobs, suppress records
             # with a null or unknown VOName
             if Config.get_SuppressUnknownVORecords() and \
                    ((not VOName) or VOName == "Unknown"):
                 [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                DebugPrint(0, "Suppressing record with " + jobIdType + " " +
+                DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
                            jobId + "due to unknown or null VOName")
                 usageRecord.parentNode.removeChild(usageRecord)
                 usageRecord.unlink()
@@ -1604,7 +1602,7 @@ def FindBestJobId(usageRecord, namespace, prefix):
            RecordIdNodes[0].firstChild.data:
         return [RecordIdNodes[0].localName, RecordIdNodes[0].firstChild.data]
     else:
-        return [None, None]
+        return ['Unknown', 'Unknown']
 
 def UpdateResource(xmlDoc, usageRecord, namespace, prefix, key, value):
     "Update a resource key in the XML record"
@@ -1643,8 +1641,10 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     if len(LocalUserIdNodes) != 1 or not \
            (LocalUserIdNodes[0].firstChild and
             LocalUserIdNodes[0].firstChild.data):
-        DebugPrint(0, "Badly formed XML in " + xmlFilename + 
-                   ": UserIdentity block does not have exactly one populated LocalUserId node - uploading anyway")
+        [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
+        DebugPrint(0, "Warning: UserIdentity block does not have exactly ",
+                   "one populated LocalUserId node in " + jobIdType + " " +
+                   jobId)
         return [None, None]
 
     LocalUserId = LocalUserIdNodes[0].firstChild.data
@@ -1652,8 +1652,10 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     # VOName
     VONameNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'VOName')
     if len(VONameNodes) > 1:
-        DebugPrint(0, "Badly formed XML in " + xmlFilename +
-                   ": UserIdentity block has multiple VOName nodes - uploading anyway")
+        [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
+        DebugPrint(0,
+                   "Warning: UserIdentity block has multiple VOName nodes in " +
+                   jobIdType + " " + jobId)
         return [None, None]
     elif not VONameNodes:
         VONameNodes.append(xmlDoc.createElementNS(namespace, prefix + 'VOName'))
@@ -1664,11 +1666,14 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     # ReportableVOName
     ReportableVONameNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'ReportableVOName')
     if len(ReportableVONameNodes) > 1:
-        DebugPrint(0, "Badly formed XML in " + xmlFilename +
-                   ": UserIdentity block has multiple ReportableVOName nodes - uploading anyway")
+        [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
+        DebugPrint(0, "Warning: UserIdentity block has multiple ",
+                   "ReportableVOName nodes in " + jobIdType + " " + jobId)
         return [None, None]
     elif not ReportableVONameNodes:
-        ReportableVONameNodes.append(xmlDoc.createElementNS(namespace, prefix + 'ReportableVOName'))
+        ReportableVONameNodes.append(xmlDoc.createElementNS(namespace,
+                                                            prefix +
+                                                            'ReportableVOName'))
         textNode = xmlDoc.createTextNode(r'');
         ReportableVONameNodes[0].appendChild(textNode);
         userIdentityNode.appendChild(ReportableVONameNodes[0])
