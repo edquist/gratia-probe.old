@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.12i
+Version: 0.12j
 Release: 1
 License: GPL
 Group: Applications/System
@@ -576,7 +576,7 @@ The SGE probe for the Gratia OSG accounting system.
 %doc sge/README
 %{default_prefix}/probe/sge/README
 %{default_prefix}/probe/sge/sge_meter.cron.sh
-%{default_prefix}/probe/sge/sge.py
+%{default_prefix}/probe/sge/sge_meter.py
 %{default_prefix}/probe/sge/test/2007-01-26.log.snippet
 %config(noreplace) %{default_prefix}/probe/sge/ProbeConfig
 
