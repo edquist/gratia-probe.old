@@ -1,6 +1,7 @@
 
 import Gratia
 
+
 class Simple:
         "A simple example class"
         i = 12345
