@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.46 2007-03-08 18:26:05 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.47 2007-03-17 05:02:05 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -537,13 +537,6 @@ def __sendUsageXML(meterId, recordXml):
         __connectionError = True
 
         response = Response(1,"Failed to send xml to web service")
-
-    if (__connectionRetries > 0) and (response.get_code() == 0):
-        # Successful transaction after a reconnect
-        __connectionRetries = 0
-        # Reprocess failed records before attempting more new ones
-        SearchOutstandingRecord()
-        Reprocess()
 
     return response
 
@@ -1150,6 +1143,7 @@ class UsageRecord:
 
         self.XmlAddMembers()
 
+        self.XmlData = []
         self.XmlData.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         self.XmlData.append("<JobUsageRecord xmlns=\"http://www.gridforum.org/2003/ur-wg\"\n")
         self.XmlData.append("		xmlns:urwg=\"http://www.gridforum.org/2003/ur-wg\"\n")
@@ -1371,6 +1365,8 @@ def Send(record):
         usageXmlString = usageXmlString + line
     DebugPrint(3, 'UsageXml:  ' + usageXmlString)
 
+    connectionProblem = (__connectionRetries > 0) or (__connectionError)
+
     # Attempt to send the record to the collector
     response = __sendUsageXML(Config.get_MeterName(), usageXmlString)
     responseString = response.get_message()
@@ -1400,6 +1396,11 @@ def Send(record):
             responseString += "\n" + usageXmlString
         else:
             DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
+
+    if (connectionProblem) and (response.get_code() == 0):
+        # Reprocess failed records before attempting more new ones
+        SearchOutstandingRecord()
+        Reprocess()
 
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
