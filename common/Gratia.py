@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.47 2007-03-17 05:02:05 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.48 2007-05-08 19:56:04 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1431,96 +1431,111 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
             return responseString
 
         # Open the XML file
-        xmlDoc = xml.dom.minidom.parse(xmlFilename)
-        if not xmlDoc:
-            DebugPrint(0, "Unable to parse XML in file " + xmlFilename)
+        try:
+            xmlDoc = xml.dom.minidom.parse(xmlFilename)
+        except:
+            DebugPrint(0, "Failed to parse XML file ", xmlFilename, "--",
+                       sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
             xmlDoc.unlink()
-            continue
-
-        xmlDoc.normalize()
-
-        # Local namespace
-        namespace = xmlDoc.documentElement.namespaceURI
-        # Loop over (posibly multiple) jobUsageRecords
-        for usageRecord in getUsageRecords(xmlDoc):
-            # Local prefix, if any
-            prefix = ""
-            for child in usageRecord.childNodes:
-                if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
-                   child.prefix:
-                    prefix = child.prefix + ":"
-                    break
-
-            [VOName, ReportableVOName] = [None, None]
+            xmlDoc = None
             
-            # ProbeName and SiteName?
-            ProbeNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'ProbeName')
-            if not ProbeNameNodes:
-                node = xmlDoc.createElementNS(namespace, prefix + 'ProbeName')
-                textNode = xmlDoc.createTextNode(Config.get_MeterName())
-                node.appendChild(textNode)
-                usageRecord.appendChild(node)
-            elif len(ProbeNameNodes) > 1:
-                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                DebugPrint(0, "Warning: too many ProbeName entities in " + jobIdType + " " +
-                       jobId + "(" + xmlFilename + ")")
-            
-            SiteNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'SiteName')
-            if not SiteNameNodes:
-                node = xmlDoc.createElementNS(namespace, prefix + 'SiteName')
-                textNode = xmlDoc.createTextNode(Config.get_SiteName())
-                node.appendChild(textNode)
-                usageRecord.appendChild(node)
-            elif len(SiteNameNodes) > 1:
-                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                DebugPrint(0, "Warning: too many SiteName entities in " + jobIdType + " " +
-                       jobId + "(" + xmlFilename + ")");
+        if xmlDoc:
 
-            # VOName, ReportableVOName
-            UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
-            if not UserIdentityNodes:
-                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                DebugPrint(0, "Warning: no UserIdentity block in " + jobIdType + " " +
-                           jobId + "(" + xmlFilename + ")")
-            else:
-                if len(UserIdentityNodes) > 1:
+            xmlDoc.normalize()
+
+            # Local namespace
+            namespace = xmlDoc.documentElement.namespaceURI
+            # Loop over (posibly multiple) jobUsageRecords
+            for usageRecord in getUsageRecords(xmlDoc):
+                # Local prefix, if any
+                prefix = ""
+                for child in usageRecord.childNodes:
+                    if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
+                           child.prefix:
+                        prefix = child.prefix + ":"
+                        break
+
+                [VOName, ReportableVOName] = [None, None]
+            
+                # ProbeName and SiteName?
+                ProbeNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'ProbeName')
+                if not ProbeNameNodes:
+                    node = xmlDoc.createElementNS(namespace, prefix + 'ProbeName')
+                    textNode = xmlDoc.createTextNode(Config.get_MeterName())
+                    node.appendChild(textNode)
+                    usageRecord.appendChild(node)
+                elif len(ProbeNameNodes) > 1:
                     [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                    DebugPrint(0, "Warning: too many UserIdentity blocks in " + jobIdType + " " +
-                               jobId + "(" + xmlFilename + "): too many UserIdentity blocks")
-                [VOName, ReportableVOName] = \
-                         CheckAndExtendUserIdentity(xmlDoc,
-                                                    UserIdentityNodes[0],
-                                                    namespace,
-                                                    prefix)
+                    DebugPrint(0, "Warning: too many ProbeName entities in " + jobIdType + " " +
+                               jobId + "(" + xmlFilename + ")")
+            
+                SiteNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'SiteName')
+                if not SiteNameNodes:
+                    node = xmlDoc.createElementNS(namespace, prefix + 'SiteName')
+                    textNode = xmlDoc.createTextNode(Config.get_SiteName())
+                    node.appendChild(textNode)
+                    usageRecord.appendChild(node)
+                elif len(SiteNameNodes) > 1:
+                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                    DebugPrint(0, "Warning: too many SiteName entities in " + jobIdType + " " +
+                               jobId + "(" + xmlFilename + ")");
 
-            # If we are trying to handle only GRID jobs, suppress records
-            # with a null or unknown VOName
-            if Config.get_SuppressUnknownVORecords() and \
+                # VOName, ReportableVOName
+                UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
+                if not UserIdentityNodes:
+                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                    DebugPrint(0, "Warning: no UserIdentity block in " + jobIdType + " " +
+                               jobId + "(" + xmlFilename + ")")
+                else:
+                    if len(UserIdentityNodes) > 1:
+                        [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                        DebugPrint(0, "Warning: too many UserIdentity blocks in " + jobIdType + " " +
+                                   jobId + "(" + xmlFilename + "): too many UserIdentity blocks")
+                    [VOName, ReportableVOName] = \
+                             CheckAndExtendUserIdentity(xmlDoc,
+                                                        UserIdentityNodes[0],
+                                                        namespace,
+                                                        prefix)
+
+                # If we are trying to handle only GRID jobs, suppress
+                # records with a null or unknown VOName
+                if Config.get_SuppressUnknownVORecords() and \
                    ((not VOName) or VOName == "Unknown"):
-                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
-                           jobId + "due to unknown or null VOName")
-                usageRecord.parentNode.removeChild(usageRecord)
-                usageRecord.unlink()
+                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                    DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
+                               jobId + "due to unknown or null VOName")
+                    usageRecord.parentNode.removeChild(usageRecord)
+                    usageRecord.unlink()
+                    continue
+
+                # Add ResourceType if appropriate
+                if resourceType != None:
+                    UpdateResource(xmlDoc, usageRecord, namespace, prefix,
+                                   'ResourceType', resourceType)
+
+            if not len(getUsageRecords(xmlDoc)):
+                xmlDoc.unlink()
+                DebugPrint(0, "No unsuppressed usage records in " + \
+                           xmlFilename + ": not sending")
+                suppressedCount += 1
                 continue
 
-            # Add ResourceType if appropriate
-            if resourceType != None:
-                UpdateResource(xmlDoc, usageRecord, namespace, prefix,
-                               'ResourceType', resourceType)
+            # Generate the XML
+            xmlData = safeEncodeXML(xmlDoc)
 
-        if not len(getUsageRecords(xmlDoc)):
+            # Close and clean up the document
             xmlDoc.unlink()
-            DebugPrint(0, "No unsuppressed usage records in " + \
-                       xmlFilename + ": not sending")
-            suppressedCount += 1
-            continue
 
-        # Generate the XML
-        xmlData = safeEncodeXML(xmlDoc)
-
-        # Close and clean up the document
-        xmlDoc.unlink()
+        else: # XML parsing failed: slurp the file in to xmlData and
+              # send as-is.
+              try:
+                  in_file = open(xmlFilename, "r")
+              except:
+                  DebugPrint(0, "Unable to open xmlFilename for simple read")
+                  continue
+              
+              xmlData = in_file.readlines()
+              in_file.close()
 
         # Open the back up file
         # fill the back up file
