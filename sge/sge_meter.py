@@ -24,7 +24,7 @@
 import Gratia
 import os, copy, pwd, time, sys
 
-if not Gratia.requirePythonVersion(2,3):
+if not Gratia.pythonVersionRequire(2,3):
     Gratia.Error("SGE Probe requires python version >= 2.3 (current version " + sys.version + ")")
     sys.exit(1)
 
@@ -268,13 +268,6 @@ if __name__ == '__main__':
 
     sgeRoot = os.getenv("SGE_ROOT", "/common/sge/6.0u4")
 
-    # Initialize Gratia
-    Gratia.Initialize()
-
-    # Set the default accounting file per the ProbeConfig file if attribute exists
-    defaultAccountingFile = Gratia.Config.getConfigAttribute("SGEAccountingFile")
-    if not defaultAccountingFile or not os.path.exists(defaultAccountingFile):
-        defaultAccountingFile = sgeRoot+"/default/common/accounting"
     
     gridmapFile = os.getenv("GRIDMAP", "/etc/grid-security/grid-mapfile")
 
@@ -285,7 +278,6 @@ if __name__ == '__main__':
 
     optParser.add_option("-a", "--accounting",
                          action="store", dest="accounting", type="string",
-                         default=defaultAccountingFile,
                          help="SGE accounting file. Default: $SGE_ROOT/default/common/accounting" )
     optParser.add_option("-m", "--gridmap",
                          action="store", dest="gridmap", type="string",
@@ -305,6 +297,24 @@ if __name__ == '__main__':
 
     debug = opts.debug
     gridmapFile = opts.gridmap
+
+
+    # Initialize Gratia
+    Gratia.Initialize()
+
+    # Set the default accounting file per the ProbeConfig file if attribute exists
+    defaultAccountingFile = Gratia.Config.getConfigAttribute("SGEAccountingFile")
+    if not defaultAccountingFile or not os.path.exists(defaultAccountingFile):
+        defaultAccountingFile = sgeRoot+"/default/common/accounting"
+
+    # get the accounting file name
+
+    if opts.accounting:
+        accFileName = opts.accounting
+    else:
+        accFileName = defaultAccountingFile
+
+    
 
     checkpointFile=os.path.join(Gratia.Config.get_WorkingFolder(), "checkpoint")
     
@@ -330,17 +340,13 @@ if __name__ == '__main__':
           checkpoint=0
              
 
-    Gratia.DebugPrint(0, "Using Accounting file: " + opts.accounting)
-    Gratia.DebugPrint(0, "Using grid-mapfile: " + opts.gridmap)
+    Gratia.DebugPrint(0, "Using Accounting file: " + accFileName)
+    Gratia.DebugPrint(0, "Using grid-mapfile: " + gridmapFile)
 
-
-    # get the accounting file name
-
-    fileName = opts.accounting
 
 
     linecount=0
-    file = open(fileName, "r")
+    file = open(accFileName, "r")
     for line in file:
         # keep going until we hit the checkpoint
         linecount = linecount + 1
