@@ -19,7 +19,7 @@ specfile=~/gratia/probe/build/gratia-probe.spec
 usage() {
   cat 1>&2 <<EOF
 usage: build_all -h
-       build_all [-d <rpm-macro-definition>] [-P] [-p] [-r <rpmbuild-top>] \
+       build_all [-d <rpm-macro-definition>] [-P [-Y]] [-p] [-r <rpmbuild-top>] \
                  [-s <specfile>] [--] <version> [<release>]
 
 Options:
@@ -27,6 +27,8 @@ Options:
     Define an RPM macro
   [-P]
     Publish to AFS (gratia.fnal.gov/Files)
+  [-Y]
+    Create or freshen yum repository (requires -P)
   [-p]
     Prepare-only (no RPM build)
   [-r <rpmbuild-top>]
@@ -57,6 +59,9 @@ while getopts :hd:r:s:pP OPT; do
         P)
             publish=1
             ;;
+        Y)
+				    yum=1
+						;;
         p)
             prepare_only=1
             ;;
@@ -91,7 +96,7 @@ s&^(\s*Version\s*:\s*).*$&${1}'"${version}"'&i;
 s&^(\s*Release\s*:\s*).*$&${1}'"${release}"'&i;
 ' ${specfile} > "${tmp_specfile}"
 
-build/package-probe "${version}" common condor pbs-lsf psacct sge
+build/package-probe "${version}" common condor pbs-lsf psacct sge glexec
 status=$?
 
 if (( $status == 0 )); then
@@ -134,13 +139,25 @@ else
   exit $status
 fi
 
+publish_dir=/afs/fnal.gov/files/expwww/gratia/html/Files/probe
+yum_cache=/afs/fnal.gov/files/expwww/gratia/yum-repo-cache
+
 if (( $status == 0 )) && (( ${publish:-0} )); then
   echo "Publishing files to AFS for web access ..." 1>&2
   cp -pv `find "${rpmbuild_top}"/RPMS -name "gratia-probe*-$version-$release.*.rpm"` \
-   /afs/fnal.gov/files/expwww/gratia/html/Files/probe/RPMS/ && \
+   ${publish_dir}/RPMS/ && \
   cp -pv "${rpmbuild_top}/SRPMS/gratia-probe-$version-$release.src.rpm" \
-   /afs/fnal.gov/files/expwww/gratia/html/Files/probe/SRPMS/
+   "${publish_dir}/SRPMS/"
   status=$?
+  if (( $status == 0 )) && (( ${yum:-0} )); then
+		if type -p createrepo; then
+      createrepo -c "${yum_cache}" -p "${publish_dir}/RPMS"
+  status=$?
+    else
+      echo "Unable to find createrepo command to update yum repository metadata" 1>&2
+      exit 1
+    fi
+  fi
 else
   exit $status
 fi
