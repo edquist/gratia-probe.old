@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.12j
+Version: 0.20a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -33,6 +33,7 @@ Source2: %{name}-psacct-%{version}.tar.bz2
 Source3: %{name}-pbs-lsf-%{version}.tar.bz2
 Source4: urCollector-%{urCollector_version}.tgz
 Source5: %{name}-sge-%{version}.tar.bz2
+Source6: %{name}-glexec-%{version}.tar.bz2
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch2: urCollector-2006-06-13-createTime-timezone.patch
@@ -43,6 +44,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
 Prefix: %{default_prefix}
+Prefix: /etc
 
 %prep
 %setup -q -c
@@ -60,6 +62,7 @@ cd urCollector-%{urCollector_version}
 %patch -P 5 -b .modules-2
 %endif
 %setup -q -D -T -a 5
+%setup -q -D -T -a 6
 
 %build
 %ifnarch noarch
@@ -76,18 +79,21 @@ cd -
 
 %ifarch noarch
   # Obtain files
-  %{__cp} -pR {common,condor,psacct,sge} "${RPM_BUILD_ROOT}%{default_prefix}/probe"
+  %{__cp} -pR {common,condor,psacct,sge,glexec} "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
   for probe_config in \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/condor/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/psacct/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/sge/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/glexec/ProbeConfig" \
       ; do
     %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
   done
 
+  install -d "${RPM_BUILD_ROOT}/etc/yum.repos.d"
+  mv -v "${RPM_BUILD_ROOT}%{default_prefix}/probe/common/gratia.repo" "${RPM_BUILD_ROOT}/etc/yum.repos.d/"
 %else
   %{__cp} -pR pbs-lsf "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
@@ -256,7 +262,7 @@ rm -f "$tmpfile"
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
   # Remove crontab entry
-  tmpfile=`mktemp /tmp/gratia-probe-pbs-lsf-post.XXXXXXXXXX`
+  tmpfile=`mktemp /tmp/gratia-probe-pbs-lsf-preun.XXXXXXXXXX`
   crontab -l 2>/dev/null | \
   %{__grep} -v -e 'pbs-lsf_meter.cron\.sh' > "$tmpfile" 2>/dev/null
   if test -s "$tmpfile"; then
@@ -294,6 +300,7 @@ Common files and examples for Gratia OSG accounting system probes.
 %{default_prefix}/probe/common/Gratia.py
 %{default_prefix}/probe/common/RegisterProbe.py
 %{default_prefix}/probe/common/test/db-find-job
+%config(noreplace) /etc/yum.repos.d/gratia.repo
 
 %package psacct
 Summary: A ps-accounting probe
@@ -421,7 +428,7 @@ rm -f "$tmpfile"
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
   # Remove crontab entry
-  tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
+  tmpfile=`mktemp /tmp/gratia-probe-psacct-preun.XXXXXXXXXX`
   crontab -l 2>/dev/null | \
   %{__grep} -v -e 'psacct_probe.cron\.sh' \
           -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
@@ -548,7 +555,7 @@ rm -f "$tmpfile"
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
   # Remove crontab entry
-  tmpfile=`mktemp /tmp/gratia-probe-condor-post.XXXXXXXXXX`
+  tmpfile=`mktemp /tmp/gratia-probe-condor-preun.XXXXXXXXXX`
   crontab -l 2>/dev/null | \
   %{__grep} -v -e 'condor_meter.cron\.sh' \
           -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
@@ -623,7 +630,7 @@ tmpfile=`mktemp /tmp/gratia-probe-sge-post.XXXXXXXXXX`
 
 crontab -l 2>/dev/null | \
 %{__grep} -v -e 'sge_meter.cron\.sh' \
-        -e 'sge\.py' > "$tmpfile" 2>/dev/null
+        > "$tmpfile" 2>/dev/null
 (( min = $RANDOM % 15 ))
 %{__cat} >>"$tmpfile" <<EOF
 $min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
@@ -637,10 +644,10 @@ rm -f "$tmpfile"
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
   # Remove crontab entry
-  tmpfile=`mktemp /tmp/gratia-probe-sge-post.XXXXXXXXXX`
+  tmpfile=`mktemp /tmp/gratia-probe-sge-preun.XXXXXXXXXX`
   crontab -l 2>/dev/null | \
   %{__grep} -v -e 'sge_meter.cron\.sh' \
-          -e 'sge\.py' > "$tmpfile" 2>/dev/null
+          > "$tmpfile" 2>/dev/null
   if test -s "$tmpfile"; then
     crontab "$tmpfile" >/dev/null 2>&1
   else
@@ -649,9 +656,108 @@ if [ $1 -eq 0 ]; then
   rm -f "$tmpfile"
 fi
 
+%package glexec%{?maybe_itb_suffix}
+Summary: A gLExec probe
+Group: Applications/System
+Requires: python >= 2.3
+Requires: %{name}-common >= 0.12e
+%{?config_itb:Obsoletes: %{name}-glexec}
+%{!?config_itb:Obsoletes: %{name}-glexec%{itb_suffix}}
+
+%description glexec%{?maybe_itb_suffix}
+The gLExec probe for the Gratia OSG accounting system.
+
+%files glexec%{?maybe_itb_suffix}
+%defattr(-,root,root,-)
+%doc glexec/README
+%{default_prefix}/probe/glexec/README
+%{default_prefix}/probe/glexec/glexec_meter.cron.sh
+%{default_prefix}/probe/glexec/glexec_meter.py
+%{default_prefix}/probe/glexec/gratia_glexec_parser.py
+%config(noreplace) %{default_prefix}/probe/glexec/ProbeConfig
+
+%post glexec%{?maybe_itb_suffix}
+# /usr -> "${RPM_INSTALL_PREFIX0}"
+# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
+%{__cat} <<EOF | while read config_file; do
+`%{__grep} -le '^%{ProbeConfig_template_marker}$' \
+"${RPM_INSTALL_PREFIX1}"/probe/glexec/ProbeConfig{,.rpmnew} \
+2>/dev/null`
+EOF
+test -n "$config_file" || continue
+%{__perl} -wni.orig -e \
+'
+s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
+%{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
+s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
+%{?itb_soaphost_config}
+s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"glexec:'"%{meter_name}"'"&;
+s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
+m&^/>& and print <<EOF;
+    gLExecMonitorLog="/var/log/glexec/glexec_monitor.log"
+EOF
+m&%{ProbeConfig_template_marker}& or print;' \
+"$config_file" >/dev/null 2>&1
+done
+
+# Check for sensible value of MaxPendingFiles in config file.
+(( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/glexec/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
+
+# Configure crontab entry
+if %{__grep} -re 'glexec_meter.cron\.sh' \
+        /etc/crontab /etc/cron.* >/dev/null 2>&1; then
+%{__cat} <<EOF 1>&2
+
+WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
+         Please check and remove to avoid clashes with root's crontab
+
+EOF
+fi
+
+tmpfile=`mktemp /tmp/gratia-probe-glexec-post.XXXXXXXXXX`
+
+crontab -l 2>/dev/null | \
+%{__grep} -v -e 'glexec_meter.cron\.sh' > "$tmpfile" 2>/dev/null
+(( min = $RANDOM % 15 ))
+%{__cat} >>"$tmpfile" <<EOF
+$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
+"${RPM_INSTALL_PREFIX1}/probe/glexec/glexec_meter.cron.sh"
+EOF
+
+crontab "$tmpfile" >/dev/null 2>&1
+rm -f "$tmpfile"
+# End of gLExec post
+
+%preun glexec%{?maybe_itb_suffix}
+# Only execute this if we're uninstalling the last package of this name
+if [ $1 -eq 0 ]; then
+  # Remove crontab entry
+  tmpfile=`mktemp /tmp/gratia-probe-glexec-preun.XXXXXXXXXX`
+  crontab -l 2>/dev/null | \
+  %{__grep} -v -e 'glexec_meter.cron\.sh' \
+          > "$tmpfile" 2>/dev/null
+  if test -s "$tmpfile"; then
+    crontab "$tmpfile" >/dev/null 2>&1
+  else
+    crontab -r
+  fi
+  rm -f "$tmpfile"
+fi
+#   End of glExec preun
+# End of gLExec section
+
 %endif
 
 %changelog
+* Wed May  9 2007 Christopher Green <greenc@fnal.gov> - 0.20a-1
+- Consolidation release.
+- Addition of gLExec probe to suite.
+- Yum repository config file.
+
+* Wed Apr  4 2007 Christopher Green <greenc@fnal.gov> - 0.12k-0
+- Pre-release for testing and emergency deployment only.
+
 * Fri Feb  9 2007 Chris Green <greenc@fnal.gov> - 0.12i-1
 - Fix reported problem with PBS probe.
 - Make requested change to maximum backoff delay.
