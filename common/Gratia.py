@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.48 2007-05-08 19:56:04 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.49 2007-05-09 22:25:23 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1436,10 +1436,10 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
         except:
             DebugPrint(0, "Failed to parse XML file ", xmlFilename, "--",
                        sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
-            xmlDoc.unlink()
             xmlDoc = None
             
         if xmlDoc:
+            DebugPrint(1, "Adding information to parsed XML")
 
             xmlDoc.normalize()
 
@@ -1528,6 +1528,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
 
         else: # XML parsing failed: slurp the file in to xmlData and
               # send as-is.
+              DebugPrint(1, "Backing up and sending failed XML as is.")
               try:
                   in_file = open(xmlFilename, "r")
               except:
