@@ -6,7 +6,6 @@ import os,os.path,sys,time,string,pwd
 import socket
 import popen2
 import gratia_glexec_parser
-sys.path.append("../common")
 import Gratia
 
 #
@@ -112,7 +111,7 @@ def get_host():
 def send_one(el,
              host, # uname -n
              cename):
-    r=Gratia.UsageRecord()
+    r=Gratia.UsageRecord("Batch")
     r.ProbeName("glexec:%s"%host)
     r.MachineName(cename)
     r.Host(host)
