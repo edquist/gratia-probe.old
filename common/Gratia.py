@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.49 2007-05-09 22:25:23 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.50 2007-05-10 20:17:18 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1423,6 +1423,10 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
     for xmlFilename in files:
 
         DebugPrint(0, "***********************************************************")
+        if os.path.getsize(xmlFilename) == 0:
+            DebugPrint(0, "File " + xmlFilename + " is zero-length: skipping")
+            os.remove(xmlFilename)
+            continue
         DebugPrint(1,"xmlFilename: ",xmlFilename)
         if (failedSendCount + len(OutstandingRecord)) >= Config.get_MaxPendingFiles():
             responseString = "Fatal Error: too many pending files"
