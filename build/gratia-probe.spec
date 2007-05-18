@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.20a
+Version: 0.22b
 Release: 1
 License: GPL
 Group: Applications/System
@@ -14,8 +14,18 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 %define urCollector_version 2006-06-13
 %define itb_suffix -itb
 
+%define osg_collector gratia.opensciencegrid.org
+%define fnal_collector gratia-fermi.fnal.gov
+
 %{?config_itb: %define maybe_itb_suffix %{itb_suffix}}
-%{?config_itb: %define itb_soaphost_config s&^(\\s*SOAPHost\\s*=\\s*).*$&${1}"gratia-osg.fnal.gov:8881"&;}
+%{?config_itb: %define itb 1}
+%{!?config_itb: %define itb 0}
+
+%if %{itb}
+  %define collector_port 8881
+%else
+  %define collector_port 8880
+%endif
 
 %{?vdt_loc: %define vdt_loc_set 1}
 %{!?vdt_loc: %define vdt_loc /opt/vdt}
@@ -25,7 +35,7 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 
 %{!?site_name: %define site_name '"$( ( if [[ -r \"%{osg_attr}\" ]]; then . \"%{osg_attr}\" ; echo \"${OSG_SITE_NAME}\"; else echo \"Generic Site\"; fi ) )"'}
 
-%{!?meter_name: %define meter_name `uname -n`}
+%{!?meter_name: %define meter_name `hostname -f`}
 
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
@@ -224,7 +234,11 @@ test -n "$config_file" || continue
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-%{?itb_soaphost_config}
+my $install_host = `hostname -f`;
+chomp $install_host;
+$install_host = "%{meter_name}" unless $install_host =~ m&\.&;
+my $collector_host = ($install_host =~ m&\.fnal\.&i)?"%{fnal_collector}":"%{osg_collector}";
+s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${collector_host}:%{collector_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"pbs-lsf:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
 m&%{ProbeConfig_template_marker}& or print;
@@ -342,10 +356,10 @@ ${RPM_INSTALL_PREFIX1}/probe/psacct/gratia-psacct
 /etc/rc.d/init.d/gratia-psacct
 EOF
 test -n "$config_file" || continue
+# Configure ProbeConfig
 %{__perl} -wni.orig -e \
 '
-s&^(\s*SOAPHost\s*=\s*).*$&${1}"gratia-fermi.fnal.gov:8882"&;
-s&gratia-osg\.fnal\.gov$&gratia-fermi.fnal.gov&;
+s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"%{fnal_collector}:8882"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"psacct:'"%{meter_name}"'"&;
@@ -470,12 +484,17 @@ The Condor probe for the Gratia OSG accounting system.
 2>/dev/null`
 EOF
 test -n "$config_file" || continue
+# Configure ProbeConfig
 %{__perl} -wni.orig -e \
 '
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-%{?itb_soaphost_config}
+my $install_host = `hostname -f`;
+chomp $install_host;
+$install_host = "%{meter_name}" unless $install_host =~ m&\.&;
+my $collector_host = ($install_host =~ m&\.fnal\.&i)?"%{fnal_collector}":"%{osg_collector}";
+s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${collector_host}:%{collector_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"condor:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
 m&%{ProbeConfig_template_marker}& or print;' \
@@ -602,7 +621,11 @@ test -n "$config_file" || continue
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-%{?itb_soaphost_config}
+my $install_host = `hostname -f`;
+chomp $install_host;
+$install_host = "%{meter_name}" unless $install_host =~ m&\.&;
+my $collector_host = ($install_host =~ m&\.fnal\.&i)?"%{fnal_collector}":"%{osg_collector}";
+s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${collector_host}:%{collector_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"sge:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
 m&^/>& and print <<EOF;
@@ -691,7 +714,11 @@ test -n "$config_file" || continue
 s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
 %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
 s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-%{?itb_soaphost_config}
+my $install_host = `hostname -f`;
+chomp $install_host;
+$install_host = "%{meter_name}" unless $install_host =~ m&\.&;
+my $collector_host = ($install_host =~ m&\.fnal\.&i)?"%{fnal_collector}":"%{osg_collector}";
+s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${collector_host}:%{collector_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"glexec:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
 m&^/>& and print <<EOF;
@@ -750,6 +777,18 @@ fi
 %endif
 
 %changelog
+* Fri May 18 2007 Christopher Green <greenc@fnal.gov> - 0.22b-1
+- Fix condor_meter.pl problems discovered during testing.
+- uname -n => hostname -f.
+- When installing in FNAL domain, default collector is FNAL.
+
+* Thu May 17 2007 Christopher Green <greenc@fnal.gov> - 0.22a-2
+- re-vamp post to handle FNAL-local collector configurations.
+
+* Thu May 17 2007 Christopher Green <greenc@fnal.gov> - 0.22a-1
+- Condor probe now looks in old history files if necessary.
+- condor_history check only done once per invocation instead of once per job.
+
 * Wed May  9 2007 Christopher Green <greenc@fnal.gov> - 0.20a-1
 - Consolidation release.
 - Addition of gLExec probe to suite.
