@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.10 2007-02-13 22:37:47 greenc Exp $
+# $Id: condor_meter.pl,v 1.11 2007-05-18 20:40:58 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.10 $ ';   # CVS Version number
+my $prog_revision = '$Revision: 1.11 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -380,70 +380,82 @@ sub Query_Condor_History {
   my $cluster_id = $_[0];
   my $record_in;
   my %condor_hist_data = ();
-  my $condor_hist_cmd = '';
+  my $fh = new FileHandle;
 
-  # I had this hardcoded to the path initially.  Now I set this path in
-  # the main program block.
-  if (-x $condor_history) {
-    $condor_hist_cmd = $condor_history;
-  } else {
-    # my $condor_hist_cmd = "/export/osg/grid/condor/bin/condor_history";
-    $condor_hist_cmd = "/opt/condor-6.7.13/bin/condor_history";
-  }
+  my $current_condor_hist_cmd = "$condor_hist_cmd";
 
-  if ($cluster_id) {
-    open(CONDOR_HISTORY_HELP, "$condor_hist_cmd -help|")
-      or die "Unable to open condor_history pipe\n";
-    my @condor_history_help_text = <CONDOR_HISTORY_HELP>;
-    close CONDOR_HISTORY_HELP;
-    chomp @condor_history_help_text;
-    grep /-backwards\b/, @condor_history_help_text and
-      $condor_hist_cmd = "$condor_hist_cmd -backwards";
-    grep /-match\b/, @condor_history_help_text and
-      $condor_hist_cmd = "$condor_hist_cmd -match 1";
-    open(CHIST, "$condor_hist_cmd -l $cluster_id |")
-      or die "Unable to open condor_history pipe\n";
-  } else {
-    warn "Tried to call condor_history with no cluster_id data.\n";
-    return ();
-  }
+  my %seen_history_list = ( ${condor_hist_file} => 1);
 
-  #unless (defined ($header = <CHIST>)) {
-  #    warn "The condor_history pipe returned empty?  (ClusterID: $cluster_id)\n";
-  #    return ();
-  #  }
+ HISTORY_SEARCH:
+  {
+    if ($cluster_id) {
+      $fh->open("$current_condor_hist_cmd -l $cluster_id |")
+	or die "Unable to open condor_history pipe\n";
+    } else {
+      warn "Tried to call condor_history with no cluster_id data.\n";
+      return ();
+    }
 
-  #Test the first line returned to be sure the history command worked
-  #unless ($header =~ /\(ClusterId == (\d+)\)/ && $cluster_id == $1) {
-  #  warn "Unexpected first line of condor history returned ($header)\n";
-  #}
+    #unless (defined ($header = <CHIST>)) {
+    #    warn "The condor_history pipe returned empty?  (ClusterID: $cluster_id)\n";
+    #    return ();
+    #  }
 
-  #Load the remaining lines into a hash
-  while ($record_in = <CHIST>) {
-   # Most lines look something like:  MyType = "Job"
-    if ($record_in =~ /(\S+) = (.*)/) {
-      $element = $1;  $value=$2;
+    #Test the first line returned to be sure the history command worked
+    #unless ($header =~ /\(ClusterId == (\d+)\)/ && $cluster_id == $1) {
+    #  warn "Unexpected first line of condor history returned ($header)\n";
+    #}
 
-      # Strip double quotes where needed
-      if ($value =~ /"(.*)"/) {
-	$value = $1;
+    #Load the remaining lines into a hash
+    my $record_seen;
+    my $record_not_found;
+    while ($record_in = <$fh>) {
+      $record_seen = 1;
+      # Most lines look something like:  MyType = "Job"
+      if ($record_in =~ /(\S+) = (.*)/) {
+	$element = $1;  $value=$2;
+					
+	# Strip double quotes where needed
+	if ($value =~ /"(.*)"/) {
+	  $value = $1;
+	}
+	$condor_hist_data{$element} = $value;
+      } elsif ($record_in =~ /-- Quill/) {
+	# Quill header looks like:
+	#    -- Quill: quill@fngp-osg.fnal.gov : <fngp-osg.fnal.gov:5432> : quill
+	if ($verbose && $debug_mode) { 
+	  print "Query_Condor_History got Quill history data\n";
+	  print $record_in;
+	}
+      } elsif ($record_in =~ /No historical jobs in the database match your query/) {
+	$record_not_found = 1;
+	last;
+      } elsif ($record_in =~ /\S+/) {
+	warn "Could not parse: $record_in (skipping)\n";
       }
-      $condor_hist_data{$element} = $value;
-    } elsif ($record_in =~ /-- Quill/) {
-      # Quill header looks like:
-      #    -- Quill: quill@fngp-osg.fnal.gov : <fngp-osg.fnal.gov:5432> : quill
-      if ($verbose && $debug_mode) { 
-	print "Query_Condor_History got Quill history data\n";
-	print $record_in;
+    }
+    $fh->close();
+    if ($record_not_found or not $record_seen) {
+      undef $record_seen;
+      undef $record_not_found;
+      # Look in other places
+      # Don't do the glob until now just in case there's a race on.
+      my @condor_history_file_list = glob("${condor_hist_file}*");
+      my $next_history_file;
+      while ($next_history_file = shift @condor_history_file_list and
+	     exists $seen_history_list{$next_history_file}) {
       }
-    } elsif ($record_in =~ /No historical jobs in the database match your query/) {
-      if ($verbose) { warn "Query_Condor_History found no record of this job\n" }
-      return (); # Failure - return an undefined value
-    } elsif ($record_in =~ /\S+/) {
-      warn "Could not parse: $record_in (skipping)\n";
+      if ($next_history_file) {
+	$current_condor_hist_cmd = "$condor_hist_cmd -f $next_history_file";
+	$seen_history_list{$next_history_file} = 1;
+	redo HISTORY_SEARCH;
+      }
+      if ($verbose) {
+	warn "Query_Condor_History found no record of this job\n";
+      }
+      return ();
     }
   }
-
   if ($condor_hist_data{'GlobalJobId'}) {
     create_unique_id(%condor_hist_data);
     return %condor_hist_data;
@@ -453,7 +465,7 @@ sub Query_Condor_History {
       return ();
     }
   }
-} # End of subroutine Query_Condor_History
+}                               # End of subroutine Query_Condor_History
 
 #------------------------------------------------------------------
 # Subroutine create_unique_id
@@ -773,6 +785,7 @@ use Env qw(CONDOR_LOCATION PATH);  #Import only the Env variables we need
 @path = split(/:/, $PATH);
 push(@path, "/usr/local/bin");
 $condor_history = '';
+$condor_hist_cmd = '';
 
 if (( $CONDOR_LOCATION ) && ( -x "$CONDOR_LOCATION/bin/condor_history" )) {
   # This is the most obvious place to look
@@ -794,16 +807,25 @@ unless ( -x $condor_history ) {
 
 if ($verbose) { print "Condor_history at $condor_history\n"; }
 
-# Condor 6.7.19 has a condor_history enhancement which added switches for
-# '-backwards' and '-match'.  Alain sent e-mail about this on 6 Apr
-# 2006.   I still need to code this into the meter.  ####
-#  1) Check if we have the enhanced version
-#  2) Alter the way we query condor_history using the enhancement (if avail.)
+$condor_hist_cmd = $condor_history;
+
+open(CONDOR_HISTORY_HELP, "$condor_hist_cmd -help|")
+	or die "Unable to open condor_history pipe\n";
+my @condor_history_help_text = <CONDOR_HISTORY_HELP>;
+close CONDOR_HISTORY_HELP;
+chomp @condor_history_help_text;
+grep /-backwards\b/, @condor_history_help_text and
+	$condor_hist_cmd = "$condor_hist_cmd -backwards";
+grep /-match\b/, @condor_history_help_text and
+	$condor_hist_cmd = "$condor_hist_cmd -match 1";
+
+$condor_config_val_cmd = sprintf("%s/condor_config_val", dirname($condor_history));
+$condor_hist_file = `$condor_config_val_cmd HISTORY`;
+chomp $condor_hist_file;
 
 #------------------------------------------------------------------
 # Build a list of file names.  Add individual files given as command
 # line arguments or select names from a directory specified.
-
 my @logfiles = @processed_logfiles = ();  $logs_found=0;
 foreach $name_arg (@ARGV) {
   if ( -f $name_arg && -s _ ) {
@@ -1128,6 +1150,13 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.10  2007/02/13 22:37:47  greenc
+# Forward-looking improvement of embedded version (needs accompanying
+# change to build script).
+#
+# Fix creatiion of UniqGlobalJobId to be appropriate for condor 6.9 and
+# above.
+#
 # Revision 1.9  2007/02/13 22:32:05  greenc
 # Copy of condor_meter.pl as provided by Greg Quinn, only altered to
 # include differences between version upon which his was based (1.6) and
