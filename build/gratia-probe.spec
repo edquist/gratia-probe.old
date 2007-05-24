@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.22b
+Version: 0.22c
 Release: 1
 License: GPL
 Group: Applications/System
@@ -36,6 +36,8 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 %{!?site_name: %define site_name '"$( ( if [[ -r \"%{osg_attr}\" ]]; then . \"%{osg_attr}\" ; echo \"${OSG_SITE_NAME}\"; else echo \"Generic Site\"; fi ) )"'}
 
 %{!?meter_name: %define meter_name `hostname -f`}
+
+%define scrub_root_crontab tmpfile=`mktemp /tmp/gratia-cleanup.XXXXXXXXXX`; crontab -l 2>/dev/null | %{__grep} -v -e 'gratia/probe/' > "$tmpfile" 2>/dev/null; crontab "$tmpfile" 2>/dev/null 2>&1; %{__rm} -f "$tmpfile"
 
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
@@ -103,7 +105,7 @@ cd -
   done
 
   install -d "${RPM_BUILD_ROOT}/etc/yum.repos.d"
-  mv -v "${RPM_BUILD_ROOT}%{default_prefix}/probe/common/gratia.repo" "${RPM_BUILD_ROOT}/etc/yum.repos.d/"
+  %{__mv} -v "${RPM_BUILD_ROOT}%{default_prefix}/probe/common/gratia.repo" "${RPM_BUILD_ROOT}/etc/yum.repos.d/"
 %else
   %{__cp} -pR pbs-lsf "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
@@ -250,8 +252,9 @@ done
 (( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/pbs-lsf/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
 
 # Configure crontab entry
+%scrub_root_crontab
 if %{__grep} -re 'pbs-lsf_meter.cron\.sh' \
-        /etc/crontab /etc/cron.* >/dev/null 2>&1; then
+        /etc/crontab /etc/cron.??* >/dev/null 2>&1; then
 %{__cat} <<EOF 1>&2
 
 WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
@@ -260,31 +263,16 @@ WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
 EOF
 fi
 
-tmpfile=`mktemp /tmp/gratia-probe-pbs-lsf-post.XXXXXXXXXX`
-crontab -l 2>/dev/null | \
-%{__grep} -v -e 'pbs-lsf_meter.cron\.sh' > "$tmpfile" 2>/dev/null
 (( min = $RANDOM % 15 ))
-%{__cat} >>"$tmpfile" <<EOF
+%{__cat} >/etc/cron.d/gratia-probe-pbs-lsf.cron <<EOF
 $min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
 "${RPM_INSTALL_PREFIX1}/probe/pbs-lsf/pbs-lsf_meter.cron.sh"
 EOF
 
-crontab "$tmpfile" >/dev/null 2>&1
-rm -f "$tmpfile"
-
 %preun pbs-lsf%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  # Remove crontab entry
-  tmpfile=`mktemp /tmp/gratia-probe-pbs-lsf-preun.XXXXXXXXXX`
-  crontab -l 2>/dev/null | \
-  %{__grep} -v -e 'pbs-lsf_meter.cron\.sh' > "$tmpfile" 2>/dev/null
-  if test -s "$tmpfile"; then
-    crontab "$tmpfile" >/dev/null 2>&1
-  else
-    crontab -r
-  fi
-  rm -f "$tmpfile"
+  %{__rm} -f /etc/gratia-probe-pbs-lsf.cron
 fi
 
 %else
@@ -380,10 +368,10 @@ done
 # Check for sensible value of MaxPendingFiles in config file.
 (( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/psacct/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
 
-
 # Configure crontab entry
+%scrub_root_crontab
 if %{__grep} -re 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' \
-        /etc/crontab /etc/cron.* >/dev/null 2>&1; then
+        /etc/crontab /etc/cron.??* >/dev/null 2>&1; then
 %{__cat} 1>&2 <<EOF
 
 
@@ -393,17 +381,10 @@ WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
 EOF
 fi
 
-tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
-crontab -l 2>/dev/null | \
-%{__grep} -v -e 'psacct_probe.cron\.sh' \
-        -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
-%{__cat} >>"$tmpfile" <<EOF
+%{__cat} >/etc/cron.d/gratia-probe-psacct.cron <<EOF
 $(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * \
 "${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh"
 EOF
-
-crontab "$tmpfile" >/dev/null 2>&1
-rm -f "$tmpfile"
 
 # Inform user of next step.
 %{__cat} 1>&2 <<EOF
@@ -436,22 +417,12 @@ to upload remaining information to Gratia. ProbeConfig should be
 configured first and gratia-psacct started to avoid gaps in data." 1>&2
 fi
 
-rm -f "$tmpfile"
+%{__rm} -f "$tmpfile"
 
 %preun psacct
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  # Remove crontab entry
-  tmpfile=`mktemp /tmp/gratia-probe-psacct-preun.XXXXXXXXXX`
-  crontab -l 2>/dev/null | \
-  %{__grep} -v -e 'psacct_probe.cron\.sh' \
-          -e 'PSACCTProbe\.py' > "$tmpfile" 2>/dev/null
-  if test -s "$tmpfile"; then
-    crontab "$tmpfile" >/dev/null 2>&1
-  else
-    crontab -r
-  fi
-  rm -f "$tmpfile"
+  %{__rm} -f /etc/gratia-probe-psacct.cron
 fi
 
 %package condor%{?maybe_itb_suffix}
@@ -546,8 +517,9 @@ done
 (( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/condor/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
 
 # Configure crontab entry
+%scrub_root_crontab
 if %{__grep} -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' \
-        /etc/crontab /etc/cron.* >/dev/null 2>&1; then
+        /etc/crontab /etc/cron.??* >/dev/null 2>&1; then
 %{__cat} <<EOF 1>&2
 
 WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
@@ -556,34 +528,16 @@ WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
 EOF
 fi
 
-tmpfile=`mktemp /tmp/gratia-probe-condor-post.XXXXXXXXXX`
-
-crontab -l 2>/dev/null | \
-%{__grep} -v -e 'condor_meter.cron\.sh' \
-        -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
 (( min = $RANDOM % 15 ))
-%{__cat} >>"$tmpfile" <<EOF
+%{__cat} >/etc/cron.d/gratia-probe-condor.cron <<EOF
 $min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
 "${RPM_INSTALL_PREFIX1}/probe/condor/condor_meter.cron.sh"
 EOF
 
-crontab "$tmpfile" >/dev/null 2>&1
-rm -f "$tmpfile"
-
 %preun condor%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  # Remove crontab entry
-  tmpfile=`mktemp /tmp/gratia-probe-condor-preun.XXXXXXXXXX`
-  crontab -l 2>/dev/null | \
-  %{__grep} -v -e 'condor_meter.cron\.sh' \
-          -e 'condor_meter\.pl' > "$tmpfile" 2>/dev/null
-  if test -s "$tmpfile"; then
-    crontab "$tmpfile" >/dev/null 2>&1
-  else
-    crontab -r
-  fi
-  rm -f "$tmpfile"
+  %{__rm} -f /etc/cron.d/gratia-probe-condor.cron
 fi
 
 %package sge%{?maybe_itb_suffix}
@@ -639,8 +593,9 @@ done
 (( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/sge/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
 
 # Configure crontab entry
+%scrub_root_crontab
 if %{__grep} -re 'sge_meter.cron\.sh' -e 'sge\.py' \
-        /etc/crontab /etc/cron.* >/dev/null 2>&1; then
+        /etc/crontab /etc/cron.??* >/dev/null 2>&1; then
 %{__cat} <<EOF 1>&2
 
 WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
@@ -649,34 +604,16 @@ WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
 EOF
 fi
 
-tmpfile=`mktemp /tmp/gratia-probe-sge-post.XXXXXXXXXX`
-
-crontab -l 2>/dev/null | \
-%{__grep} -v -e 'sge_meter.cron\.sh' \
-        > "$tmpfile" 2>/dev/null
 (( min = $RANDOM % 15 ))
-%{__cat} >>"$tmpfile" <<EOF
+%{__cat} >/etc/cron.d/gratia-probe-sge.cron <<EOF
 $min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
 "${RPM_INSTALL_PREFIX1}/probe/sge/sge_meter.cron.sh"
 EOF
 
-crontab "$tmpfile" >/dev/null 2>&1
-rm -f "$tmpfile"
-
 %preun sge%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  # Remove crontab entry
-  tmpfile=`mktemp /tmp/gratia-probe-sge-preun.XXXXXXXXXX`
-  crontab -l 2>/dev/null | \
-  %{__grep} -v -e 'sge_meter.cron\.sh' \
-          > "$tmpfile" 2>/dev/null
-  if test -s "$tmpfile"; then
-    crontab "$tmpfile" >/dev/null 2>&1
-  else
-    crontab -r
-  fi
-  rm -f "$tmpfile"
+  %{__rm} -f /etc/gratia-probe-sge.cron
 fi
 
 %package glexec%{?maybe_itb_suffix}
@@ -686,6 +623,7 @@ Requires: python >= 2.3
 Requires: %{name}-common >= 0.12e
 %{?config_itb:Obsoletes: %{name}-glexec}
 %{!?config_itb:Obsoletes: %{name}-glexec%{itb_suffix}}
+Obsoletes: fnal_gratia_glexec_probe
 
 %description glexec%{?maybe_itb_suffix}
 The gLExec probe for the Gratia OSG accounting system.
@@ -721,6 +659,8 @@ my $collector_host = ($install_host =~ m&\.fnal\.&i)?"%{fnal_collector}":"%{osg_
 s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${collector_host}:%{collector_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"glexec:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
+s&(CertificateFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxy.pem"&;
+s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxykey.pem"&;
 m&^/>& and print <<EOF;
     gLExecMonitorLog="/var/log/glexec/glexec_monitor.log"
 EOF
@@ -732,8 +672,9 @@ done
 (( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/glexec/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
 
 # Configure crontab entry
+%scrub_root_crontab
 if %{__grep} -re 'glexec_meter.cron\.sh' \
-        /etc/crontab /etc/cron.* >/dev/null 2>&1; then
+        /etc/crontab /etc/cron.??* >/dev/null 2>&1; then
 %{__cat} <<EOF 1>&2
 
 WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
@@ -742,34 +683,18 @@ WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
 EOF
 fi
 
-tmpfile=`mktemp /tmp/gratia-probe-glexec-post.XXXXXXXXXX`
-
-crontab -l 2>/dev/null | \
-%{__grep} -v -e 'glexec_meter.cron\.sh' > "$tmpfile" 2>/dev/null
 (( min = $RANDOM % 15 ))
-%{__cat} >>"$tmpfile" <<EOF
+%{__cat} >/etc/cron.d/gratia-probe-glexec.cron <<EOF
 $min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
 "${RPM_INSTALL_PREFIX1}/probe/glexec/glexec_meter.cron.sh"
 EOF
 
-crontab "$tmpfile" >/dev/null 2>&1
-rm -f "$tmpfile"
 # End of gLExec post
 
 %preun glexec%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  # Remove crontab entry
-  tmpfile=`mktemp /tmp/gratia-probe-glexec-preun.XXXXXXXXXX`
-  crontab -l 2>/dev/null | \
-  %{__grep} -v -e 'glexec_meter.cron\.sh' \
-          > "$tmpfile" 2>/dev/null
-  if test -s "$tmpfile"; then
-    crontab "$tmpfile" >/dev/null 2>&1
-  else
-    crontab -r
-  fi
-  rm -f "$tmpfile"
+  %{__rm} -f /etc/cron.d/gratia-probe-glexec.cron
 fi
 #   End of glExec preun
 # End of gLExec section
@@ -777,6 +702,12 @@ fi
 %endif
 
 %changelog
+* Thu May 24 2007 Christopher Green <greenc@fnal.gov> - 0.22c-1
+- Correct minor problems with glexec probe.
+
+* Thu May 24 2007 Christopher Green <greenc@fnal.gov> - 0.22b-2
+- Swap to using /etc/cron.d and clean up root's crontab.
+
 * Fri May 18 2007 Christopher Green <greenc@fnal.gov> - 0.22b-1
 - Fix condor_meter.pl problems discovered during testing.
 - uname -n => hostname -f.

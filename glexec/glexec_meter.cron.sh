@@ -3,7 +3,7 @@
 # glexec_meter.cron.sh - Shell script used with cron to parse glexec
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: glexec_meter.cron.sh,v 1.2 2007-05-09 22:24:04 greenc Exp $
+# $Id: glexec_meter.cron.sh,v 1.3 2007-05-24 23:33:52 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/glexec/glexec_meter.cron.sh,v $
 ###################################################################
 PGM=$(basename $0)
@@ -31,8 +31,8 @@ else
 fi
 
 # We need to locate the probe script and it must be executable
-if [ ! -x urCollector.pl ]; then
-  ${Logger} "The urCollector.pl file is not in this directory: $(pwd)"
+if [ ! -x ./glexec_meter.py ]; then
+  ${Logger} "The glexec_meter.py file is not in this directory: $(pwd)"
   exit -2
 fi
 
@@ -58,8 +58,6 @@ else
 fi
 export PYTHONPATH
 
-export URCOLLECTOR_LOCATION=`pwd`  
-
 # glexec probe has its own lock file checking.
 
 #--- run the probes ----
@@ -78,6 +76,9 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.2  2007/05/09 22:24:04  greenc
+# gLExec probe moved into Gratia repository.
+#
 # Revision 1.3  2007/03/08 18:25:00  greenc
 # John W's changes to forestall lockfile problems.
 #

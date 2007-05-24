@@ -1,3 +1,4 @@
+#!/bin/env python
 #
 # Gratia plugin for gLExec-GUMS 
 #
@@ -125,7 +126,8 @@ def send_one(el,
     r.CpuDuration(el['syscpu'],'sys')
     r.StartTime(el['start'])
     r.EndTime(el['end'])
-    print Gratia.Send(r)
+    #print Gratia.Send(r)
+    Gratia.Send(r)
     #print host,r
 
 #
