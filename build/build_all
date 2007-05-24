@@ -139,7 +139,7 @@ else
   exit $status
 fi
 
-publish_host="fnalu.fnal.gov"
+publish_host="flxi07.fnal.gov"
 publish_dir=/afs/fnal.gov/files/expwww/gratia/html/Files/probe
 yum_cache=/afs/fnal.gov/files/expwww/gratia/yum-repo-cache
 
