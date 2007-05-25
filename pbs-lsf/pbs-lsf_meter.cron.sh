@@ -3,7 +3,7 @@
 # pbs-lsfr_meter.cron.sh - Shell script used with cron to parse PBS and LSF
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: pbs-lsf_meter.cron.sh,v 1.3 2007-03-08 18:25:00 greenc Exp $
+# $Id: pbs-lsf_meter.cron.sh,v 1.4 2007-05-25 23:34:56 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/pbs-lsf/pbs-lsf_meter.cron.sh,v $
 ###################################################################
 function check_if_running {
@@ -102,6 +102,12 @@ if [ $rtn -eq 1 ];then
   exit 0
 fi
 
+enabled=`${pp_dir}/GetProbeConfigAttribute.py EnableProbe`
+if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
+  ${pp_dir}/DebugPrint.py -l 0 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
+	exit 1
+fi
+
 #--- run the probes ----
 ./urCollector.pl --nodaemon
 ./pbs-lsf_meter.pl
@@ -119,6 +125,9 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.3  2007/03/08 18:25:00  greenc
+# John W's changes to forestall lockfile problems.
+#
 # Revision 1.2  2006/10/09 16:40:26  greenc
 # Invoke the perl Gratia wrapper immediately after the urCollector run.
 #

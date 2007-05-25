@@ -1,10 +1,12 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.50 2007-05-10 20:17:18 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.51 2007-05-25 23:34:56 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
 import traceback
 import re, fileinput
 import atexit
+
+quiet = 0
 
 def disconnect_at_exit():
     if Config: RemoveOldLogs(Config.get_LogRotate())
@@ -14,8 +16,6 @@ def disconnect_at_exit():
     DebugPrint(0, "                          reprocessed records failed: " + str(failedReprocessCount))
     DebugPrint(1, "End-of-execution disconnect ...")
     __disconnect()
-
-atexit.register(disconnect_at_exit)
 
 class ProbeConfiguration:
     __doc = None
@@ -322,6 +322,9 @@ def Initialize(customConfig = "ProbeConfig"):
 	# the information
         Config = ProbeConfiguration(customConfig)
 
+        # Initialize cleanup function.
+        atexit.register(disconnect_at_exit)
+
         DebugPrint(0, "Initializing Gratia with "+customConfig)
 
         # Need to initialize the list of possible directories
@@ -627,6 +630,7 @@ def GenerateOutput(prefix,*arg):
     return out
 
 def DebugPrint(level, *arg):
+    if quiet: return
     if ((not Config) or level<Config.get_DebugLevel()):
         out = time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + \
               GenerateOutput("Gratia: ",*arg)

@@ -3,7 +3,7 @@
 # condor_meter.cron.sh - Shell script used with cron to parse Condor log 
 #   files for OSG accounting data collection.
 #      By Ken Schumacher <kschu@fnal.gov>  Began 5 April 2006
-# $Id: condor_meter.cron.sh,v 1.1 2006-08-21 21:10:03 greenc Exp $
+# $Id: condor_meter.cron.sh,v 1.2 2007-05-25 23:34:56 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.cron.sh,v $
 
 Logger='/usr/bin/logger -s -t condor_meter'
@@ -87,6 +87,12 @@ if [ ${NCMeter} -eq 0 ]; then
     PYTHONPATH="${pp_dir}"
   fi
   export PYTHONPATH
+
+	enabled=`${pp_dir}/GetProbeConfigAttribute.py EnableProbe`
+	if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
+    ${pp_dir}/DebugPrint.py -l 0 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
+		exit 1
+	fi
     
   #echo "Begin processing directory ${CondorLog_Dir}"
   # The '-d' option tells the meter to delete log files after they are
@@ -112,6 +118,17 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.1  2006/08/21 21:10:03  greenc
+# Probe areas reorganized to facilitate RPM building and new
+# probes.
+#
+# README files in probe/condor and probe/common still need to be
+# updated.
+#
+# Probe tarball creation removed from build script per discussion with Greg. Please see probe/build/README.
+#
+# RPM building commissioned and will be tested shortly.
+#
 # Revision 1.4  2006/07/20 14:41:48  pcanal
 # permissions
 #

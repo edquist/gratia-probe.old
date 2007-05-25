@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.22c
+Version: 0.22d
 Release: 1
 License: GPL
 Group: Applications/System
@@ -12,14 +12,13 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 %define ProbeConfig_template_marker <!-- Temporary RPM-generated template marker -->
 %define pbs_lsf_template_marker # Temporary RPM-generated template marker
 %define urCollector_version 2006-06-13
-%define itb_suffix -itb
 
 %define osg_collector gratia.opensciencegrid.org
 %define fnal_collector gratia-fermi.fnal.gov
 
-%{?config_itb: %define maybe_itb_suffix %{itb_suffix}}
-%{?config_itb: %define itb 1}
-%{!?config_itb: %define itb 0}
+%{?config_itb: %global maybe_itb_suffix -itb }
+%{?config_itb: %global itb 1}
+%{!?config_itb: %global itb 0}
 
 %if %{itb}
   %define collector_port 8881
@@ -27,9 +26,9 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
   %define collector_port 8880
 %endif
 
-%{?vdt_loc: %define vdt_loc_set 1}
-%{!?vdt_loc: %define vdt_loc /opt/vdt}
-%{!?default_prefix: %define default_prefix %{vdt_loc}/gratia}
+%{?vdt_loc: %global vdt_loc_set 1}
+%{!?vdt_loc: %global vdt_loc /opt/vdt}
+%{!?default_prefix: %global default_prefix %{vdt_loc}/gratia}
 
 %define osg_attr %{vdt_loc}/monitoring/osg-attributes.conf
 
@@ -38,6 +37,8 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 %{!?meter_name: %define meter_name `hostname -f`}
 
 %define scrub_root_crontab tmpfile=`mktemp /tmp/gratia-cleanup.XXXXXXXXXX`; crontab -l 2>/dev/null | %{__grep} -v -e 'gratia/probe/' > "$tmpfile" 2>/dev/null; crontab "$tmpfile" 2>/dev/null 2>&1; %{__rm} -f "$tmpfile"
+
+%define final_post_message() echo "IMPORTANT: please check %1 and remember to set EnableProbe=1 to start operation." 1>&2
 
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
@@ -246,6 +247,8 @@ s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
 m&%{ProbeConfig_template_marker}& or print;
 ' \
 "$config_file" >/dev/null 2>&1
+%final_post_message $config_file
+
 done
 
 # Check for sensible value of MaxPendingFiles in config file.
@@ -300,6 +303,8 @@ Common files and examples for Gratia OSG accounting system probes.
 %{default_prefix}/probe/common/samplemeter.py
 %{default_prefix}/probe/common/ProbeConfigTemplate
 %{default_prefix}/probe/common/Gratia.py
+%{default_prefix}/probe/common/GetProbeConfigAttribute.py
+%{default_prefix}/probe/common/DebugPrint.py
 %{default_prefix}/probe/common/RegisterProbe.py
 %{default_prefix}/probe/common/test/db-find-job
 %config(noreplace) /etc/yum.repos.d/gratia.repo
@@ -358,7 +363,9 @@ m&^/>& and print <<EOF;
     PSACCTExceptionsRepository="$ENV{RPM_INSTALL_PREFIX1}/logs/exceptions/"
 EOF
 m&^\s*VDTSetupFile\s*=& or m&%{ProbeConfig_template_marker}& or print;' \
-"$config_file"
+"$config_file" >/dev/null 2>&1
+%final_post_message $config_file
+
 done
 
 # Configure boot-time activation of accounting.
@@ -470,6 +477,8 @@ s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"condor:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
 m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file" >/dev/null 2>&1
+%final_post_message $config_file
+
 done
 
 # Configure GRAM perl modules
@@ -666,6 +675,8 @@ m&^/>& and print <<EOF;
 EOF
 m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file" >/dev/null 2>&1
+%final_post_message $config_file
+
 done
 
 # Check for sensible value of MaxPendingFiles in config file.
@@ -702,6 +713,11 @@ fi
 %endif
 
 %changelog
+* Fri May 25 2007 Christopher Green <greenc@fnal.gov> - 0.22d-1
+- New utilites GetProbeConfigAttribute.py and DebugPrint.py.
+- Cron scripts now check if they are enabled in ProbeConfig before
+	running the probe.
+
 * Thu May 24 2007 Christopher Green <greenc@fnal.gov> - 0.22c-1
 - Correct minor problems with glexec probe.
 
