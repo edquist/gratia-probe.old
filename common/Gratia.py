@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.51 2007-05-25 23:34:56 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.52 2007-05-30 21:29:16 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -298,6 +298,7 @@ RecordId = 0
 Config = None
 MaxConnectionRetries = 2
 MaxFilesToReprocess = 100000
+XmlRecordCheckers = []
 
 # Instantiate a global connection object so it can be reused for
 # the lifetime of the server Instantiate a 'connected' flag as
@@ -823,16 +824,84 @@ def RemoveOldBackups(self, probeConfig, nDays = 31):
             DebugPrint(2, "Will remove: " + f)
             os.remove(f)
 
-class UsageRecord:
-    "Base class for the Gratia Usage Record"
+class Record(object):
+    "Base class for the Gratia Record"
     XmlData = []
     RecordData = []
-    JobId = []
-    UserId = []
+
     __ProbeName = ""
     __ProbeNameDescription = ""
     __SiteName = ""
     __SiteNameDescription = ""
+
+    def __init__(self):
+        # See the function ResourceType for details on the 
+        # parameter
+        DebugPrint(0,"Creating a Record "+TimeToString())
+        self.XmlData = []
+        self.__ProbeName = Config.get_MeterName()
+        self.__SiteName = Config.get_SiteName()
+        self.RecordData = []
+
+    def Print(self) :
+        DebugPrint(1,"Usage Record: ",self)
+        DebugPrint(1,"Username: ", self.Username)
+        
+    def AddToList(self,where,what,comment,value):
+        " Helper Function to generate the xml (Do not call directly)"
+        # First filter out the previous value
+        where = [x for x in where if x.find("<"+what)!=0]
+        where.append("<"+what+" "+comment+">"+value+"</"+what+">")
+        return where
+
+    def AppendToList(self,where,what,comment,value):
+        " Helper Function to generate the xml (Do not call directly)"
+        where.append("<"+what+" "+comment+">"+value+"</"+what+">")
+        return where
+
+    def GenericAddToList(self, xmlelem, value, description = "") :
+        self.RecordData = self.AddToList(self.RecordData, xmlelem, self.Description(description), value)
+
+    def XmlAddMembers(self):
+        self.GenericAddToList( "ProbeName", self.__ProbeName, self.__ProbeNameDescription )
+        self.GenericAddToList( "SiteName", self.__SiteName, self.__SiteNameDescription )
+
+    def Duration(self,value):
+        " Helper Function to generate the xml (Do not call directly)"
+        seconds = (int(value*100) % 6000 ) / 100.0
+        value = int( (value - seconds) / 60 )
+        minutes = value % 60
+        value = (value - minutes) / 60
+        hours = value % 24
+        value = (value - hours) / 24
+        result = "P"
+        if value>0: result = result + str(value) + "D"
+        if (hours>0 or minutes>0 or seconds>0) :
+            result = result + "T"
+            if hours>0 : result = result + str(hours)+ "H"
+            if minutes>0 : result = result + str(minutes)+ "M"
+            if seconds>0 : result = result + str(seconds)+ "S"
+        else : result = result + "T0S"
+        return result    
+        
+    def Description(self,value):
+        " Helper Function to generate the xml (Do not call directly)"
+        if len(value)>0 : return  "urwg:description=\""+value+"\" "
+        else : return ""
+
+    def ProbeName(self, value, description = "") :
+        self.__ProbeName = value
+        self.__ProbeNameDescription = description
+
+    def SiteName(self, value, description = "") :
+        " Indicates which site the service accounted for belong to"
+        self.__SiteName = value
+        self.__SiteNameDescription = description
+
+class UsageRecord(Record):
+    "Base class for the Gratia Usage Record"
+    JobId = []
+    UserId = []
     __Njobs = 1
     __NjobsDescription = ""
     __ResourceType = None
@@ -840,20 +909,12 @@ class UsageRecord:
     def __init__(self, resourceType = None):
         # See the function ResourceType for details on the 
         # parameter
+        super(self.__class__,self).__init__()
         DebugPrint(0,"Creating a usage Record "+TimeToString())
-        self.XmlData = []
-        self.RecordData = []
         self.JobId = []
         self.UserId = []
         self.Username = "none"
-        self.__ProbeName = Config.get_MeterName()
-        self.__SiteName = Config.get_SiteName()
         self.__ResourceType = resourceType
-
-    def Description(self,value):
-        " Helper Function to generate the xml (Do not call directly)"
-        if len(value)>0 : return  "urwg:description=\""+value+"\" "
-        else : return ""
 
     def Metric(self,value):
         " Helper Function to generate the xml (Do not call directly)"
@@ -886,36 +947,6 @@ class UsageRecord:
         " Helper Function to generate the xml (Do not call directly)"
         if len(value)>0 : return  "urwg:usageType=\""+value+"\" "
         else : return ""
-
-    def Duration(self,value):
-        " Helper Function to generate the xml (Do not call directly)"
-        seconds = (int(value*100) % 6000 ) / 100.0
-        value = int( (value - seconds) / 60 )
-        minutes = value % 60
-        value = (value - minutes) / 60
-        hours = value % 24
-        value = (value - hours) / 24
-        result = "P"
-        if value>0: result = result + str(value) + "D"
-        if (hours>0 or minutes>0 or seconds>0) :
-            result = result + "T"
-            if hours>0 : result = result + str(hours)+ "H"
-            if minutes>0 : result = result + str(minutes)+ "M"
-            if seconds>0 : result = result + str(seconds)+ "S"
-        else : result = result + "T0S"
-        return result
-
-    def AddToList(self,where,what,comment,value):
-        " Helper Function to generate the xml (Do not call directly)"
-        # First filter out the previous value
-        where = [x for x in where if x.find("<"+what)!=0]
-        where.append("<"+what+" "+comment+">"+value+"</"+what+">")
-        return where
-
-    def AppendToList(self,where,what,comment,value):
-        " Helper Function to generate the xml (Do not call directly)"
-        where.append("<"+what+" "+comment+">"+value+"</"+what+">")
-        return where
 
     # Public Interface:
     def LocalJobId(self,value):
@@ -1090,21 +1121,8 @@ class UsageRecord:
 
     # The following usually comes from the Configuration file
 
-    def ProbeName(self, value, description = "") :
-        self.__ProbeName = value
-        self.__ProbeNameDescription = description
-
-    def SiteName(self, value, description = "") :
-        " Indicates which site the service accounted for belong to"
-        self.__SiteName = value
-        self.__SiteNameDescription = description
-
-    def GenericAddToList(self, xmlelem, value, description = "") :
-        self.RecordData = self.AddToList(self.RecordData, xmlelem, self.Description(description), value)
-
     def XmlAddMembers(self):
-        self.GenericAddToList( "ProbeName", self.__ProbeName, self.__ProbeNameDescription )
-        self.GenericAddToList( "SiteName", self.__SiteName, self.__SiteNameDescription )
+        super(self.__class__,self).XmlAddMembers()
         self.GenericAddToList( "Njobs", str(self.__Njobs), self.__NjobsDescription )
         if (self.__ResourceType != None) : 
                 self.Resource( "ResourceType", self.__ResourceType )
@@ -1180,6 +1198,89 @@ class UsageRecord:
             self.XmlData.append("\n")
         self.XmlData.append("</JobUsageRecord>\n")
 
+def StandardCheckXmldoc(xmlDoc,recordElem,external):
+    "Fill in missing field in the xml document if needed"
+    "If external is true, also check for ProbeName, SiteName and ResourceType"
+		
+    if external:
+        # ProbeName and SiteName?
+        ProbeNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'ProbeName')
+        if not ProbeNameNodes:
+            node = xmlDoc.createElementNS(namespace, prefix + 'ProbeName')
+            textNode = xmlDoc.createTextNode(Config.get_MeterName())
+            node.appendChild(textNode)
+            usageRecord.appendChild(node)
+        elif len(ProbeNameNodes) > 1:
+            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            DebugPrint(0, "Warning: too many ProbeName entities in " + jobIdType + " " +
+                               jobId + "(" + xmlFilename + ")")
+            
+        SiteNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'SiteName')
+        if not SiteNameNodes:
+            node = xmlDoc.createElementNS(namespace, prefix + 'SiteName')
+            textNode = xmlDoc.createTextNode(Config.get_SiteName())
+            node.appendChild(textNode)
+            usageRecord.appendChild(node)
+        elif len(SiteNameNodes) > 1:
+            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            DebugPrint(0, "Warning: too many SiteName entities in " + jobIdType + " " +
+                               jobId + "(" + xmlFilename + ")");
+
+def UsageCheckXmldoc(xmlDoc,external):
+        "Fill in missing field in the xml document if needed"
+        "If external is true, also check for ProbeName, SiteName and ResourceType"
+         
+        # Local namespace
+        namespace = xmlDoc.documentElement.namespaceURI
+        # Loop over (posibly multiple) jobUsageRecords
+        for usageRecord in getUsageRecords(xmlDoc):
+            # Local namespace and prefix, if any
+            prefix = ""
+            for child in usageRecord.childNodes:
+                if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
+                       child.prefix:
+                    prefix = child.prefix + ":"
+                    break
+
+            [VOName, ReportableVOName] = [None, None]
+
+            UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
+            if not UserIdentityNodes:
+                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                DebugPrint(0, "Warning: no UserIdentity block in " + jobIdType + " " +
+                           jobId)
+            else:
+                if len(UserIdentityNodes) > 1:
+                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                    DebugPrint(0, "Warning: too many UserIdentity blocks  in " +  jobIdType + " " +
+                               jobId)
+                [VOName, ReportableVOName] = \
+                         CheckAndExtendUserIdentity(xmlDoc,
+                                                UserIdentityNodes[0],
+                                                namespace,
+                                                prefix)
+
+            # If we are trying to handle only GRID jobs, suppress records
+            # with a null or unknown VOName
+            if Config.get_SuppressUnknownVORecords() and ((not VOName) or VOName == "Unknown"):
+                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
+                       jobId + "due to unknown or null VOName")
+                usageRecord.parentNode.removeChild(usageRecord)
+                usageRecord.unlink()
+                continue
+                
+            # Add ResourceType if appropriate
+            if external and resourceType != None:
+                UpdateResource(xmlDoc, usageRecord, namespace, prefix,
+                               'ResourceType', resourceType)
+
+            StandardCheckXmldoc(xmlDoc,usageRecord,external)
+            
+        return len(getUsageRecords(xmlDoc))
+
+XmlRecordCheckers.append(UsageCheckXmldoc)
+
 def LocalJobId(record,value):
     record.LocalJobId(value)
 
@@ -1254,14 +1355,20 @@ def Reprocess():
 
     return responseString
 
+def CheckXmlDoc(xmlDoc,external):
+    content = 0
+    for checker in XmlRecordCheckers:
+        DebugPrint(0,"Running : " +str(checker)+str(xmlDoc)+str(external))
+        content = content + checker(xmlDoc,external)
+    return content	
+
 def Send(record):
     global failedSendCount
     global suppressedCount
     global successfulSendCount
 
     DebugPrint(0, "***********************************************************")
-    DebugPrint(1,"Record: ",record)
-    DebugPrint(1,"Username: ", record.Username)
+    record.Print()
     if (failedSendCount + len(OutstandingRecord)) >= Config.get_MaxPendingFiles():
         responseString = "Fatal Error: too many pending files"
         DebugPrint(0, responseString)
@@ -1281,47 +1388,8 @@ def Send(record):
         return reponseString
     
     xmlDoc.normalize()
-
-    namespace = xmlDoc.documentElement.namespaceURI
-    # Loop over (posibly multiple) jobUsageRecords
-    for usageRecord in getUsageRecords(xmlDoc):
-        # Local namespace and prefix, if any
-        prefix = ""
-        for child in usageRecord.childNodes:
-            if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
-                   child.prefix:
-                prefix = child.prefix + ":"
-                break
-
-        [VOName, ReportableVOName] = [None, None]
-
-        UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
-        if not UserIdentityNodes:
-            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-            DebugPrint(0, "Warning: no UserIdentity block in " + jobIdType + " " +
-                       jobId)
-        else:
-            if len(UserIdentityNodes) > 1:
-                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                DebugPrint(0, "Warning: too many UserIdentity blocks  in " +  jobIdType + " " +
-                           jobId)
-            [VOName, ReportableVOName] = \
-                     CheckAndExtendUserIdentity(xmlDoc,
-                                                UserIdentityNodes[0],
-                                                namespace,
-                                                prefix)
-
-        # If we are trying to handle only GRID jobs, suppress records
-        # with a null or unknown VOName
-        if Config.get_SuppressUnknownVORecords() and ((not VOName) or VOName == "Unknown"):
-            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-            DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
-                       jobId + "due to unknown or null VOName")
-            usageRecord.parentNode.removeChild(usageRecord)
-            usageRecord.unlink()
-            continue
-
-    if not len(getUsageRecords(xmlDoc)):
+	
+    if not CheckXmlDoc(xmlDoc,False):
         xmlDoc.unlink()
         responseString = "No unsuppressed usage records in this packet: not sending"
         suppressedCount += 1
@@ -1451,77 +1519,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
 
             xmlDoc.normalize()
 
-            # Local namespace
-            namespace = xmlDoc.documentElement.namespaceURI
-            # Loop over (posibly multiple) jobUsageRecords
-            for usageRecord in getUsageRecords(xmlDoc):
-                # Local prefix, if any
-                prefix = ""
-                for child in usageRecord.childNodes:
-                    if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
-                           child.prefix:
-                        prefix = child.prefix + ":"
-                        break
-
-                [VOName, ReportableVOName] = [None, None]
-            
-                # ProbeName and SiteName?
-                ProbeNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'ProbeName')
-                if not ProbeNameNodes:
-                    node = xmlDoc.createElementNS(namespace, prefix + 'ProbeName')
-                    textNode = xmlDoc.createTextNode(Config.get_MeterName())
-                    node.appendChild(textNode)
-                    usageRecord.appendChild(node)
-                elif len(ProbeNameNodes) > 1:
-                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                    DebugPrint(0, "Warning: too many ProbeName entities in " + jobIdType + " " +
-                               jobId + "(" + xmlFilename + ")")
-            
-                SiteNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'SiteName')
-                if not SiteNameNodes:
-                    node = xmlDoc.createElementNS(namespace, prefix + 'SiteName')
-                    textNode = xmlDoc.createTextNode(Config.get_SiteName())
-                    node.appendChild(textNode)
-                    usageRecord.appendChild(node)
-                elif len(SiteNameNodes) > 1:
-                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                    DebugPrint(0, "Warning: too many SiteName entities in " + jobIdType + " " +
-                               jobId + "(" + xmlFilename + ")");
-
-                # VOName, ReportableVOName
-                UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
-                if not UserIdentityNodes:
-                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                    DebugPrint(0, "Warning: no UserIdentity block in " + jobIdType + " " +
-                               jobId + "(" + xmlFilename + ")")
-                else:
-                    if len(UserIdentityNodes) > 1:
-                        [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                        DebugPrint(0, "Warning: too many UserIdentity blocks in " + jobIdType + " " +
-                                   jobId + "(" + xmlFilename + "): too many UserIdentity blocks")
-                    [VOName, ReportableVOName] = \
-                             CheckAndExtendUserIdentity(xmlDoc,
-                                                        UserIdentityNodes[0],
-                                                        namespace,
-                                                        prefix)
-
-                # If we are trying to handle only GRID jobs, suppress
-                # records with a null or unknown VOName
-                if Config.get_SuppressUnknownVORecords() and \
-                   ((not VOName) or VOName == "Unknown"):
-                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                    DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
-                               jobId + "due to unknown or null VOName")
-                    usageRecord.parentNode.removeChild(usageRecord)
-                    usageRecord.unlink()
-                    continue
-
-                # Add ResourceType if appropriate
-                if resourceType != None:
-                    UpdateResource(xmlDoc, usageRecord, namespace, prefix,
-                                   'ResourceType', resourceType)
-
-            if not len(getUsageRecords(xmlDoc)):
+            if not CheckXmlDoc(xmlDoc,True):
                 xmlDoc.unlink()
                 DebugPrint(0, "No unsuppressed usage records in " + \
                            xmlFilename + ": not sending")
