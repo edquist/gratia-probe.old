@@ -17,6 +17,8 @@
     
     MeterName="generic" 
     SiteName="Generic Site"
+    Grid="OSG"
+    
     LogLevel="2"
     DebugLevel="0" 
     GratiaExtension="gratia.xml"

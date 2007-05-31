@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.52 2007-05-30 21:29:16 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.53 2007-05-31 17:45:31 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -22,6 +22,7 @@ class ProbeConfiguration:
     __configname = "ProbeConfig"
     __MeterName = None
     __SiteName = None
+    __Grid = None
     __DebugLevel = None
     __LogLevel = None
     __LogRotate = None
@@ -95,6 +96,16 @@ class ProbeConfiguration:
         else:
             return self.__MeterName
 
+    def get_Grid(self):
+        if (self.__Grid == None):
+            return self.__getConfigAttribute('Grid')
+            if val == None or val == "":
+                self.__Grid =  "OSG"
+            else:
+                self.__Grid = val
+        else:
+            return self.__Grid
+            
     def setSiteName(self,name):
         self.__SiteName = name
 
@@ -318,9 +329,11 @@ def Initialize(customConfig = "ProbeConfig"):
     "yet been sent"
 
     global Config
+    print "Init"
+    print Config
     if len(BackupDirList) == 0:
         # This has to be the first thing done (DebugPrint uses
-	# the information
+    # the information
         Config = ProbeConfiguration(customConfig)
 
         # Initialize cleanup function.
@@ -328,6 +341,8 @@ def Initialize(customConfig = "ProbeConfig"):
 
         DebugPrint(0, "Initializing Gratia with "+customConfig)
 
+        print "Init"
+        print Config
         # Need to initialize the list of possible directories
         InitDirList()
 
@@ -337,6 +352,7 @@ def Initialize(customConfig = "ProbeConfig"):
         # Attempt to reprocess any outstanding records
         Reprocess()
 
+    print Config
 
 
 ##
@@ -833,6 +849,8 @@ class Record(object):
     __ProbeNameDescription = ""
     __SiteName = ""
     __SiteNameDescription = ""
+    __Grid = ""
+    __GridDescription = ""
 
     def __init__(self):
         # See the function ResourceType for details on the 
@@ -841,6 +859,7 @@ class Record(object):
         self.XmlData = []
         self.__ProbeName = Config.get_MeterName()
         self.__SiteName = Config.get_SiteName()
+        self.__Grid = Config.get_Grid()
         self.RecordData = []
 
     def Print(self) :
@@ -866,6 +885,9 @@ class Record(object):
         self.GenericAddToList( "ProbeName", self.__ProbeName, self.__ProbeNameDescription )
         self.GenericAddToList( "SiteName", self.__SiteName, self.__SiteNameDescription )
 
+    def XmlAddGrid(self, where):
+		return self.AddToList(where, "Grid", self.__GridDescription, self.__Grid)
+		
     def Duration(self,value):
         " Helper Function to generate the xml (Do not call directly)"
         seconds = (int(value*100) % 6000 ) / 100.0
@@ -897,6 +919,11 @@ class Record(object):
         " Indicates which site the service accounted for belong to"
         self.__SiteName = value
         self.__SiteNameDescription = description
+
+    def Grid(self, value, description = "") :
+        " Indicates which Grid the service accounted for belong to"
+        self.__Grid = value
+        self.__GridDescription = description
 
 class UsageRecord(Record):
     "Base class for the Gratia Usage Record"
@@ -1113,9 +1140,9 @@ class UsageRecord(Record):
     def ResourceType(self, value) :
         " Indicate the type of resource this record has been generated on."
         " The supported values are: "
-        " 	Batch (aka Condor, pbs, lsf, glexec)"
-        "	Storage (aka Dcache)"
-        "	RawCPU (aka process level sacct)"
+        "     Batch (aka Condor, pbs, lsf, glexec)"
+        "    Storage (aka Dcache)"
+        "    RawCPU (aka process level sacct)"
 
         self.__ResourceType = value
 
@@ -1168,9 +1195,9 @@ class UsageRecord(Record):
         self.XmlData = []
         self.XmlData.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         self.XmlData.append("<JobUsageRecord xmlns=\"http://www.gridforum.org/2003/ur-wg\"\n")
-        self.XmlData.append("		xmlns:urwg=\"http://www.gridforum.org/2003/ur-wg\"\n")
-        self.XmlData.append("		xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \n")
-        self.XmlData.append("		xsi:schemaLocation=\"http://www.gridforum.org/2003/ur-wg file:///u:/OSG/urwg-schema.11.xsd\">\n")
+        self.XmlData.append("        xmlns:urwg=\"http://www.gridforum.org/2003/ur-wg\"\n")
+        self.XmlData.append("        xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \n")
+        self.XmlData.append("        xsi:schemaLocation=\"http://www.gridforum.org/2003/ur-wg file:///u:/OSG/urwg-schema.11.xsd\">\n")
 
         # Add the record indentity
         self.XmlData.append("<RecordIdentity urwg:recordId=\""+socket.getfqdn()+":"+
@@ -1183,7 +1210,9 @@ class UsageRecord(Record):
                 self.XmlData.append("\t")
                 self.XmlData.append(data)
                 self.XmlData.append("\n")
+            #self.XmlData = self.XmlAddGrid(self.XmlData)
             self.XmlData.append("</JobIdentity>\n")
+
         if len(self.UserId)>0 :
             self.VerifyUserInfo() # Add VOName and Reportable VOName if necessary.
             self.XmlData.append("<UserIdentity>\n")
@@ -1200,8 +1229,8 @@ class UsageRecord(Record):
 
 def StandardCheckXmldoc(xmlDoc,recordElem,external):
     "Fill in missing field in the xml document if needed"
-    "If external is true, also check for ProbeName, SiteName and ResourceType"
-		
+    "If external is true, also check for ProbeName, SiteName, Grid and ResourceType"
+        
     if external:
         # ProbeName and SiteName?
         ProbeNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'ProbeName')
@@ -1225,7 +1254,7 @@ def StandardCheckXmldoc(xmlDoc,recordElem,external):
             [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
             DebugPrint(0, "Warning: too many SiteName entities in " + jobIdType + " " +
                                jobId + "(" + xmlFilename + ")");
-
+                               
 def UsageCheckXmldoc(xmlDoc,external):
         "Fill in missing field in the xml document if needed"
         "If external is true, also check for ProbeName, SiteName and ResourceType"
@@ -1274,6 +1303,22 @@ def UsageCheckXmldoc(xmlDoc,external):
             if external and resourceType != None:
                 UpdateResource(xmlDoc, usageRecord, namespace, prefix,
                                'ResourceType', resourceType)
+
+            # Add Grid.
+            JobIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'JobIdentity')
+            if not JobIdentityNodes:
+                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                DebugPrint(0, "Warning: no jobIdentity block in " + jobIdType + " " +
+                           jobId)
+            else:
+                if len(JobIdentityNodes) > 1:
+                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                    DebugPrint(0, "Warning: too many JobIdentity blocks  in " +  jobIdType + " " +
+                               jobId)
+                Grid = CheckAndExtendJobIdentity(xmlDoc,
+                                                JobIdentityNodes[0],
+                                                namespace,
+                                                prefix)
 
             StandardCheckXmldoc(xmlDoc,usageRecord,external)
             
@@ -1360,7 +1405,7 @@ def CheckXmlDoc(xmlDoc,external):
     for checker in XmlRecordCheckers:
         DebugPrint(0,"Running : " +str(checker)+str(xmlDoc)+str(external))
         content = content + checker(xmlDoc,external)
-    return content	
+    return content    
 
 def Send(record):
     global failedSendCount
@@ -1388,7 +1433,7 @@ def Send(record):
         return reponseString
     
     xmlDoc.normalize()
-	
+    
     if not CheckXmlDoc(xmlDoc,False):
         xmlDoc.unlink()
         responseString = "No unsuppressed usage records in this packet: not sending"
@@ -1655,6 +1700,39 @@ def UpdateResource(xmlDoc, usageRecord, namespace, prefix, key, value):
         textNode = xmlDoc.createTextNode(value)
         wantedResource.appendChild(textNode)
         usageRecord.appendChild(wantedResource)
+
+def CheckAndExtendJobIdentity(xmlDoc, jobIdentityNode, namespace, prefix):
+    "Check the contents of the JobIdentity block and extend if necessary"
+
+    # Grid
+    GridNodes = jobIdentityNode.getElementsByTagNameNS(namespace, 'Grid')
+    if len(GridNodes) > 1:
+        [jobIdType, jobId] = FindBestJobId(jobIdentityNode.parentNode, namespace, prefix)
+        DebugPrint(0,
+                   "Warning: JobIdentity block has multiple Grid nodes in " +
+                   jobIdType + " " + jobId)
+        return [None, None]
+    elif not GridNodes:
+        GridNodes.append(xmlDoc.createElementNS(namespace, prefix + 'Grid'))
+        textNode = xmlDoc.createTextNode(r'');
+        GridNodes[0].appendChild(textNode);
+        jobIdentityNode.appendChild(GridNodes[0])
+
+    Grid = GridNodes[0].firstChild.data
+    
+    grid_info = Config.get_Grid()
+
+    if grid_info:
+        if not (Grid) or Grid == "Unknown":
+            GridNodes[0].firstChild.data = grid_info
+
+    Grid = GridNodes[0].firstChild.data
+
+    if not Grid:
+        jobIdentityNode.removeChild(GridNodes[0])
+        GridNodes[0].unlink()
+
+    return Grid
 
 def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     "Check the contents of the UserIdentity block and extend if necessary"

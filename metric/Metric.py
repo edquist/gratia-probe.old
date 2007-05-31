@@ -1,4 +1,4 @@
-#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.1 2007-05-30 21:29:59 pcanal Exp $
+#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.2 2007-05-31 17:42:00 pcanal Exp $
 
 import Gratia
 from Gratia import *
@@ -8,7 +8,7 @@ class MetricRecord(Gratia.Record):
     "See https://twiki.cern.ch/twiki/bin/view/LCG/GridMonitoringProbeSpecification for information of the information content"
 
     def __init__(self):
-		# Initializer
+        # Initializer
         super(self.__class__,self).__init__()
         DebugPrint(0,"Creating a metric Record "+TimeToString())
 
@@ -19,6 +19,8 @@ class MetricRecord(Gratia.Record):
         " This should add the value of the 'data' member of MetricRecord "
         " (as opposed to the information entered directly into self.RecordData "
         super(self.__class__,self).XmlAddMembers()
+        self.RecordData = self.XmlAddGrid(self.RecordData)
+
 
     def XmlCreate(self):
         global RecordId
@@ -66,7 +68,7 @@ def getMetricRecords(xmlDoc):
 def MetricCheckXmldoc(xmlDoc,external):
     " Fill in missing field in the xml document if needed "
     " If external is true, also check for ProbeName, SiteName "
-    
+
     # Local namespace
     namespace = xmlDoc.documentElement.namespaceURI
     # Loop over (posibly multiple) jobUsageRecords
@@ -78,6 +80,18 @@ def MetricCheckXmldoc(xmlDoc,external):
                 child.prefix:
                 prefix = child.prefix + ":"
                 break
+                
+        GridNodes = usageRecord.getElementsByTagNameNS(namespace, 'Grid')
+        if not GridNodes:
+            node = xmlDoc.createElementNS(namespace, prefix + 'Grid')
+            textNode = xmlDoc.createTextNode(Gratia.Config.get_Grid())
+            node.appendChild(textNode)
+            usageRecord.appendChild(node)
+        elif len(GridNodes) > 1:
+            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            DebugPrint(0, "Warning: too many Grid entities in " + jobIdType + " " +
+                               jobId + "(" + xmlFilename + ")");
+                               
         StandardCheckXmldoc(xmlDoc,usageRecord,external)
             
     return len(getMetricRecords(xmlDoc))
