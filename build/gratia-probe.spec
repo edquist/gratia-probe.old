@@ -2,43 +2,43 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.22d
-Release: 1
+Release: 4
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
 Packager: Chris Green <greenc@fnal.gov>
 Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 
-%define ProbeConfig_template_marker <!-- Temporary RPM-generated template marker -->
-%define pbs_lsf_template_marker # Temporary RPM-generated template marker
-%define urCollector_version 2006-06-13
+%global ProbeConfig_template_marker <!-- Temporary RPM-generated template marker -->
+%global pbs_lsf_template_marker # Temporary RPM-generated template marker
+%global urCollector_version 2006-06-13
 
-%define osg_collector gratia.opensciencegrid.org
-%define fnal_collector gratia-fermi.fnal.gov
+%global osg_collector gratia.opensciencegrid.org
+%global fnal_collector gratia-fermi.fnal.gov
 
 %{?config_itb: %global maybe_itb_suffix -itb }
 %{?config_itb: %global itb 1}
 %{!?config_itb: %global itb 0}
 
 %if %{itb}
-  %define collector_port 8881
+  %global collector_port 8881
 %else
-  %define collector_port 8880
+  %global collector_port 8880
 %endif
 
 %{?vdt_loc: %global vdt_loc_set 1}
 %{!?vdt_loc: %global vdt_loc /opt/vdt}
 %{!?default_prefix: %global default_prefix %{vdt_loc}/gratia}
 
-%define osg_attr %{vdt_loc}/monitoring/osg-attributes.conf
+%global osg_attr %{vdt_loc}/monitoring/osg-attributes.conf
 
-%{!?site_name: %define site_name '"$( ( if [[ -r \"%{osg_attr}\" ]]; then . \"%{osg_attr}\" ; echo \"${OSG_SITE_NAME}\"; else echo \"Generic Site\"; fi ) )"'}
+%{!?site_name: %global site_name '"$( ( if [[ -r \"%{osg_attr}\" ]]; then . \"%{osg_attr}\" ; echo \"${OSG_SITE_NAME}\"; else echo \"Generic Site\"; fi ) )"'}
 
-%{!?meter_name: %define meter_name `hostname -f`}
+%{!?meter_name: %global meter_name `hostname -f`}
 
-%define scrub_root_crontab tmpfile=`mktemp /tmp/gratia-cleanup.XXXXXXXXXX`; crontab -l 2>/dev/null | %{__grep} -v -e 'gratia/probe/' > "$tmpfile" 2>/dev/null; crontab "$tmpfile" 2>/dev/null 2>&1; %{__rm} -f "$tmpfile"
+%global scrub_root_crontab tmpfile=`mktemp /tmp/gratia-cleanup.XXXXXXXXXX`; crontab -l 2>/dev/null | %{__grep} -v -e 'gratia/probe/' > "$tmpfile" 2>/dev/null; crontab "$tmpfile" 2>/dev/null 2>&1; %{__rm} -f "$tmpfile"
 
-%define final_post_message() echo "IMPORTANT: please check %1 and remember to set EnableProbe=1 to start operation." 1>&2
+%global final_post_message() [[ "%1" == *ProbeConfig* ]] && echo "IMPORTANT: please check %1 and remember to set EnableProbe=1 to start operation." 1>&2
 
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
@@ -628,7 +628,7 @@ fi
 %package glexec%{?maybe_itb_suffix}
 Summary: A gLExec probe
 Group: Applications/System
-Requires: python >= 2.3
+Requires: python >= 2.2
 Requires: %{name}-common >= 0.12e
 %{?config_itb:Obsoletes: %{name}-glexec}
 %{!?config_itb:Obsoletes: %{name}-glexec%{itb_suffix}}
@@ -713,6 +713,11 @@ fi
 %endif
 
 %changelog
+* Tue Jun 12 2007 Christopher Green <greenc@fnal.gov> - 0.22d-4
+- More variables declared %global to fix funny behavior.
+- glexec probe does not require python 2.3 -- erroneously copied from SGE.
+- final_post_message only prints out if it's a ProbeConfig file.
+
 * Fri May 25 2007 Christopher Green <greenc@fnal.gov> - 0.22d-1
 - New utilites GetProbeConfigAttribute.py and DebugPrint.py.
 - Cron scripts now check if they are enabled in ProbeConfig before
