@@ -158,6 +158,12 @@ if (( $status == 0 )) && (( ${publish:-0} )); then
       echo \"Unable to find createrepo command to update yum repository metadata\" 1>&2
       exit 1
     fi
+    if type -p yum-arch; then
+      yum-arch \"${publish_dir}/RPMS\"
+    else
+      echo \"Unable to find yum-arch command to update old-style yum repository metadata\" 1>&2
+      exit 1
+    fi
   fi"
   status=$?
 else
