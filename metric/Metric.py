@@ -1,4 +1,4 @@
-#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.3 2007-06-14 02:28:23 greenc Exp $
+#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.4 2007-06-14 13:56:43 greenc Exp $
 
 import Gratia
 from Gratia import *
@@ -69,30 +69,32 @@ def MetricCheckXmldoc(xmlDoc,external):
     " Fill in missing field in the xml document if needed "
     " If external is true, also check for ProbeName, SiteName "
 
+    if not xmlDoc.documentElement: return 0 # Major problem
+
     # Local namespace
     namespace = xmlDoc.documentElement.namespaceURI
     # Loop over (posibly multiple) jobUsageRecords
-    for usageRecord in getMetricRecords(xmlDoc):
+    for metricRecord in getMetricRecords(xmlDoc):
         # Local namespace and prefix, if any
         prefix = ""
-        for child in usageRecord.childNodes:
+        for child in metricRecord.childNodes:
             if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
                 child.prefix:
                 prefix = child.prefix + ":"
                 break
                 
-        GridNodes = usageRecord.getElementsByTagNameNS(namespace, 'Grid')
+        GridNodes = metricRecord.getElementsByTagNameNS(namespace, 'Grid')
         if not GridNodes:
             node = xmlDoc.createElementNS(namespace, prefix + 'Grid')
             textNode = xmlDoc.createTextNode(Gratia.Config.get_Grid())
             node.appendChild(textNode)
-            usageRecord.appendChild(node)
+            metricRecord.appendChild(node)
         elif len(GridNodes) > 1:
-            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            [jobIdType, jobId] = FindBestJobId(metricRecord, namespace, prefix)
             DebugPrint(0, "Warning: too many Grid entities in " + jobIdType + " " +
                                jobId + "(" + xmlFilename + ")");
                                
-        StandardCheckXmldoc(xmlDoc,usageRecord,external,prefix)
+        StandardCheckXmldoc(xmlDoc,metricRecord,external,prefix)
             
     return len(getMetricRecords(xmlDoc))
 
