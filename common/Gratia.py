@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.53 2007-05-31 17:45:31 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.54 2007-06-14 02:26:52 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -329,8 +329,6 @@ def Initialize(customConfig = "ProbeConfig"):
     "yet been sent"
 
     global Config
-    print "Init"
-    print Config
     if len(BackupDirList) == 0:
         # This has to be the first thing done (DebugPrint uses
     # the information
@@ -341,8 +339,6 @@ def Initialize(customConfig = "ProbeConfig"):
 
         DebugPrint(0, "Initializing Gratia with "+customConfig)
 
-        print "Init"
-        print Config
         # Need to initialize the list of possible directories
         InitDirList()
 
@@ -351,9 +347,6 @@ def Initialize(customConfig = "ProbeConfig"):
 
         # Attempt to reprocess any outstanding records
         Reprocess()
-
-    print Config
-
 
 ##
 ## encodeXML
@@ -1227,102 +1220,103 @@ class UsageRecord(Record):
             self.XmlData.append("\n")
         self.XmlData.append("</JobUsageRecord>\n")
 
-def StandardCheckXmldoc(xmlDoc,recordElem,external):
-    "Fill in missing field in the xml document if needed"
-    "If external is true, also check for ProbeName, SiteName, Grid and ResourceType"
+def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
+    "Check for and fill in suitable values for important attributes"
         
     if external:
+        # Local namespace
+        namespace = xmlDoc.documentElement.namespaceURI
         # ProbeName and SiteName?
-        ProbeNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'ProbeName')
+        ProbeNameNodes = recordElement.getElementsByTagNameNS(namespace, 'ProbeName')
         if not ProbeNameNodes:
             node = xmlDoc.createElementNS(namespace, prefix + 'ProbeName')
             textNode = xmlDoc.createTextNode(Config.get_MeterName())
             node.appendChild(textNode)
-            usageRecord.appendChild(node)
+            recordElement.appendChild(node)
         elif len(ProbeNameNodes) > 1:
-            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
             DebugPrint(0, "Warning: too many ProbeName entities in " + jobIdType + " " +
                                jobId + "(" + xmlFilename + ")")
             
-        SiteNameNodes = usageRecord.getElementsByTagNameNS(namespace, 'SiteName')
+        SiteNameNodes = recordElement.getElementsByTagNameNS(namespace, 'SiteName')
         if not SiteNameNodes:
             node = xmlDoc.createElementNS(namespace, prefix + 'SiteName')
             textNode = xmlDoc.createTextNode(Config.get_SiteName())
             node.appendChild(textNode)
-            usageRecord.appendChild(node)
+            recordElement.appendChild(node)
         elif len(SiteNameNodes) > 1:
-            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
             DebugPrint(0, "Warning: too many SiteName entities in " + jobIdType + " " +
                                jobId + "(" + xmlFilename + ")");
                                
-def UsageCheckXmldoc(xmlDoc,external):
-        "Fill in missing field in the xml document if needed"
-        "If external is true, also check for ProbeName, SiteName and ResourceType"
-         
-        # Local namespace
-        namespace = xmlDoc.documentElement.namespaceURI
-        # Loop over (posibly multiple) jobUsageRecords
-        for usageRecord in getUsageRecords(xmlDoc):
-            # Local namespace and prefix, if any
-            prefix = ""
-            for child in usageRecord.childNodes:
-                if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
-                       child.prefix:
-                    prefix = child.prefix + ":"
-                    break
+def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
+    "Fill in missing field in the xml document if needed"
+    "If external is true, also check for ResourceType and Grid"
 
-            [VOName, ReportableVOName] = [None, None]
+    # Local namespace
+    namespace = xmlDoc.documentElement.namespaceURI
+    # Loop over (posibly multiple) jobUsageRecords
+    for usageRecord in getUsageRecords(xmlDoc):
+        # Local namespace and prefix, if any
+        prefix = ""
+        for child in usageRecord.childNodes:
+            if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and \
+                   child.prefix:
+                prefix = child.prefix + ":"
+                break
 
-            UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
-            if not UserIdentityNodes:
+        [VOName, ReportableVOName] = [None, None]
+
+        UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
+        if not UserIdentityNodes:
+            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            DebugPrint(0, "Warning: no UserIdentity block in " + jobIdType + " " +
+                       jobId)
+        else:
+            if len(UserIdentityNodes) > 1:
                 [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                DebugPrint(0, "Warning: no UserIdentity block in " + jobIdType + " " +
+                DebugPrint(0, "Warning: too many UserIdentity blocks  in " +  jobIdType + " " +
                            jobId)
-            else:
-                if len(UserIdentityNodes) > 1:
-                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                    DebugPrint(0, "Warning: too many UserIdentity blocks  in " +  jobIdType + " " +
-                               jobId)
-                [VOName, ReportableVOName] = \
-                         CheckAndExtendUserIdentity(xmlDoc,
-                                                UserIdentityNodes[0],
-                                                namespace,
-                                                prefix)
+            [VOName, ReportableVOName] = \
+                     CheckAndExtendUserIdentity(xmlDoc,
+                                            UserIdentityNodes[0],
+                                            namespace,
+                                            prefix)
 
-            # If we are trying to handle only GRID jobs, suppress records
-            # with a null or unknown VOName
-            if Config.get_SuppressUnknownVORecords() and ((not VOName) or VOName == "Unknown"):
-                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
-                       jobId + "due to unknown or null VOName")
-                usageRecord.parentNode.removeChild(usageRecord)
-                usageRecord.unlink()
-                continue
-                
-            # Add ResourceType if appropriate
-            if external and resourceType != None:
-                UpdateResource(xmlDoc, usageRecord, namespace, prefix,
-                               'ResourceType', resourceType)
+        # If we are trying to handle only GRID jobs, suppress records
+        # with a null or unknown VOName
+        if Config.get_SuppressUnknownVORecords() and ((not VOName) or VOName == "Unknown"):
+            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
+                   jobId + "due to unknown or null VOName")
+            usageRecord.parentNode.removeChild(usageRecord)
+            usageRecord.unlink()
+            continue
 
-            # Add Grid.
-            JobIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'JobIdentity')
-            if not JobIdentityNodes:
+        # Add ResourceType if appropriate
+        if external and resourceType != None:
+            AddResourceIfMissingKey(xmlDoc, usageRecord, namespace, prefix,
+                                    'ResourceType', resourceType)
+
+        # Add Grid.
+        JobIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'JobIdentity')
+        if not JobIdentityNodes:
+            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            DebugPrint(0, "Warning: no jobIdentity block in " + jobIdType + " " +
+                       jobId)
+        else:
+            if len(JobIdentityNodes) > 1:
                 [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                DebugPrint(0, "Warning: no jobIdentity block in " + jobIdType + " " +
+                DebugPrint(0, "Warning: too many JobIdentity blocks  in " +  jobIdType + " " +
                            jobId)
-            else:
-                if len(JobIdentityNodes) > 1:
-                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                    DebugPrint(0, "Warning: too many JobIdentity blocks  in " +  jobIdType + " " +
-                               jobId)
-                Grid = CheckAndExtendJobIdentity(xmlDoc,
-                                                JobIdentityNodes[0],
-                                                namespace,
-                                                prefix)
+            Grid = CheckAndExtendJobIdentity(xmlDoc,
+                                             JobIdentityNodes[0],
+                                             namespace,
+                                             prefix)
 
-            StandardCheckXmldoc(xmlDoc,usageRecord,external)
-            
-        return len(getUsageRecords(xmlDoc))
+        StandardCheckXmldoc(xmlDoc,usageRecord,external,prefix)
+
+    return len(getUsageRecords(xmlDoc))
 
 XmlRecordCheckers.append(UsageCheckXmldoc)
 
@@ -1400,12 +1394,12 @@ def Reprocess():
 
     return responseString
 
-def CheckXmlDoc(xmlDoc,external):
+def CheckXmlDoc(xmlDoc,external,resourceType = None):
     content = 0
     for checker in XmlRecordCheckers:
-        DebugPrint(0,"Running : " +str(checker)+str(xmlDoc)+str(external))
-        content = content + checker(xmlDoc,external)
-    return content    
+        DebugPrint(0,"Running : " +str(checker)+str(xmlDoc)+str(external) + str(resourceType))
+        content = content + checker(xmlDoc,external,resourceType)
+    return content
 
 def Send(record):
     global failedSendCount
@@ -1564,7 +1558,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
 
             xmlDoc.normalize()
 
-            if not CheckXmlDoc(xmlDoc,True):
+            if not CheckXmlDoc(xmlDoc,True,resourceType):
                 xmlDoc.unlink()
                 DebugPrint(0, "No unsuppressed usage records in " + \
                            xmlFilename + ": not sending")
@@ -1672,27 +1666,52 @@ def FindBestJobId(usageRecord, namespace, prefix):
     else:
         return ['Unknown', 'Unknown']
 
-def UpdateResource(xmlDoc, usageRecord, namespace, prefix, key, value):
-    "Update a resource key in the XML record"
+def __ResourceTool(action, xmlDoc, usageRecord, namespace, prefix, key, value = ''):
+    "Private routine sitting underneath (possibly) several public ones"
 
+    if value == None: value = ''
+
+    if action != "UpdateFirst" and \
+       action != "ReadValues" and \
+       action != "AddIfMissingValue" and \
+       action != "AddIfMissingKey" and \
+       action != "UnconditionalAdd":
+        raise InternalError("__ResourceTool gets unrecognized action '%s'" % action)
+    
     resourceNodes = usageRecord.getElementsByTagNameNS(namespace,
                                                        'Resource')
     wantedResource = None
+    foundValues = []
     # Look for existing resource of desired type
     for resource in resourceNodes:
         description = resource.getAttributeNS(namespace, 'description')
         if description == key:
-            wantedResource = resource
-            break
+            if action == "UpdateFirst":
+                wantedResource = resource
+                break
+            elif action == "AddIfMissingValue":
+                # Kick out if we have the attribute and value
+                if resource.firstChild and resource.firstChild.data == value:
+                    return None
+            elif action == "AddIfMissingKey":
+                # Kick out, since we're not missing the key
+                    return None
+            elif action == "ReadValues" and resource.firstChild:
+                foundValues.append(resource.firstChild.data)
+
+    if action == "ReadValues": return foundValues # Done, no updating necessary
 
     # Found
-    if wantedResource:
-        if wantedResource.firstChild:
+    if wantedResource: # UpdateFirst
+        if wantedResource.firstChild: # Return replaced value
+            oldValue = wantedResource.firstChild.data
             wantedResource.firstChild.data = value
+            return oldValue 
         else: # No text data node
             textNode = xmlDoc.createTextNode(value)
             wantedResource.appendChild(textNode)
-    else:
+    else: # AddIfMissing{Key,Value}, UpdateFirst and UnconditionalAdd
+          # should all drop through to here.
         # Create Resource node
         wantedResource = xmlDoc.createElementNS(namespace,
                                                 prefix + 'Resource')
@@ -1700,6 +1719,33 @@ def UpdateResource(xmlDoc, usageRecord, namespace, prefix, key, value):
         textNode = xmlDoc.createTextNode(value)
         wantedResource.appendChild(textNode)
         usageRecord.appendChild(wantedResource)
+
+    return None
+
+def UpdateResource(xmlDoc, usageRecord, namespace, prefix, key, value):
+    "Update a resource key in the XML record"
+
+    return __ResourceTool("UpdateFirst", xmlDoc, usageRecord, namespace, prefix, key, value)
+
+def ResourceValues(xmlDoc, usageRecord, namespace, prefix, key):
+    "Return all found values for a given resource"
+
+    return __ResourceTool("ReadValues", xmlDoc, usageRecord, namespace, prefix, key)
+
+def AddResourceIfMissingValue(xmlDoc, usageRecord, namespace, prefix, key, value):
+    "Add a resource key in the XML record if there isn't one already with the desired value"
+
+    return __ResourceTool("AddIfMissingValue", xmlDoc, usageRecord, namespace, prefix, key, value)
+
+def AddResourceIfMissingKey(xmlDoc, usageRecord, namespace, prefix, key, value = ''):
+    "Add a resource key in the XML record if there isn't at least one resource with that key"
+
+    return __ResourceTool("AddIfMissingKey", xmlDoc, usageRecord, namespace, prefix, key, value)
+
+def AddResource(xmlDoc, usageRecord, namespace, prefix, key, value):
+    "Unconditionally add a resource key in the XML record"
+
+    return __ResourceTool("UnconditionalAdd", xmlDoc, usageRecord, namespace, prefix, key, value)
 
 def CheckAndExtendJobIdentity(xmlDoc, jobIdentityNode, namespace, prefix):
     "Check the contents of the JobIdentity block and extend if necessary"
