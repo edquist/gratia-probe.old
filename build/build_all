@@ -99,7 +99,7 @@ else
   version=`perl -wane 'm&^\s*Version\s*:\s*([^#]*)& and print "$1\n";' "${specfile}"`
   release=`perl -wane 'm&^\s*Release\s*:\s*([^#]*)& and print "$1\n";' "${specfile}"`
 
-  echo "Packaging for default $version$release"
+  echo "Packaging for default $version-$release"
 	cp -p "${specfile}" "${tmp_specfile}"
 fi
 
