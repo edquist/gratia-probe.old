@@ -20,7 +20,7 @@ usage() {
   cat 1>&2 <<EOF
 usage: build_all -h
        build_all [-d <rpm-macro-definition>] [-P [-Y]] [-p] [-r <rpmbuild-top>] \
-                 [-s <specfile>] [--] <version> [<release>]
+                 [-s <specfile>] [--] [<version> [<release>]]
 
 Options:
   [-d <rpm-macro-definition>]
@@ -77,10 +77,6 @@ while getopts :hYd:r:s:pP OPT; do
 done
 shift $[ OPTIND - 1 ]
 
-[[ -n "${1}" ]] || usage
-version=${1}
-release=${2:-1}
-
 TMP=`mktemp -d ${TMPDIR:-/tmp}/build_all.XXXXXXXXXX`
 if [[ -z "$TMP" ]]; then
   echo "Unable to create temporary file using mktemp" 1>&2
@@ -91,10 +87,22 @@ trap "[[ -d \"$TMP\" ]] && rm -rf \"$TMP\" 2>/dev/null" EXIT
 
 tmp_specfile="${TMP}/`basename ${specfile}`"
 
-perl -wape '
+if [[ -n "${1}" ]]; then
+  version=${1}
+	release=${2:-1}
+
+	perl -wape '
 s&^(\s*Version\s*:\s*).*$&${1}'"${version}"'&i;
 s&^(\s*Release\s*:\s*).*$&${1}'"${release}"'&i;
 ' ${specfile} > "${tmp_specfile}"
+else
+  version=`perl -wane 'm&^\s*Version\s*:\s*([^#]*)& and print "$1\n";' "${specfile}"`
+  release=`perl -wane 'm&^\s*Release\s*:\s*([^#]*)& and print "$1\n";' "${specfile}"`
+
+  echo "Packaging for default $version$release"
+	cp -p "${specfile}" "${tmp_specfile}"
+fi
+
 
 build/package-probe "${version}" common condor pbs-lsf psacct sge glexec
 status=$?
