@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Filename: sge.py 
-# Author: Shreyas Cholia, NERSC-LBL, schola@lbl.gov
+# Author: Shreyas Cholia, NERSC-LBL, scholia@lbl.gov
 # Description: SGE probe for gratia
 #
 # Usage: sge.py [options]
@@ -22,7 +22,7 @@
 
 
 import Gratia
-import os, copy, pwd, time, sys
+import os, copy, pwd, time, sys, string
 
 if not Gratia.pythonVersionRequire(2,3):
     Gratia.Error("SGE Probe requires python version >= 2.3 (current version " + sys.version + ")")
@@ -90,6 +90,8 @@ class SGE:
         for entry in gridmapfile:
             # strip leading and trailing whitespace
             entry=entry.strip()
+            if entry=="" or entry.startswith("#"):
+              continue
 
             # split on whitespace, for local username
             pieces=entry.split()
@@ -331,13 +333,17 @@ if __name__ == '__main__':
    
 
     if opts.checkpoint:	
-      # TBD - Do some error checking if file io fails
-      if os.path.isfile(checkpointFile):
-          CPFILE=open(checkpointFile, "r")
-          checkpoint=int(CPFILE.readline())
-          CPFILE.close()
-      else:
-          checkpoint=0
+        # Do some error checking if file io fails
+        if os.path.isfile(checkpointFile):
+            try:
+                CPFILE=open(checkpointFile, "r")
+                checkpoint=int(CPFILE.readline())
+                CPFILE.close()
+            except IOError:
+                Gratia.DebugPrint(0, "IOError: Failed to read checkpoint file " + checkpointFile)
+                checkpoint=0
+        else:
+            checkpoint=0
              
 
     Gratia.DebugPrint(0, "Using Accounting file: " + accFileName)
@@ -346,7 +352,13 @@ if __name__ == '__main__':
 
 
     linecount=0
-    file = open(accFileName, "r")
+    # Make sure we can open file
+    try:
+        file = open(accFileName, "r")
+    except IOError:
+        Gratia.DebugPrint(0, "IOError: Failed to read accounting file " + accFileName)
+        sys.exit(5);
+        
     for line in file:
         # keep going until we hit the checkpoint
         linecount = linecount + 1
@@ -367,23 +379,27 @@ if __name__ == '__main__':
         rec.printRecord()
 
         # convert sgeRecord into Gratia UsageRecord
-	gratiaRec = rec.createUsageRecord()
+        gratiaRec = rec.createUsageRecord()
 
         if debug:
             xmlRec = copy.deepcopy(gratiaRec)
-	    xmlRec.XmlCreate()
-            Gratia.DebugPrint(debug_level, string.join(" ", xmlRec.XmlData))
+            xmlRec.XmlCreate()            
+            Gratia.DebugPrint(debug_level, string.join(xmlRec.XmlData, " "))
 
         # send UsageRecord
         Gratia.Send(gratiaRec)
 
         if opts.checkpoint:      
-          # Write our checkpoint to a file 
-  	  checkpoint = linecount
-    	  # Do some error checking if file io fails
-    	  CPFILE=open(checkpointFile, "w")
-    	  CPFILE.write(str(checkpoint) + "\n")
-    	  CPFILE.close()
+            # Write our checkpoint to a file 
+            checkpoint = linecount
+            # Do some error checking if file io fails
+            try:
+                CPFILE=open(checkpointFile, "w")
+                CPFILE.write(str(checkpoint) + "\n")
+                CPFILE.close()
+            except IOError:
+                Gratia.DebugPrint(0, "IOError: Failed to write checkpoint file " + checkpointFile)
+    
 
     # Clean things up
     # Do we need to define a clean exit function?
