@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.23b
+Version: 0.24
 Release: 1
 License: GPL
 Group: Applications/System
@@ -713,6 +713,11 @@ fi
 %endif
 
 %changelog
+* Thu Jun 14 2007 Christopher Green <greenc@fnal.gov> - 0.24-1
+- Sync with service release no.
+- Incorporate latest changes to SGE probe from Shreyas.
+- Fix URL in probe/sge/README per Shreyas.
+
 * Thu Jun 14 2007 Christopher Green <greenc@fnal.gov> - 0.23b-1
 - Extra safety checks on document integrity.
 - Correct spelling of metricRecord.
