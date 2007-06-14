@@ -1,4 +1,4 @@
-#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.2 2007-05-31 17:42:00 pcanal Exp $
+#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.3 2007-06-14 02:28:23 greenc Exp $
 
 import Gratia
 from Gratia import *
@@ -92,7 +92,7 @@ def MetricCheckXmldoc(xmlDoc,external):
             DebugPrint(0, "Warning: too many Grid entities in " + jobIdType + " " +
                                jobId + "(" + xmlFilename + ")");
                                
-        StandardCheckXmldoc(xmlDoc,usageRecord,external)
+        StandardCheckXmldoc(xmlDoc,usageRecord,external,prefix)
             
     return len(getMetricRecords(xmlDoc))
 
