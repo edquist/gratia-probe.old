@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.55 2007-06-14 04:26:02 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.56 2007-06-14 13:57:28 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1222,6 +1222,8 @@ class UsageRecord(Record):
 
 def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
     "Check for and fill in suitable values for important attributes"
+
+    if not xmlDoc.documentElement: return 0 # Major problem
         
     if external:
         # Local namespace
@@ -1252,6 +1254,8 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
 def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
     "Fill in missing field in the xml document if needed"
     "If external is true, also check for ResourceType and Grid"
+
+    if not xmlDoc.documentElement: return 0 # Major problem
 
     # Local namespace
     namespace = xmlDoc.documentElement.namespaceURI
