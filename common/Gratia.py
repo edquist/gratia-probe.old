@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.54 2007-06-14 02:26:52 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.55 2007-06-14 04:26:02 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1397,7 +1397,7 @@ def Reprocess():
 def CheckXmlDoc(xmlDoc,external,resourceType = None):
     content = 0
     for checker in XmlRecordCheckers:
-        DebugPrint(0,"Running : " +str(checker)+str(xmlDoc)+str(external) + str(resourceType))
+        DebugPrint(1,"Running : " +str(checker)+str(xmlDoc)+str(external) + str(resourceType))
         content = content + checker(xmlDoc,external,resourceType)
     return content
 
