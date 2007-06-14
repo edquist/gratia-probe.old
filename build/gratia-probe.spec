@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.23a
+Version: 0.23b
 Release: 1
 License: GPL
 Group: Applications/System
@@ -713,6 +713,10 @@ fi
 %endif
 
 %changelog
+* Thu Jun 14 2007 Christopher Green <greenc@fnal.gov> - 0.23b-1
+- Extra safety checks on document integrity.
+- Correct spelling of metricRecord.
+
 * Wed Jun 13 2007 Christopher Green <greenc@fnal.gov> - 0.23a-1
 - Fix various and sundry problems with abstractions of XML checking
  	routines.
