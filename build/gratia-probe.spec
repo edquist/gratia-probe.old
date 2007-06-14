@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.22d
-Release: 4
+Version: 0.23a
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -713,6 +713,15 @@ fi
 %endif
 
 %changelog
+* Wed Jun 13 2007 Christopher Green <greenc@fnal.gov> - 0.23a-1
+- Fix various and sundry problems with abstractions of XML checking
+ 	routines.
+
+* Wed Jun 13 2007 Christopher Green <greenc@fnal.gov> - 0.23-1
+- Redirect urCollector.pl output to log file from pbs-lsf_meter.cron.sh.
+- Gratia.py handles new "Grid" attribute.
+- Updated release no.
+
 * Tue Jun 12 2007 Christopher Green <greenc@fnal.gov> - 0.22d-4
 - More variables declared %global to fix funny behavior.
 - glexec probe does not require python 2.3 -- erroneously copied from SGE.
