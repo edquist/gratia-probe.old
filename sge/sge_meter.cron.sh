@@ -3,7 +3,7 @@
 # sge_meter.cron.sh - Shell script used with cron to parse sge log 
 #   files for OSG accounting data collection.
 
-# $Id: sge_meter.cron.sh,v 1.3 2007-05-25 23:34:56 greenc Exp $
+# $Id: sge_meter.cron.sh,v 1.4 2007-06-15 23:48:08 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/sge/sge_meter.cron.sh,v $
 
 Logger='/usr/bin/logger -s -t sge_meter'
@@ -71,7 +71,7 @@ if [ ${NCMeter} -eq 0 ]; then
   
   # This is what we expect in a normal Gratia install
   pp_dir=$(cd "$Meter_BinDir/../common"; pwd)
-  if test -n "$PqYTHONPATH" ; then
+  if test -n "$PYTHONPATH" ; then
     if echo "$PYTHONPATH" | grep -e ':$' >/dev/null 2>&1; then
       PYTHONPATH="${PYTHONPATH}${pp_dir}:"
     else
@@ -110,6 +110,14 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.3  2007/05/25 23:34:56  greenc
+# New utilities GetProbeConfigAttribute.py and DebugPrint.py.
+#
+# Cron scripts now check for EnableProbe attribute in config -- if present
+# and 0, probe will not be invoked and log entry will be made.
+#
+# Fix fragility in spec file using "global" macro.
+#
 # Revision 1.2  2007/03/08 18:24:34  greenc
 # Match VDT renaming of sge.py to sge_meter.py.
 #
