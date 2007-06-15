@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.24
+Version: 0.24a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -713,6 +713,9 @@ fi
 %endif
 
 %changelog
+* Fri Jun 15 2007 Christopher Green <greenc@fnal.gov> - 0.24a-1
+- Fix problem with sge_meter_cron.sh per Shreyas Cholia
+
 * Thu Jun 14 2007 Christopher Green <greenc@fnal.gov> - 0.24-1
 - Sync with service release no.
 - Incorporate latest changes to SGE probe from Shreyas.
