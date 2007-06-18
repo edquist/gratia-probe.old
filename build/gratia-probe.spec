@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.24a
-Release: 1
+Version: 0.24b
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -53,6 +53,7 @@ Patch2: urCollector-2006-06-13-createTime-timezone.patch
 Patch3: urCollector-2006-06-13-nodect.patch
 Patch4: urCollector-2006-06-13-modules-1.patch
 Patch5: urCollector-2006-06-13-modules-2.patch
+Patch6: urCollector-2006-06-13-xmlUtil.h-gcc4.1-fixes.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -73,6 +74,7 @@ cd urCollector-%{urCollector_version}
 %patch -P 3 -b .nodect
 %patch -P 4 -b .modules-1
 %patch -P 5 -b .modules-2
+%patch -P 6 -b .xmlUtil.h-gcc4.1-fixes
 %endif
 %setup -q -D -T -a 5
 %setup -q -D -T -a 6
@@ -713,6 +715,13 @@ fi
 %endif
 
 %changelog
+* Mon Jun 18 2007 Christopher Green <greenc@fnal.gov> - 0.24b-2
+- Fix patch application.
+
+* Mon Jun 18 2007 Christopher Green <greenc@fnal.gov> - 0.24b-1
+- Remove accidental 'percent'global in changelog causing complaints.
+- Patch xmlUtil.h to compile under gcc4.1's fixed friend injection rules.
+
 * Fri Jun 15 2007 Christopher Green <greenc@fnal.gov> - 0.24a-1
 - Fix problem with sge_meter_cron.sh per Shreyas Cholia
 
@@ -735,7 +744,7 @@ fi
 - Updated release no.
 
 * Tue Jun 12 2007 Christopher Green <greenc@fnal.gov> - 0.22d-4
-- More variables declared %global to fix funny behavior.
+- More variables declared global to fix funny behavior.
 - glexec probe does not require python 2.3 -- erroneously copied from SGE.
 - final_post_message only prints out if it's a ProbeConfig file.
 

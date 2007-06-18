@@ -1,0 +1,16 @@
+--- xmlUtil.h~	2006-06-13 03:03:15.000000000 -0500
++++ xmlUtil.h	2007-06-18 13:31:24.001000000 -0500
+@@ -80,4 +80,13 @@
+ 
+ 	
+ };
++
++node parse(string *xmlInput, string _tag);
++node parse(string *xmlInput, string _tag, string space);
++node parseImpl(string *xmlInput, string _tag);
++string tagAdd(string tag, string content);
++string tagAdd(string tag, string content, vector<attribute> );
++string tagAdd(string tag, int content);
++string parseAttribute ( string a, map<string,string>& m);
++
+ #endif
