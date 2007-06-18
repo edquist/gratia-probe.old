@@ -2,12 +2,15 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.24b
-Release: 2
+Release: 3
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
 Packager: Chris Green <greenc@fnal.gov>
 Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
+
+# RH5 precompiles the python files and produces .pyc and .pyo files.
+%define _unpackaged_files_terminate_build 0
 
 %global ProbeConfig_template_marker <!-- Temporary RPM-generated template marker -->
 %global pbs_lsf_template_marker # Temporary RPM-generated template marker
@@ -715,6 +718,11 @@ fi
 %endif
 
 %changelog
+* Mon Jun 18 2007 Christopher Green <greenc@fnal.gov> - 0.24b-3
+- Added define _unpackaged_files_terminate_build 0 to prevent python
+-  files being byte-compiled without being put into the files list.
+
+
 * Mon Jun 18 2007 Christopher Green <greenc@fnal.gov> - 0.24b-2
 - Fix patch application.
 
