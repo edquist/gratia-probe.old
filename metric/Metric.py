@@ -1,4 +1,4 @@
-#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.4 2007-06-14 13:56:43 greenc Exp $
+#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.5 2007-06-20 16:22:49 pcanal Exp $
 
 import Gratia
 from Gratia import *
@@ -60,7 +60,26 @@ class MetricRecord(Gratia.Record):
 #        self.AppendToList(self.RecordData, "Timestamp", self.Type(timetype)+self.Description(description), realvalue)
         self.AppendToList(self.RecordData, "Timestamp", "", realvalue)
         
+    def ServiceType(self,value):
+        " The service type being tested "
+        self.RecordData = self.AddToList(self.RecordData, "ServiceType", "", value)
         
+    def ServiceUri(self,value):
+        " The Service URI of the resource being tested "
+        self.RecordData = self.AddToList(self.RecordData, "ServiceUri", "", value)
+
+    def GatheredAt(self,value):
+        " Resource name where metric was gathered at "
+        self.RecordData = self.AddToList(self.RecordData, "GatheredAt", "", value)
+
+    def SummaryData(self,value):
+        " Summary of results of this metric "
+        self.RecordData = self.AddToList(self.RecordData, "SummaryData", "", value)
+
+    def DetailsData(self,value):
+        " Detailed information about results of this metric "
+        self.RecordData = self.AddToList(self.RecordData, "DetailsData", "", value)
+
 def getMetricRecords(xmlDoc):
     namespace = xmlDoc.documentElement.namespaceURI
     return xmlDoc.getElementsByTagNameNS(namespace, 'MetricRecord')
