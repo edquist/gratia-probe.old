@@ -1,0 +1,47 @@
+#!/bin/bash
+
+function usage() {
+  cat 1>&2 <<EOF
+usage: ${0##*/} [-m <match-substr>] [<replace-substr>]
+EOF
+}
+
+if [[ -z "$VDT_LOCATION" ]]; then
+  echo "No VDT_LOCATION set!" 1>&2
+  exit 1
+fi
+
+. $VDT_LOCATION/setup.sh
+
+if [[ ! -d "$VDT_LOCATION/gratia/var/tmp/gratiafiles" ]]; then
+  echo "\$VDT_LOCATION/gratia/var/tmp/gratiafiles doe not exist!" 1>&2
+  exit 1
+fi
+
+match="localhost_8843"
+
+while getopts :m: OPT; do
+		case $OPT in
+				m)
+				match="$OPTARG"
+				;;
+				*)
+				usage
+				exit 1
+		esac
+done
+shift $[ OPTIND - 1 ]
+
+if [[ -n "$1" ]]; then
+  replace="${1//[:\/]/_}"
+else
+  replace="gratia.opensciencegrid.org_8880"
+  echo "INFO: defaulting replace string to \"$replace\"" 1>&2
+fi
+
+cd "$VDT_LOCATION/gratia/var/tmp/gratiafiles"
+
+find . -type f -name '*'"$match"'*' | while read file; do
+  new_file=`echo "$file" | perl -wpe 's&\Q'"$match"'\E&'"$1"'&'`
+  mv -v "$file" "$new_file"
+done
