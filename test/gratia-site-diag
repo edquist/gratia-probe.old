@@ -1,0 +1,203 @@
+eval '(exit $?0)' && eval 'exec perl -w -S $0 ${1+"$@"}'
+                  && eval 'exec perl -w -S $0 $argv:q'
+                  if 0;
+
+########################################################################
+########################################################################
+use strict;
+
+# Use the File::Basename package
+use File::Basename;
+
+# Use the Getopt package
+use Getopt::Long;
+
+# Use the File::Path package
+use File::Path;
+
+# Use the Pod::Usage package
+use Pod::Usage;
+
+# Set parsing options
+Getopt::Long::Configure(qw(no_ignore_case bundling require_order));
+
+my %options = ();
+
+GetOptions(\%options,
+					 "help|h|?",
+					 "man",
+					 "no-log-files") or
+	pod2usage(-exitval => 2);			# short usage (synopsis only)
+
+# Medium usage (options explanation)
+pod2usage(-verbose => 1) if exists $options{help};
+
+# Full man page (requires working pod2man)
+pod2usage(-verbose => 2) if exists $options{man};
+
+my $test_timestamp = `date +'%Y%m%d'`;
+chomp $test_timestamp;
+
+foreach my $gk (@ARGV) {
+	print "SITE: $gk\n";
+	my $printenv_output = `globus-job-run $gk /usr/bin/printenv 2>&1`;
+	my ($osg_loc) = ($printenv_output =~ m&^OSG_LOCATION=(.*)$&m);
+	unless ($osg_loc) {
+		print STDERR "  Unable to obtain OSG_LOCATION for $gk\n";
+		print STDERR "  Output from command: \n$printenv_output";
+		next;
+	}
+	system("mkdir -p GratiaTests_${gk}_${test_timestamp}");
+	my $oldpwd = chdir("GratiaTests_${gk}_${test_timestamp}");
+	print "  Directory output: listing.{out,err}\n";
+	system("globus-job-run $gk /usr/bin/find \"$osg_loc/gratia\" \"$osg_loc/monitoring\" \"$osg_loc/globus/lib/perl/Globus/GRAM/JobManager\" -follow -ls > listing.out 2>listing.err");
+	open(SITE_LISTING, "listing.out") or
+		die "Unable to open listing.out for read.";
+	my @interesting_files = ("$osg_loc/o..pacman..o/logs/commands",
+													 "$osg_loc/vdt-install.log",
+													 "$osg_loc/vdt/setup/configure_gratia");
+	my %file_map = ();
+	my $tmpfiles_count = 0;
+	while (<SITE_LISTING>) {
+		chomp;
+		my ($index, $n_blocks, $perms, $dummy, $user, $group, $size, $month, $date, $time, $name) = split;
+		$name or next;
+		$perms =~ m&^d& and next;
+		push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/ProbeConfig&;
+		push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/.*\.py$&;
+		push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/urCollector\.conf$&;
+		push @interesting_files, $name if $name =~ m&\Q$osg_loc\E//gratia/var/tmp/+[^/]+$&;
+		push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/monitoring/&;
+		push @interesting_files, $name if $name =~ m&gratia/var/logs/& and not $options{"no-log-files"};
+		push @interesting_files, $name if $name =~ m&Globus/GRAM/JobManager/.*\.pm$&;
+		++$tmpfiles_count if $name =~ m&gratia/var/tmp/gratiafiles/&g;
+	}
+	close SITE_LISTING;
+	foreach my $file (@interesting_files) {
+		my $local_file = $file;
+		$local_file =~ s&^.*?\Q$osg_loc\E/&&;
+		$local_file =~ s&/+&_&g;
+		print "  Obtaining file \"$file\" ... ";
+		my $status = system("globus-url-copy \"gsiftp://$gk$file\" \"file://\`pwd\`/$local_file\"");
+		print $status == 0?"OK":"FAILED", "\n";
+		if ($status == 0) {
+			$file_map{$file} = $local_file;
+		}
+	}
+	chdir($oldpwd);
+	print "  Found $tmpfiles_count unsent XML files in $osg_loc/gratia/var/tmp/gratiafiles\n";
+
+	# Some attempts to identify common problems.
+	# ProbeConfig checks
+	foreach my $config_file (map { (/ProbeConfig$/ and $file_map{$_})?$file_map{$_}:() } @interesting_files) {
+		$config_file =~ /common_ProbeConfig/ and next;
+		print "  > Checking $config_file ...\n";
+		unless (open(CONFIG_FILE, "$config_file")) {
+			print "    > ERROR: Could not open local copy $config_file!\n";
+			next;
+		}
+		my $config = join("", <CONFIG_FILE>);
+		$config =~ m&EnableProbe\s*=\s*"([^"]+)"&s and ($1 ne 1) and
+			print "    > WARNING: EnableProbe set to \"$1\" instead of \"1\"\n";
+		$config =~ m&SOAPHost\s*=\s*"([^"]+)"&s and ($1 eq "localhost:8443") and
+			print "    > WARNING: SOAPHost set to \"$1\", which may not be correct.\n";
+		my $site_dns;
+		$config =~ m&MeterName\s*=\s*"((?:[^:]+:)?([^"]+))"&s and $site_dns = $2;
+		$site_dns or
+			print "    > WARNING: MeterName set to \"$1\", which may not be correct.\n";
+		$config =~ m&SiteName\s*=\s*"([^"]+)"&s and
+			(($1 =~ /(?:generic|unknown)/i) or
+			 ($site_dns and ($1 eq $site_dns))) and
+				print "    > WARNING: SiteName set to \"$1\", which may not be correct.\n";
+		close CONFIG_FILE;
+	}
+	# sge_meter.py check
+	my ($sge_meter_py) = grep /sge_meter\.py$/, @interesting_files;
+	if ($sge_meter_py) {
+		print "  > Checking $sge_meter_py ...\n";
+		(system ("grep -e 'requirePythonVersion' $file_map{$sge_meter_py} >/dev/null 2>&1") == 0) and
+			print "    > WARNING: sge_meter.py is a known buggy version: please replace with a working version\n";
+	}
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+gratia-site-diag - use globus-job-run and globus-url-copy (with existing
+proxy) to diagnose problems with gratia probes.
+
+=head1 SYNOPSIS
+
+B<gratia-site-diag> B<-h>|B<--help>|B<-?>
+
+B<gratia-site-diag> B<--man>
+
+[The perl functionality required by the B<--man> option is broken in some
+UPS KIT installations of perl.]
+
+B<gratia-site-diag> [B<--no-log-files>] I<gatekeeper DNS name>+
+
+Options marked with B<+> are repeatable and cumulative.
+
+
+=head1 DESCRIPTION
+
+I<gratia-site-diag> is asimple script to obtain information useful for
+diagnosing problems with Gratia probes at a remote site.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-h>
+
+=item B<--help>
+
+=item B<-?>
+
+Short help.
+
+
+=item B<-m>
+
+=item B<--man>
+
+Full man page information.
+
+
+=item B<--no-log-files>
+
+Do not retrieve files from the I<gratia/var/logs> directory.
+
+=back
+
+=head1 EXAMPLES
+
+
+=head1 FILES
+
+=over 4
+
+=item I<GratiaTests_E<lt>site_addressE<gt>_E<lt>timestampE<gt>/>
+
+
+Directory containing retrieved files from I<site_address>.
+
+=back
+
+=head1 SEE ALSO
+
+
+
+=head1 AUTHOR
+
+Chris Green <greenc@fnal.gov>.
+
+=cut
+
+### Local Variables:
+### mode: cperl
+### End:
