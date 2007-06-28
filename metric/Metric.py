@@ -1,4 +1,4 @@
-#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.5 2007-06-20 16:22:49 pcanal Exp $
+#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.6 2007-06-28 18:08:20 pcanal Exp $
 
 import Gratia
 from Gratia import *
@@ -84,7 +84,7 @@ def getMetricRecords(xmlDoc):
     namespace = xmlDoc.documentElement.namespaceURI
     return xmlDoc.getElementsByTagNameNS(namespace, 'MetricRecord')
 
-def MetricCheckXmldoc(xmlDoc,external):
+def MetricCheckXmldoc(xmlDoc,external,resourceType = None):
     " Fill in missing field in the xml document if needed "
     " If external is true, also check for ProbeName, SiteName "
 
