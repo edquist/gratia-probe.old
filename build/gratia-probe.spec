@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.24b
-Release: 3
+Version: 0.25
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -25,8 +25,12 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 
 %if %{itb}
   %global collector_port 8881
+  %global metric_collector metric.opensciencegrid.org
+  %global metric_port 8880
 %else
   %global collector_port 8880
+  %global metric_collector metric.opensciencegrid.org
+  %global metric_port 8881
 %endif
 
 %{?vdt_loc: %global vdt_loc_set 1}
@@ -41,7 +45,7 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 
 %global scrub_root_crontab tmpfile=`mktemp /tmp/gratia-cleanup.XXXXXXXXXX`; crontab -l 2>/dev/null | %{__grep} -v -e 'gratia/probe/' > "$tmpfile" 2>/dev/null; crontab "$tmpfile" 2>/dev/null 2>&1; %{__rm} -f "$tmpfile"
 
-%global final_post_message() [[ "%1" == *ProbeConfig* ]] && echo "IMPORTANT: please check %1 and remember to set EnableProbe=1 to start operation." 1>&2
+%global final_post_message() [[ "%1" == *ProbeConfig* ]] && echo "IMPORTANT: please check %1 and remember to set EnableProbe = \"1\" to start operation." 1>&2
 
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
@@ -50,6 +54,7 @@ Source3: %{name}-pbs-lsf-%{version}.tar.bz2
 Source4: urCollector-%{urCollector_version}.tgz
 Source5: %{name}-sge-%{version}.tar.bz2
 Source6: %{name}-glexec-%{version}.tar.bz2
+Source7: %{name}-metric-%{version}.tar.bz2
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch2: urCollector-2006-06-13-createTime-timezone.patch
@@ -81,6 +86,7 @@ cd urCollector-%{urCollector_version}
 %endif
 %setup -q -D -T -a 5
 %setup -q -D -T -a 6
+%setup -q -D -T -a 7
 
 %build
 %ifnarch noarch
@@ -97,7 +103,7 @@ cd -
 
 %ifarch noarch
   # Obtain files
-  %{__cp} -pR {common,condor,psacct,sge,glexec} "${RPM_BUILD_ROOT}%{default_prefix}/probe"
+  %{__cp} -pR {common,condor,psacct,sge,glexec,metric} "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
   for probe_config in \
@@ -105,6 +111,7 @@ cd -
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/psacct/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/sge/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/glexec/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/metric/ProbeConfig" \
       ; do
     %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
@@ -715,13 +722,74 @@ fi
 #   End of glExec preun
 # End of gLExec section
 
+%package metric%{?maybe_itb_suffix}
+Summary: A probe for OSG metrics
+Group: Applications/System
+Requires: python >= 2.2
+Requires: %{name}-common >= 0.24c
+%{?config_itb:Obsoletes: %{name}-metric}
+%{!?config_itb:Obsoletes: %{name}-metric%{itb_suffix}}
+Obsoletes: fnal_gratia_metric_probe
+
+%description metric%{?maybe_itb_suffix}
+The metric probe for the Gratia OSG accounting system.
+
+%files metric%{?maybe_itb_suffix}
+%defattr(-,root,root,-)
+%doc metric/README
+%doc metric/samplemetric.py
+%{default_prefix}/probe/metric/README
+%{default_prefix}/probe/metric/Metric.py
+%{default_prefix}/probe/metric/samplemetric.py
+%config(noreplace) %{default_prefix}/probe/metric/ProbeConfig
+
+%post metric%{?maybe_itb_suffix}
+# /usr -> "${RPM_INSTALL_PREFIX0}"
+# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
+%{__cat} <<EOF | while read config_file; do
+`%{__grep} -le '^%{ProbeConfig_template_marker}$' \
+"${RPM_INSTALL_PREFIX1}"/probe/metric/ProbeConfig{,.rpmnew} \
+2>/dev/null`
+EOF
+test -n "$config_file" || continue
+%{__perl} -wni.orig -e \
+'
+s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
+%{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
+s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
+my $install_host = `hostname -f`;
+chomp $install_host;
+$install_host = "%{meter_name}" unless $install_host =~ m&\.&;
+s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${metric_collector}:%{metric_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
+s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"metric:'"%{meter_name}"'"&;
+s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
+s&(CertificateFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxy.pem"&;
+s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxykey.pem"&;
+m&^/>& and print <<EOF;
+    metricMonitorLog="/var/log/metric/metric_monitor.log"
+EOF
+m&%{ProbeConfig_template_marker}& or print;' \
+"$config_file" >/dev/null 2>&1
+%final_post_message $config_file
+
+done
+
+# Check for sensible value of MaxPendingFiles in config file.
+(( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/metric/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
+
+# End of metric post
+# End of metric section
+
 %endif
 
 %changelog
+* Tue Jul  3 2007 Christopher Green <greenc@fnal.gov> - 0.25-1
+- First release of metric probe.
+
 * Mon Jun 18 2007 Christopher Green <greenc@fnal.gov> - 0.24b-3
 - Added define _unpackaged_files_terminate_build 0 to prevent python
 -  files being byte-compiled without being put into the files list.
-
 
 * Mon Jun 18 2007 Christopher Green <greenc@fnal.gov> - 0.24b-2
 - Fix patch application.

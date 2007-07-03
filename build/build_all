@@ -14,7 +14,8 @@
 
 # Defaults
 rpmbuild_top=~/rpmbuild
-specfile=~/gratia/probe/build/gratia-probe.spec
+specfile="`pwd`/build/gratia-probe.spec"
+[[ -f "$specfile" ]] || specfile=~/gratia/probe/build/gratia-probe.spec
 
 usage() {
   cat 1>&2 <<EOF
@@ -34,7 +35,7 @@ Options:
   [-r <rpmbuild-top>]
     Top of RPM build area
   [-s <specfile>]
-    Specfile to use for RPM build
+    Specfile to use for RPM build (default $specfile)
 
 Defaults:
   rpmbuild-top=${rpmbuild_top}
@@ -46,36 +47,43 @@ EOF
 
 while getopts :hYd:r:s:pP OPT; do
     case $OPT in
-	d)
-            if [[ -n "$defines" ]]; then
-              defines="$defines --define='$OPTARG'"
-            else
-	      defines="--define='$OPTARG'"
-            fi
-            ;;
-        h)
-	    usage
-            ;;
-        P)
-            publish=1
-            ;;
-        Y)
-				    yum=1
-						;;
-        p)
-            prepare_only=1
-            ;;
-	r)
-	    rpmbuild_top="$OPTARG"
-	    ;;
-	s)
-	    specfile="$OPTARG"
-	    ;;
-	*)
-	    usage
+  d)
+      if [[ -n "$defines" ]]; then
+        defines="$defines --define='$OPTARG'"
+      else
+        defines="--define='$OPTARG'"
+      fi
+      ;;
+  h)
+      usage
+      ;;
+  P)
+      publish=1
+      ;;
+  Y)
+      yum=1
+      ;;
+  p)
+      prepare_only=1
+      ;;
+  r)
+      rpmbuild_top="$OPTARG"
+      ;;
+  s)
+      specfile="$OPTARG"
+      ;;
+  *)
+      usage
     esac
 done
 shift $[ OPTIND - 1 ]
+
+if [[ -f "$specfile" ]]; then
+  echo "Found specfile at $specfile"
+else
+  echo "Unable to find specfile $specfile" 1>&2
+  exit 1
+fi
 
 TMP=`mktemp -d ${TMPDIR:-/tmp}/build_all.XXXXXXXXXX`
 if [[ -z "$TMP" ]]; then
@@ -89,9 +97,9 @@ tmp_specfile="${TMP}/`basename ${specfile}`"
 
 if [[ -n "${1}" ]]; then
   version=${1}
-	release=${2:-1}
+  release=${2:-1}
 
-	perl -wape '
+  perl -wape '
 s&^(\s*Version\s*:\s*).*$&${1}'"${version}"'&i;
 s&^(\s*Release\s*:\s*).*$&${1}'"${release}"'&i;
 ' ${specfile} > "${tmp_specfile}"
@@ -100,11 +108,11 @@ else
   release=`perl -wane 'm&^\s*Release\s*:\s*([^#]*)& and print "$1\n";' "${specfile}"`
 
   echo "Packaging for default $version-$release"
-	cp -p "${specfile}" "${tmp_specfile}"
+  cp -p "${specfile}" "${tmp_specfile}"
 fi
 
 
-build/package-probe "${version}" common condor pbs-lsf psacct sge glexec
+build/package-probe "${version}" common condor pbs-lsf psacct sge glexec metric
 status=$?
 
 if (( $status == 0 )); then
@@ -160,7 +168,7 @@ if (( $status == 0 )) && (( ${publish:-0} )); then
   status=$?
   ssh ${publish_host} "
   if (( $status == 0 )) && (( ${yum:-0} )); then
-		if type -p createrepo; then
+    if type -p createrepo; then
       createrepo -c \"${yum_cache}\" -p \"${publish_dir}/RPMS\"
     else
       echo \"Unable to find createrepo command to update yum repository metadata\" 1>&2
