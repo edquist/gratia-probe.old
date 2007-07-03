@@ -1,5 +1,7 @@
-#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.6 2007-06-28 18:08:20 pcanal Exp $
+#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.7 2007-07-03 20:22:58 pcanal Exp $
 
+## Updated by Arvind Gopu, Indiana University (http://peart.ucs.indiana.edu
+ 
 import Gratia
 from Gratia import *
 
@@ -71,6 +73,10 @@ class MetricRecord(Gratia.Record):
     def GatheredAt(self,value):
         " Resource name where metric was gathered at "
         self.RecordData = self.AddToList(self.RecordData, "GatheredAt", "", value)
+
+    def HostName(self,value):
+        " For local probes, (local) resource name where metric was gathered at "
+        self.RecordData = self.AddToList(self.RecordData, "HostName", "", value)
 
     def SummaryData(self,value):
         " Summary of results of this metric "
