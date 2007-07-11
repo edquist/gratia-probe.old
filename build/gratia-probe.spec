@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.25
+Version: 0.25a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -726,10 +726,9 @@ fi
 Summary: A probe for OSG metrics
 Group: Applications/System
 Requires: python >= 2.2
-Requires: %{name}-common >= 0.24c
+Requires: %{name}-common >= 0.25a
 %{?config_itb:Obsoletes: %{name}-metric}
 %{!?config_itb:Obsoletes: %{name}-metric%{itb_suffix}}
-Obsoletes: fnal_gratia_metric_probe
 
 %description metric%{?maybe_itb_suffix}
 The metric probe for the Gratia OSG accounting system.
@@ -784,6 +783,11 @@ done
 %endif
 
 %changelog
+* Wed Jul 11 2007 Christopher Green <greenc@fnal.gov> - 0.25a-1
+- Correct Gratia.py to generate correct XML for Grid attribute.
+- Take account of Gratia.py changes in Metric.py.
+- Remove unnecessary Obsoletes clause from metric package.
+
 * Tue Jul  3 2007 Christopher Green <greenc@fnal.gov> - 0.25-1
 - First release of metric probe.
 
