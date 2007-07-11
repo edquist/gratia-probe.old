@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.56 2007-06-14 13:57:28 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.57 2007-07-11 20:13:57 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1203,7 +1203,6 @@ class UsageRecord(Record):
                 self.XmlData.append("\t")
                 self.XmlData.append(data)
                 self.XmlData.append("\n")
-            #self.XmlData = self.XmlAddGrid(self.XmlData)
             self.XmlData.append("</JobIdentity>\n")
 
         if len(self.UserId)>0 :
@@ -1218,6 +1217,7 @@ class UsageRecord(Record):
             self.XmlData.append("\t")
             self.XmlData.append(data)
             self.XmlData.append("\n")
+        self.XmlData = self.XmlAddGrid(self.XmlData)
         self.XmlData.append("</JobUsageRecord>\n")
 
 def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
