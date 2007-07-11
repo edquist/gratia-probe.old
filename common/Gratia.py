@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.57 2007-07-11 20:13:57 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.58 2007-07-11 21:48:05 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1228,7 +1228,7 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
     if external:
         # Local namespace
         namespace = xmlDoc.documentElement.namespaceURI
-        # ProbeName and SiteName?
+        # ProbeName
         ProbeNameNodes = recordElement.getElementsByTagNameNS(namespace, 'ProbeName')
         if not ProbeNameNodes:
             node = xmlDoc.createElementNS(namespace, prefix + 'ProbeName')
@@ -1239,7 +1239,8 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
             [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
             DebugPrint(0, "Warning: too many ProbeName entities in " + jobIdType + " " +
                                jobId + "(" + xmlFilename + ")")
-            
+
+        # SiteName
         SiteNameNodes = recordElement.getElementsByTagNameNS(namespace, 'SiteName')
         if not SiteNameNodes:
             node = xmlDoc.createElementNS(namespace, prefix + 'SiteName')
@@ -1250,6 +1251,27 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
             [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
             DebugPrint(0, "Warning: too many SiteName entities in " + jobIdType + " " +
                                jobId + "(" + xmlFilename + ")");
+
+        # Grid
+        GridNodes = recordElement.getElementsByTagNameNS(namespace, 'Grid')
+        if not GridNodes:
+            node = xmlDoc.createElementNS(namespace, prefix + 'Grid')
+            textNode = xmlDoc.createTextNode(Config.get_Grid())
+            node.appendChild(textNode)
+            recordElement.appendChild(node)
+        elif len(GridNodes) == 1:
+            Grid = GridNodes[0].firstChild.data
+            grid_info = Config.get_Grid()
+            if grid_info and ((not Grid) or Grid == "Unknown"):
+                GridNodes[0].firstChild.data = grid_info
+            if not GridNodes[0].firstChild.data: # Remove null entry
+                recordElement.removeChild(GridNodes[0])
+                GridNodes[0].unlink()
+        else: # Too many entries
+            [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
+            DebugPrint(0, "Warning: too many Grid entities in " + jobIdType + " " +
+                               jobId + "(" + xmlFilename + ")");
+        
                                
 def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
     "Fill in missing field in the xml document if needed"
@@ -1301,22 +1323,6 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
         if external and resourceType != None:
             AddResourceIfMissingKey(xmlDoc, usageRecord, namespace, prefix,
                                     'ResourceType', resourceType)
-
-        # Add Grid.
-        JobIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'JobIdentity')
-        if not JobIdentityNodes:
-            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-            DebugPrint(0, "Warning: no jobIdentity block in " + jobIdType + " " +
-                       jobId)
-        else:
-            if len(JobIdentityNodes) > 1:
-                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                DebugPrint(0, "Warning: too many JobIdentity blocks  in " +  jobIdType + " " +
-                           jobId)
-            Grid = CheckAndExtendJobIdentity(xmlDoc,
-                                             JobIdentityNodes[0],
-                                             namespace,
-                                             prefix)
 
         StandardCheckXmldoc(xmlDoc,usageRecord,external,prefix)
 
@@ -1750,39 +1756,6 @@ def AddResource(xmlDoc, usageRecord, namespace, prefix, key, value):
     "Unconditionally add a resource key in the XML record"
 
     return __ResourceTool("UnconditionalAdd", xmlDoc, usageRecord, namespace, prefix, key, value)
-
-def CheckAndExtendJobIdentity(xmlDoc, jobIdentityNode, namespace, prefix):
-    "Check the contents of the JobIdentity block and extend if necessary"
-
-    # Grid
-    GridNodes = jobIdentityNode.getElementsByTagNameNS(namespace, 'Grid')
-    if len(GridNodes) > 1:
-        [jobIdType, jobId] = FindBestJobId(jobIdentityNode.parentNode, namespace, prefix)
-        DebugPrint(0,
-                   "Warning: JobIdentity block has multiple Grid nodes in " +
-                   jobIdType + " " + jobId)
-        return [None, None]
-    elif not GridNodes:
-        GridNodes.append(xmlDoc.createElementNS(namespace, prefix + 'Grid'))
-        textNode = xmlDoc.createTextNode(r'');
-        GridNodes[0].appendChild(textNode);
-        jobIdentityNode.appendChild(GridNodes[0])
-
-    Grid = GridNodes[0].firstChild.data
-    
-    grid_info = Config.get_Grid()
-
-    if grid_info:
-        if not (Grid) or Grid == "Unknown":
-            GridNodes[0].firstChild.data = grid_info
-
-    Grid = GridNodes[0].firstChild.data
-
-    if not Grid:
-        jobIdentityNode.removeChild(GridNodes[0])
-        GridNodes[0].unlink()
-
-    return Grid
 
 def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     "Check the contents of the UserIdentity block and extend if necessary"

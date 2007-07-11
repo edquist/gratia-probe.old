@@ -1,4 +1,4 @@
-#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.7 2007-07-03 20:22:58 pcanal Exp $
+#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.8 2007-07-11 21:48:06 greenc Exp $
 
 ## Updated by Arvind Gopu, Indiana University (http://peart.ucs.indiana.edu
  
@@ -107,17 +107,6 @@ def MetricCheckXmldoc(xmlDoc,external,resourceType = None):
                 child.prefix:
                 prefix = child.prefix + ":"
                 break
-                
-        GridNodes = metricRecord.getElementsByTagNameNS(namespace, 'Grid')
-        if not GridNodes:
-            node = xmlDoc.createElementNS(namespace, prefix + 'Grid')
-            textNode = xmlDoc.createTextNode(Gratia.Config.get_Grid())
-            node.appendChild(textNode)
-            metricRecord.appendChild(node)
-        elif len(GridNodes) > 1:
-            [jobIdType, jobId] = FindBestJobId(metricRecord, namespace, prefix)
-            DebugPrint(0, "Warning: too many Grid entities in " + jobIdType + " " +
-                               jobId + "(" + xmlFilename + ")");
                                
         StandardCheckXmldoc(xmlDoc,metricRecord,external,prefix)
             
