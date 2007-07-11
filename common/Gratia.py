@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.58 2007-07-11 21:48:05 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.59 2007-07-11 22:03:21 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -877,9 +877,7 @@ class Record(object):
     def XmlAddMembers(self):
         self.GenericAddToList( "ProbeName", self.__ProbeName, self.__ProbeNameDescription )
         self.GenericAddToList( "SiteName", self.__SiteName, self.__SiteNameDescription )
-
-    def XmlAddGrid(self, where):
-		return self.AddToList(where, "Grid", self.__GridDescription, self.__Grid)
+        self.GenericAddToList( "Grid", self.__Grid, self.__GridDescription )
 		
     def Duration(self,value):
         " Helper Function to generate the xml (Do not call directly)"
@@ -1217,7 +1215,6 @@ class UsageRecord(Record):
             self.XmlData.append("\t")
             self.XmlData.append(data)
             self.XmlData.append("\n")
-        self.XmlData = self.XmlAddGrid(self.XmlData)
         self.XmlData.append("</JobUsageRecord>\n")
 
 def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):

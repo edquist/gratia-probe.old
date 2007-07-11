@@ -1,4 +1,4 @@
-#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.8 2007-07-11 21:48:06 greenc Exp $
+#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.9 2007-07-11 22:03:21 greenc Exp $
 
 ## Updated by Arvind Gopu, Indiana University (http://peart.ucs.indiana.edu
  
@@ -21,8 +21,6 @@ class MetricRecord(Gratia.Record):
         " This should add the value of the 'data' member of MetricRecord "
         " (as opposed to the information entered directly into self.RecordData "
         super(self.__class__,self).XmlAddMembers()
-        self.RecordData = self.XmlAddGrid(self.RecordData)
-
 
     def XmlCreate(self):
         global RecordId
