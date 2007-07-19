@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.25a
-Release: 1
+Version: 0.26
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -26,11 +26,13 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 %if %{itb}
   %global collector_port 8881
   %global metric_collector metric.opensciencegrid.org
-  %global metric_port 8880
+  %global metric_port 8881
+  %global grid OSG-ITB
 %else
   %global collector_port 8880
   %global metric_collector metric.opensciencegrid.org
-  %global metric_port 8881
+  %global metric_port 8880
+  %global grid OSG
 %endif
 
 %{?vdt_loc: %global vdt_loc_set 1}
@@ -256,6 +258,7 @@ my $collector_host = ($install_host =~ m&\.fnal\.&i)?"%{fnal_collector}":"%{osg_
 s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${collector_host}:%{collector_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"pbs-lsf:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
+s&(Grid\s*=\s*)\"[^\"]*\"&${1}"%{grid}"&;
 m&%{ProbeConfig_template_marker}& or print;
 ' \
 "$config_file" >/dev/null 2>&1
@@ -374,6 +377,7 @@ m&^/>& and print <<EOF;
     PSACCTBackupFileRepository="$ENV{RPM_INSTALL_PREFIX1}/var/backup/"
     PSACCTExceptionsRepository="$ENV{RPM_INSTALL_PREFIX1}/logs/exceptions/"
 EOF
+s&(Grid\s*=\s*)\"[^\"]*\"&${1}"Local"&;
 m&^\s*VDTSetupFile\s*=& or m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file" >/dev/null 2>&1
 %final_post_message $config_file
@@ -487,6 +491,7 @@ my $collector_host = ($install_host =~ m&\.fnal\.&i)?"%{fnal_collector}":"%{osg_
 s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${collector_host}:%{collector_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
 s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"condor:'"%{meter_name}"'"&;
 s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
+s&(Grid\s*=\s*)\"[^\"]*\"&${1}"%{grid}"&;
 m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file" >/dev/null 2>&1
 %final_post_message $config_file
@@ -606,6 +611,7 @@ s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
 m&^/>& and print <<EOF;
     SGEAccountingFile=""
 EOF
+s&(Grid\s*=\s*)\"[^\"]*\"&${1}"%{grid}"&;
 m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file" >/dev/null 2>&1
 done
@@ -685,6 +691,7 @@ s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxykey.pem"&;
 m&^/>& and print <<EOF;
     gLExecMonitorLog="/var/log/glexec/glexec_monitor.log"
 EOF
+s&(Grid\s*=\s*)\"[^\"]*\"&${1}"%{grid}"&;
 m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file" >/dev/null 2>&1
 %final_post_message $config_file
@@ -768,6 +775,7 @@ s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxykey.pem"&;
 m&^/>& and print <<EOF;
     metricMonitorLog="/var/log/metric/metric_monitor.log"
 EOF
+s&(Grid\s*=\s*)\"[^\"]*\"&${1}"%{grid}"&;
 m&%{ProbeConfig_template_marker}& or print;' \
 "$config_file" >/dev/null 2>&1
 %final_post_message $config_file
@@ -783,6 +791,13 @@ done
 %endif
 
 %changelog
+* Thu Jul 19 2007 Christopher Green <greenc@fnal.gov> - 0.26-2
+- Fix Grid assignment for psacct probe.
+
+* Wed Jul 18 2007 Christopher Green <greenc@fnal.gov> - 0.26-1
+- Configure Grid attribute appropriately in new ProbeConfig files.
+- Fix Metric probe configuration of port.
+
 * Wed Jul 11 2007 Christopher Green <greenc@fnal.gov> - 0.25a-1
 - Correct Gratia.py to generate correct XML for Grid attribute.
 - Take account of Gratia.py changes in Metric.py.
