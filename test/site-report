@@ -42,10 +42,22 @@ Getopt::Long::Configure(qw(no_ignore_case bundling require_order));
 
 my %options = ();
 
+GetOptions(\%options,
+           "help|h|?",
+           "man|m",
+           "goc-run") or
+  pod2usage(-exitval => 2);     # short usage (synopsis only)
+
+# Medium usage (options explanation)
+pod2usage(-verbose => 1) if exists $options{help};
+
+# Full man page (requires working pod2man)
+pod2usage(-verbose => 2) if exists $options{man};
+
 my $email_template = "$script_top_dir/site-email.txt";
-my $to = 'greenc@fnal.gov';
+my $to = $options{"goc-run"}?'goc@opensciencegrid.org':"$ENV{USER}\@fnal.gov";
 my $from = 'gratia-operation@opensciencegrid.org';
-my @cc = qw();
+my @cc = $options{"goc-run"}?qw(gratia-operation@opensciencegrid.org ruth@fnal.gov):qw();
 
 my $check_date = `date +"%Y/%m/%d"`;
 chomp $check_date;
@@ -94,6 +106,102 @@ sub get_http_data {
   return \@result;
 }
 __END__
+
+=pod
+
+=head1 NAME
+
+site-report - Send email to GOC reporting specified sites as being
+deficient in reporting to Gratia.
+
+=head1 SYNOPSIS
+
+B<site-report> B<-h>|B<--help>|B<-?>
+
+B<site-report> B<--man>|B<-m>
+
+[The perl functionality required by the B<--man> option is broken in some
+UPS KIT installations of perl.]
+
+B<site-report> [B<--goc-run>] I<site name>+
+
+Options marked with B<+> are repeatable and cumulative.
+
+
+=head1 DESCRIPTION
+
+I<site-report> is a simple script to send a formatted email to OSG GOC
+reporting the specified sites as being deficient reporting to Gratia and
+giving remediation instructions.
+
+B<NOTE> If the B<--goc-run> option is not specified, the only person
+who will receive any email is the invoker of this script!
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-h>
+
+=item B<--help>
+
+=item B<-?>
+
+
+Short help.
+
+
+=item B<-m>
+
+=item B<--man>
+
+
+Full man page information.
+
+
+=item B<--goc-run>
+
+
+Real run -- send emails to GOC and configured cc: recipients; if not
+specified, send mail only to $ENV{USER}@fnal.gov.
+
+
+=back
+
+=head1 EXAMPLES
+
+=over 4
+
+=item C<site-report FNAL_GPFARM FNAL_FERMIGRID>
+
+
+Test run -- send emails to yourself about sites FNAL_GPFARM and FNAL_FERMIGRID.
+
+
+=back
+
+
+=head1 FILES
+
+=over 4
+
+=item I<site-email.txt>
+
+
+Email template file.
+
+=back
+
+=head1 SEE ALSO
+
+
+https://twiki.grid.iu.edu/twiki/bin/view/Accounting/TroubleShootingInstructions
+
+=head1 AUTHOR
+
+Chris Green <greenc@fnal.gov>.
+
+=cut
 
 ### Local Variables:
 ### mode: cperl
