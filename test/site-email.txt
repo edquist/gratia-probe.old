@@ -18,7 +18,7 @@ the Gratia accounting collector:
 ### End probe list
 
 If this list contains entries that are no longer relevant, please let us
-know and we will mark that probe inactive in our records.
+know and we will mark that probe inactive in our system.
 
 If probes in this list are intended to be reporting, please follow the
 trouble-shooting instructions at:
@@ -45,4 +45,4 @@ available from the trouble-shooting page linked above.
 
 Thank you for your time and help,
 
-Chris Green for the OSG Gratia Team.
+The OSG Gratia Team.
