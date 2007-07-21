@@ -18,6 +18,9 @@ use File::Path;
 # Use the Pod::Usage package
 use Pod::Usage;
 
+# Use the Cwd package;
+use Cwd 'chdir';
+
 # Set parsing options
 Getopt::Long::Configure(qw(no_ignore_case bundling require_order));
 
@@ -26,7 +29,8 @@ my %options = ();
 GetOptions(\%options,
 					 "help|h|?",
 					 "man",
-					 "no-log-files") or
+           "+quiet|q",
+					 "no-log-files|n") or
 	pod2usage(-exitval => 2);			# short usage (synopsis only)
 
 # Medium usage (options explanation)
@@ -38,24 +42,37 @@ pod2usage(-verbose => 2) if exists $options{man};
 my $test_timestamp = `date +'%Y%m%d'`;
 chomp $test_timestamp;
 
+if (not scalar @ARGV) {
+  unshift @ARGV, 'local';
+  $options{local} = 1;
+}
+
 foreach my $gk (@ARGV) {
 	print "SITE: $gk\n";
-	my $printenv_output = `globus-job-run $gk /usr/bin/printenv 2>&1`;
-	my ($osg_loc) = ($printenv_output =~ m&^OSG_LOCATION=(.*)$&m);
-	unless ($osg_loc) {
-		print STDERR "  Unable to obtain OSG_LOCATION for $gk\n";
-		print STDERR "  Output from command: \n$printenv_output";
-		next;
-	}
-	system("mkdir -p GratiaTests_${gk}_${test_timestamp}");
+	my $osg_loc;
+  if ($options{local}) {
+    $osg_loc = $ENV{OSG_LOCATION} || $ENV{VDT_LOCATION};
+  } else {
+    my $printenv_output = `globus-job-run "$gk" /usr/bin/printenv 2>&1`;
+    ($osg_loc) = ($printenv_output =~ m&^OSG_LOCATION=(.*)$&m);
+    unless ($osg_loc) {
+      print STDERR "  Output from command: \n$printenv_output";
+    }
+  }
+  unless ($osg_loc) {
+    print STDERR "  Unable to obtain OSG_LOCATION for $gk\n";
+    next;
+  }
+	system("mkdir -p \"GratiaTests_${gk}_${test_timestamp}\"") == 0 or die "Unable to create test results directory";
 	my $oldpwd = chdir("GratiaTests_${gk}_${test_timestamp}");
 	print "  Directory output: listing.{out,err}\n";
-	system("globus-job-run $gk /usr/bin/find \"$osg_loc/gratia\" \"$osg_loc/monitoring\" \"$osg_loc/globus/lib/perl/Globus/GRAM/JobManager\" -follow -ls > listing.out 2>listing.err");
+	execute("/usr/bin/find \"$osg_loc/gratia\" \"$osg_loc/monitoring\" \"$osg_loc/globus/lib/perl/Globus/GRAM/JobManager\" -follow -ls > listing.out 2>listing.err", $gk);
 	open(SITE_LISTING, "listing.out") or
 		die "Unable to open listing.out for read.";
 	my @interesting_files = ("$osg_loc/o..pacman..o/logs/commands",
 													 "$osg_loc/vdt-install.log",
-													 "$osg_loc/vdt/setup/configure_gratia");
+													 "$osg_loc/vdt/setup/configure_gratia",
+                           "$osg_loc/osg-version");
 	my %file_map = ();
 	my $tmpfiles_count = 0;
 	while (<SITE_LISTING>) {
@@ -77,47 +94,125 @@ foreach my $gk (@ARGV) {
 		my $local_file = $file;
 		$local_file =~ s&^.*?\Q$osg_loc\E/&&;
 		$local_file =~ s&/+&_&g;
-		print "  Obtaining file \"$file\" ... ";
-		my $status = system("globus-url-copy \"gsiftp://$gk$file\" \"file://\`pwd\`/$local_file\"");
-		print $status == 0?"OK":"FAILED", "\n";
+		my $status = obtain($file, $local_file, $gk);
+		if (not $options{quiet} or (($options{quiet} == 1) and ($status != 0))) {
+      print "  > Obtaining file \"$file\" ... ", $status == 0?"OK":"FAILED", "\n";
+    }
 		if ($status == 0) {
 			$file_map{$file} = $local_file;
 		}
 	}
 	chdir($oldpwd);
-	print "  Found $tmpfiles_count unsent XML files in $osg_loc/gratia/var/tmp/gratiafiles\n";
+  print "  Diagnostics ...\n";
+	print "  > Found $tmpfiles_count unsent XML files in $osg_loc/gratia/var/tmp/gratiafiles\n";
 
 	# Some attempts to identify common problems.
 	# ProbeConfig checks
-	foreach my $config_file (map { (/ProbeConfig$/ and $file_map{$_})?$file_map{$_}:() } @interesting_files) {
-		$config_file =~ /common_ProbeConfig/ and next;
-		print "  > Checking $config_file ...\n";
-		unless (open(CONFIG_FILE, "$config_file")) {
-			print "    > ERROR: Could not open local copy $config_file!\n";
+  my $file_ok;
+	foreach my $remote_config_file (grep /(^.*ProbeConfig)$/, @interesting_files) {
+    my $local_config_file = $file_map{$remote_config_file};
+    next unless $local_config_file;
+    $file_ok = 1;
+		$local_config_file =~ /common_ProbeConfig/ and next;
+		print "  > Checking $local_config_file:\n";
+		unless (open(CONFIG_FILE, "$local_config_file")) {
+			print "    > ERROR: Could not open local copy $local_config_file!\n";
+      $file_ok = 0;
 			next;
 		}
 		my $config = join("", <CONFIG_FILE>);
 		$config =~ m&EnableProbe\s*=\s*"([^"]+)"&s and ($1 ne 1) and
-			print "    > WARNING: EnableProbe set to \"$1\" instead of \"1\"\n";
+			print "    > WARNING: EnableProbe set to \"$1\" instead of \"1\"\n" and $file_ok = 0;
 		$config =~ m&SOAPHost\s*=\s*"([^"]+)"&s and ($1 eq "localhost:8443") and
-			print "    > WARNING: SOAPHost set to \"$1\", which may not be correct.\n";
+			print "    > WARNING: SOAPHost set to \"$1\", which may not be correct.\n" and $file_ok = 0;
 		my $site_dns;
 		$config =~ m&MeterName\s*=\s*"((?:[^:]+:)?([^"]+))"&s and $site_dns = $2;
 		$site_dns or
-			print "    > WARNING: MeterName set to \"$1\", which may not be correct.\n";
+			print "    > WARNING: MeterName set to \"$1\", which may not be correct.\n" and $file_ok = 0;
 		$config =~ m&SiteName\s*=\s*"([^"]+)"&s and
 			(($1 =~ /(?:generic|unknown)/i) or
 			 ($site_dns and ($1 eq $site_dns))) and
-				print "    > WARNING: SiteName set to \"$1\", which may not be correct.\n";
+				print "    > WARNING: SiteName set to \"$1\", which may not be correct.\n" and $file_ok = 0;
 		close CONFIG_FILE;
 	}
+  continue {
+    if ($file_ok) {
+      print "    > $remote_config_file OK\n";
+    } else {
+      my ($configure_gratia) = grep /configure_gratia$/, @interesting_files;
+      if ($configure_gratia and $file_map{$configure_gratia}) {
+        my ($probe_type) = ($remote_config_file =~ m&([^/]+)/ProbeConfig$&);
+        $probe_type = '<my-probe-type>' unless $probe_type;
+        my ($osg_version) = grep /osg-version$/, @interesting_files;
+        my $report_host_production = "gratia.opensciencegrid.org:8880";
+        my $report_host_itb = "gratia.opensciencegrid.org:8881";
+        my $is_itb;
+        if ($osg_version and $file_map{$osg_version}) {
+          if (system("grep -e '[IV]TB' \"$file_map{$osg_version}\" >/dev/null 2>&1") == 0) {
+            $is_itb = 1;
+          } elsif (system("grep -e '\"OSG' \"$file_map{$osg_version}\" >/dev/null 2>&1") == 0) {
+            $is_itb = 0;
+          }
+        }
+        if (defined $is_itb) {
+          print "    > Please run the following commands: \n";
+          print "      > $osg_loc/vdt/setup/configure_gratia --probe $probe_type --probe-cron --report-to ",
+            $is_itb?$report_host_itb:$report_host_production, "\n";
+        } else {
+          print "    > If this is an ITB or VTB site, please run: \n";
+          print "      > $osg_loc/vdt/setup/configure_gratia --probe $probe_type --probe-cron --report-to ",
+            $report_host_itb, "\n";
+          print "    > Otherwise, please run: \n";
+          print "      > $osg_loc/vdt/setup/configure_gratia --probe $probe_type --probe-cron --report-to ",
+            $report_host_production, "\n";
+        }
+        print "    > Check by re-running this diagnostics script and ",
+          "hand-correcting any remaining problems, and then execute: \n";
+        print "      > vdt-control --on gratia-$probe_type\n";
+      } else {
+        print "    > $remote_config_file needs attention; and ",
+          "configure_gratia script appears to be missing.\n";
+      }
+    }
+  }
 	# sge_meter.py check
 	my ($sge_meter_py) = grep /sge_meter\.py$/, @interesting_files;
 	if ($sge_meter_py) {
 		print "  > Checking $sge_meter_py ...\n";
-		(system ("grep -e 'requirePythonVersion' $file_map{$sge_meter_py} >/dev/null 2>&1") == 0) and
-			print "    > WARNING: sge_meter.py is a known buggy version: please replace with a working version\n";
+		if (system ("grep -e 'requirePythonVersion' \"$file_map{$sge_meter_py}\" >/dev/null 2>&1") == 0) {
+			print "    > WARNING: sge_meter.py is a known buggy version: please execute:\n";
+      print "      > cd $VDT_LOCATION\n"
+      print "      > cp -p \"$sge_meter_py\" .\n";
+      print "      > pacman -update Gratia-SGE-Probe\n";
+      print "      > cp -p ProbeConfig \"$sge_meter_py\"\n";
+    }
 	}
+}
+
+1;
+
+sub execute {
+  my $command_string = shift;
+  my $gk = shift;
+  my $stream_command_option = shift || "";
+  my $result;
+  if ($options{local}) {
+    $result = system("$command_string");
+  } else {
+    $result = system("globus-job-run \"$gk\" $stream_command_option $command_string");
+  }
+  return $result;
+}
+
+sub obtain {
+  my ($file, $local_file, $gk) = @_;
+  my $result;
+  if ($options{local}) {
+    $result = system("cp", "$file", "$ENV{PWD}/$local_file");
+  } else {
+    $result = system("globus-url-copy", "gsiftp://$gk$file", "file://$ENV{PWD}/$local_file");
+  }
+  return $result;
 }
 
 __END__

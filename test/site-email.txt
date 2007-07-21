@@ -1,0 +1,48 @@
+Dear %%%SITE%%% site manager,
+
+Your site has been determined to be at OSG version 0.6.0 or
+higher, but according to our checks on %%%CHECK_DATE%%% does not appear
+to be reporting properly to the official OSG Gratia accounting server,
+http://opensciencegrid.org:8880/.
+
+Having a Gratia probe associated with the batch systems you have running
+properly installed and reporting is required for OSG gatekeepers of
+version 0.6.0 or greater.
+
+Any probes we have seen in recent months associated with %%%SITE%%% are
+listed below along with their last-seen date from the point of view of
+the Gratia accounting collector:
+
+### Begin probe list
+%%%PROBE_LIST%%%
+### End probe list
+
+If this list contains entries that are no longer relevant, please let us
+know and we will mark that probe inactive in our records.
+
+If probes in this list are intended to be reporting, please follow the
+trouble-shooting instructions at:
+
+https://twiki.grid.iu.edu/twiki/bin/view/Accounting/TroubleShootingInstructions
+
+If the probe list is empty or does not include a probe for every batch
+system (Condor, SGE, PBS or LSF) you run on your gatekeeper, please
+install the appropriate package:
+
+### Begin commands
+. $VDT_LOCATION/seutp.sh
+pacman -get Gratia-<probe>-Probe
+$VDT_LOCATION/vdt/setup/configure_gratia --probe <probe-type> \
+ --probe-cron --report-to gratia.opensciencegrid.org:8880
+vdt-control --on gratia-<probe-type>
+### End commands
+
+... where "<probe>" is "Condor", "SGE", "PBS" or "LSF" and
+"<probe-type>" is the lower case version of "<probe>"
+
+Then, check your configuration with the gratia-site-test script
+available from the trouble-shooting page linked above.
+
+Thank you for your time and help,
+
+Chris Green for the OSG Gratia Team.

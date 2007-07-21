@@ -1,0 +1,100 @@
+eval '(exit $?0)' && eval 'exec perl -w -S $0 ${1+"$@"}'
+                  && eval 'exec perl -w -S $0 $argv:q'
+                  if 0;
+
+########################################################################
+########################################################################
+use strict;
+
+# Use the File::Basename package
+use File::Basename;
+
+# Use the Getopt package
+use Getopt::Long;
+
+# Use the File::Path package
+use File::Path;
+
+# Use the Pod::Usage package
+use Pod::Usage;
+
+# Use the Cwd package;
+use Cwd 'chdir';
+
+use Socket;
+
+use vars qw($script_top_dir);
+
+BEGIN {
+	# Make a spirited attempt to find where our libraries, etc are.
+	if (-l $0) {
+		$script_top_dir = dirname(readlink($0));
+	} else {
+		$script_top_dir = dirname $0;
+	}
+	my $command = sprintf('( cd "%s" ; /bin/pwd ) 2>/dev/null', dirname($0), $script_top_dir);
+	$script_top_dir = `$command`;
+	chomp $script_top_dir;
+}
+
+# Set parsing options
+Getopt::Long::Configure(qw(no_ignore_case bundling require_order));
+
+my %options = ();
+
+my $email_template = "$script_top_dir/site-email.txt";
+my $to = 'greenc@fnal.gov';
+my $from = 'gratia-operation@opensciencegrid.org';
+my @cc = qw();
+
+my $check_date = `date +"%Y/%m/%d"`;
+chomp $check_date;
+
+foreach my $site (@ARGV) {
+  my $site_data = `wget -q -O - 'http://gratia.opensciencegrid.org:8880/gratia-administration/monitor-status.html?sitename=${site}'`;
+  chomp $site_data;
+  open(MAIL, "|/usr/sbin/sendmail -t -f \"$from\"") or die "Unable to send mail";
+  print MAIL "Subject: Site $site not reporting to production Gratia service.\n";
+  print MAIL "To: $to\n";
+  print MAIL "Cc: ", join(", ", @cc), "\n" if scalar @cc;
+  print MAIL <<EOF;
+MIME-version: 1.0
+Content-type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+
+EOF
+  open (TEMPLATE, $email_template) or die ("Unable to open template for input");
+  while (<TEMPLATE>) {
+    s&\%\%\%SITE\%\%\%&$site&g;
+    s&\%\%\%PROBE_LIST\%\%\%&$site_data&;
+    s&\%\%\%CHECK_DATE\%\%\%&$check_date&g;
+    print MAIL;
+  }
+  close TEMPLATE;
+  close MAIL;
+}
+
+1;
+
+
+sub get_http_data {
+  my ($rem, $instring) = @_;
+  my $remote = $rem;
+  my ($port, $iaddr, $paddr, $proto);
+  my $wholeline= "";
+  $port = 8880;
+  $iaddr = inet_aton($remote) || die "ERROR, no host: $remote";
+  $paddr = sockaddr_in($port, $iaddr);
+  $proto = getprotobyname('tcp');
+  socket(SOCK, PF_INET, SOCK_STREAM, $proto) || die "ERROR on socket: $!";
+  connect(SOCK, $paddr) || die "ERROR on connect: $!";
+  my $sendstring = "GET $instring\n";
+  send SOCK, $sendstring, 0;
+  my @result = <SOCK>;
+  close (SOCK);
+  return \@result;
+}
+__END__
+
+### Local Variables:
+### mode: cperl
+### End:
