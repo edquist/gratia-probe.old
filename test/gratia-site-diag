@@ -274,8 +274,8 @@ __END__
 
 =head1 NAME
 
-gratia-site-diag - use globus-job-run and globus-url-copy (with existing
-proxy) to diagnose problems with gratia probes.
+gratia-site-diag - diagnose problems with probes on remote gatekeeper
+using globus-job-run and globus-url-copy; or on local system.
 
 =head1 SYNOPSIS
 
