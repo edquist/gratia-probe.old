@@ -24,14 +24,16 @@ use Cwd 'chdir';
 # Set parsing options
 Getopt::Long::Configure(qw(no_ignore_case bundling require_order));
 
-my %options = ();
+my %options = ( "log-files" => 0 );
 
 GetOptions(\%options,
-					 "help|h|?",
-					 "man",
+           "help|h|?",
+           "man|m",
            "+quiet|q",
-					 "no-log-files|n") or
-	pod2usage(-exitval => 2);			# short usage (synopsis only)
+           "log-files|l",
+           "no-log-files|n" => sub { $options{"log-files"} = 0 }
+          ) or
+  pod2usage(-exitval => 2);     # short usage (synopsis only)
 
 # Medium usage (options explanation)
 pod2usage(-verbose => 1) if exists $options{help};
@@ -48,93 +50,136 @@ if (not scalar @ARGV) {
 }
 
 foreach my $gk (@ARGV) {
-	print "SITE: $gk\n";
-	my $osg_loc;
+  print "SITE: $gk\n";
+  my ($osg_loc, $hostname);
   if ($options{local}) {
     $osg_loc = $ENV{OSG_LOCATION} || $ENV{VDT_LOCATION};
+    $hostname = `hostname -f 2>/dev/null`;
+    chomp $hostname;
   } else {
     my $printenv_output = `globus-job-run "$gk" /usr/bin/printenv 2>&1`;
     ($osg_loc) = ($printenv_output =~ m&^OSG_LOCATION=(.*)$&m);
     unless ($osg_loc) {
       print STDERR "  Output from command: \n$printenv_output";
     }
+    $hostname = `globus-job-run "$gk" /bin/hostname 2>/dev/null`;
+    chomp $hostname;
   }
   unless ($osg_loc) {
     print STDERR "  Unable to obtain OSG_LOCATION for $gk\n";
     next;
   }
-	system("mkdir -p \"GratiaTests_${gk}_${test_timestamp}\"") == 0 or die "Unable to create test results directory";
-	my $oldpwd = chdir("GratiaTests_${gk}_${test_timestamp}");
-	print "  Directory output: listing.{out,err}\n";
-	execute("/usr/bin/find \"$osg_loc/gratia\" \"$osg_loc/monitoring\" \"$osg_loc/globus/lib/perl/Globus/GRAM/JobManager\" -follow -ls > listing.out 2>listing.err", $gk);
-	open(SITE_LISTING, "listing.out") or
-		die "Unable to open listing.out for read.";
-	my @interesting_files = ("$osg_loc/o..pacman..o/logs/commands",
-													 "$osg_loc/vdt-install.log",
-													 "$osg_loc/vdt/setup/configure_gratia",
+  system("mkdir -p \"GratiaTests_${gk}_${test_timestamp}\"") == 0 or die "Unable to create test results directory";
+  my $oldpwd = chdir("GratiaTests_${gk}_${test_timestamp}");
+  print "  Directory output: listing.{out,err}\n";
+  execute("/usr/bin/find \"$osg_loc/gratia\" \"$osg_loc/monitoring\" \"$osg_loc/globus/lib/perl/Globus/GRAM/JobManager\" -follow -printf \"\%T\@ \" -ls > listing.out 2>listing.err", $gk);
+  open(SITE_LISTING, "listing.out") or
+    die "Unable to open listing.out for read.";
+  my @interesting_files = ("$osg_loc/o..pacman..o/logs/commands",
+                           "$osg_loc/vdt-install.log",
+                           "$osg_loc/vdt/setup/configure_gratia",
                            "$osg_loc/osg-version");
-	my %file_map = ();
-	my $tmpfiles_count = 0;
-	while (<SITE_LISTING>) {
-		chomp;
-		my ($index, $n_blocks, $perms, $dummy, $user, $group, $size, $month, $date, $time, $name) = split;
-		$name or next;
-		$perms =~ m&^d& and next;
-		push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/ProbeConfig&;
-		push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/.*\.py$&;
-		push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/urCollector\.conf$&;
-		push @interesting_files, $name if $name =~ m&\Q$osg_loc\E//gratia/var/tmp/+[^/]+$&;
-		push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/monitoring/&;
-		push @interesting_files, $name if $name =~ m&gratia/var/logs/& and not $options{"no-log-files"};
-		push @interesting_files, $name if $name =~ m&Globus/GRAM/JobManager/.*\.pm$&;
-		++$tmpfiles_count if $name =~ m&gratia/var/tmp/gratiafiles/&g;
-	}
-	close SITE_LISTING;
-	foreach my $file (@interesting_files) {
-		my $local_file = $file;
-		$local_file =~ s&^.*?\Q$osg_loc\E/&&;
-		$local_file =~ s&/+&_&g;
-		my $status = obtain($file, $local_file, $gk);
-		if (not $options{quiet} or (($options{quiet} == 1) and ($status != 0))) {
+  my %probe_log_file_info = ();
+  my %file_map = ();
+  my $tmpfiles_count = 0;
+  while (<SITE_LISTING>) {
+    chomp;
+    my ($mtime_epoch, $index, $n_blocks, $perms, $dummy, $user, $group, $size, $month, $date, $time, $name) = split;
+    $name or next;
+    $perms =~ m&^d& and next;
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/ProbeConfig&;
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/.*\.py$&;
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/urCollector\.conf$&;
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E//gratia/var/tmp/+[^/]+$&;
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/monitoring/&;
+    if ($name =~ m&gratia/var/logs/gratia-probe-.*\.log$&) {
+      push @interesting_files, $name;
+      my $short_name = basename $name;
+      $probe_log_file_info{$short_name} =
+        { line => $_,
+          mtime_epoch => $mtime_epoch,
+          index => $index,
+          n_blocks => $n_blocks,
+          perms => $perms,
+          user => $user,
+          group => $group,
+          size => $size,
+          month => $month,
+          date => $date,
+          time => $time
+        };
+    } elsif (not $options{"no-log-files"}) {
+      # All log files
+      push @interesting_files, $name if $name =~ m&gratia/var/logs/&;
+    }
+    push @interesting_files, $name if $name =~ m&Globus/GRAM/JobManager/.*\.pm$&;
+    ++$tmpfiles_count if $name =~ m&gratia/var/tmp/gratiafiles/&g;
+  }
+  close SITE_LISTING;
+  foreach my $file (@interesting_files) {
+    my $local_file = $file;
+    $local_file =~ s&^.*?\Q$osg_loc\E/&&;
+    $local_file =~ s&/+&_&g;
+    my $status = obtain($file, $local_file, $gk);
+    if (not $options{quiet} or (($options{quiet} == 1) and ($status != 0))) {
       print "  > Obtaining file \"$file\" ... ", $status == 0?"OK":"FAILED", "\n";
     }
-		if ($status == 0) {
-			$file_map{$file} = $local_file;
-		}
-	}
-	chdir($oldpwd);
+    if ($status == 0) {
+      $file_map{$file} = $local_file;
+    }
+  }
+  chdir($oldpwd);
   print "  Diagnostics ...\n";
-	print "  > Found $tmpfiles_count unsent XML files in $osg_loc/gratia/var/tmp/gratiafiles\n";
+  print "  > Found $tmpfiles_count unsent XML files in $osg_loc/gratia/var/tmp/gratiafiles\n";
 
-	# Some attempts to identify common problems.
-	# ProbeConfig checks
+  # Some attempts to identify common problems.
+  # ProbeConfig checks
   my $file_ok;
-	foreach my $remote_config_file (grep /(^.*ProbeConfig)$/, @interesting_files) {
+  foreach my $remote_config_file (grep /(^.*ProbeConfig)$/, @interesting_files) {
+    $file_ok = 1;
     my $local_config_file = $file_map{$remote_config_file};
     next unless $local_config_file;
-    $file_ok = 1;
-		$local_config_file =~ /common_ProbeConfig/ and next;
-		print "  > Checking $local_config_file:\n";
-		unless (open(CONFIG_FILE, "$local_config_file")) {
-			print "    > ERROR: Could not open local copy $local_config_file!\n";
+    my ($probe_type) = ($remote_config_file =~ m&([^/]+)/ProbeConfig$&);
+    my $log_file = "gratia_var_log_gratia-probe-$probe_type.log";
+    print "  > Checking for existence and date of probe log file gratia-probe-$probe_type.log ... ";
+    if ($probe_log_file_info{"gratia-probe-$probe_type.log"}) { # Log file exists
+      if ((time - $probe_log_file_info{"gratia-probe-$probe_type.log"}->{mtime_epoch}) > 86400) {
+        print "\n    > WARNING: gratia-probe-$probe_type.log is more than 1 day old:\n",
+          "      is probe service enabled with vdt-control --on?\n";
+        $file_ok = 0;
+      } else {
+        print "OK\n";
+      }
+    } else {
+      print "\n    > WARNING: gratia-probe-$probe_type.log does not exist:\n",
+        "      is probe service enabled with vdt-control --on?\n";
       $file_ok = 0;
-			next;
-		}
-		my $config = join("", <CONFIG_FILE>);
-		$config =~ m&EnableProbe\s*=\s*"([^"]+)"&s and ($1 ne 1) and
-			print "    > WARNING: EnableProbe set to \"$1\" instead of \"1\"\n" and $file_ok = 0;
-		$config =~ m&SOAPHost\s*=\s*"([^"]+)"&s and ($1 eq "localhost:8443") and
-			print "    > WARNING: SOAPHost set to \"$1\", which may not be correct.\n" and $file_ok = 0;
-		my $site_dns;
-		$config =~ m&MeterName\s*=\s*"((?:[^:]+:)?([^"]+))"&s and $site_dns = $2;
-		$site_dns or
-			print "    > WARNING: MeterName set to \"$1\", which may not be correct.\n" and $file_ok = 0;
-		$config =~ m&SiteName\s*=\s*"([^"]+)"&s and
-			(($1 =~ /(?:generic|unknown)/i) or
-			 ($site_dns and ($1 eq $site_dns))) and
-				print "    > WARNING: SiteName set to \"$1\", which may not be correct.\n" and $file_ok = 0;
-		close CONFIG_FILE;
-	}
+    }
+    $local_config_file =~ /common_ProbeConfig/ and next;
+    print "  > Checking $local_config_file:\n";
+    unless (open(CONFIG_FILE, "$local_config_file")) {
+      print "    > ERROR: Could not open local copy $local_config_file!\n";
+      $file_ok = 0;
+      next;
+    }
+    my $config = join("", <CONFIG_FILE>);
+    $config =~ m&EnableProbe\s*=\s*"([^"]+)"&s and ($1 ne 1) and
+      print "    > WARNING: EnableProbe set to \"$1\" instead of \"1\"\n" and $file_ok = 0;
+    $config =~ m&SOAPHost\s*=\s*"([^"]+)"&s and
+      (($1 eq "localhost:8443") or
+       not (($1 =~ m&gratia\.opensciencegrid\.org:888\d&) or
+            ($1 =~ m&gratia.*\.fnal\.gov:888\d&))) and
+      print "    > WARNING: SOAPHost set to \"$1\", which may not be correct.\n" and $file_ok = 0;
+    my $site_dns;
+    $config =~ m&MeterName\s*=\s*"((?:[^:]+:)?([^"]+))"&s and $site_dns = $2;
+    $site_dns or
+      print "    > WARNING: MeterName set to \"$1\", which may not be correct.\n" and $file_ok = 0;
+    $config =~ m&SiteName\s*=\s*"([^"]+)"&s and
+      (($1 =~ /(?:generic|unknown)/i) or
+       ($site_dns and ($1 eq $site_dns))) and
+        print "    > WARNING: SiteName set to \"$1\", which may not be correct.\n" and $file_ok = 0;
+    close CONFIG_FILE;
+  }
   continue {
     if ($file_ok) {
       print "    > $remote_config_file OK\n";
@@ -144,8 +189,10 @@ foreach my $gk (@ARGV) {
         my ($probe_type) = ($remote_config_file =~ m&([^/]+)/ProbeConfig$&);
         $probe_type = '<my-probe-type>' unless $probe_type;
         my ($osg_version) = grep /osg-version$/, @interesting_files;
-        my $report_host_production = "gratia.opensciencegrid.org:8880";
-        my $report_host_itb = "gratia.opensciencegrid.org:8881";
+        my ($report_host_production, $report_host_itb) =
+          ($hostname and $hostname =~ m&fnal\.gov$&)?
+            ("gratia-fermi.fnal.gov:8880", "gratia-fermi-itb.fnal.gov:8881"):
+            ("gratia.opensciencegrid.org:8880", "gratia.opensciencegrid.org:8881");
         my $is_itb;
         if ($osg_version and $file_map{$osg_version}) {
           if (system("grep -e '[IV]TB' \"$file_map{$osg_version}\" >/dev/null 2>&1") == 0) {
@@ -166,27 +213,33 @@ foreach my $gk (@ARGV) {
           print "      > $osg_loc/vdt/setup/configure_gratia --probe $probe_type --probe-cron --report-to ",
             $report_host_production, "\n";
         }
-        print "    > Check by re-running this diagnostics script and ",
-          "hand-correcting any remaining problems, and then execute: \n";
-        print "      > vdt-control --on gratia-$probe_type\n";
+        print <<EOF;
+    > Check by re-running this diagnostics script and hand-correcting
+      any remaining problems.
+    > Obtain and run gratia-repair-tmpfiles (instructions and download at
+      https://twiki.grid.iu.edu/twiki/bin/view/Accounting/TroubleShootingInstructions)
+      to clear any backlogged XML files if they exist.
+    > Finally, execute:
+      > vdt-control --on gratia-$probe_type
+EOF
       } else {
         print "    > $remote_config_file needs attention; and ",
           "configure_gratia script appears to be missing.\n";
       }
     }
   }
-	# sge_meter.py check
-	my ($sge_meter_py) = grep /sge_meter\.py$/, @interesting_files;
-	if ($sge_meter_py) {
-		print "  > Checking $sge_meter_py ...\n";
-		if (system ("grep -e 'requirePythonVersion' \"$file_map{$sge_meter_py}\" >/dev/null 2>&1") == 0) {
-			print "    > WARNING: sge_meter.py is a known buggy version: please execute:\n";
-      print "      > cd $VDT_LOCATION\n"
+  # sge_meter.py check
+  my ($sge_meter_py) = grep /sge_meter\.py$/, @interesting_files;
+  if ($sge_meter_py) {
+    print "  > Checking $sge_meter_py ...\n";
+    if (system ("grep -e 'requirePythonVersion' \"$file_map{$sge_meter_py}\" >/dev/null 2>&1") == 0) {
+      print "    > WARNING: sge_meter.py is a known buggy version: please execute:\n";
+      print "      > cd \$VDT_LOCATION\n";
       print "      > cp -p \"$sge_meter_py\" .\n";
       print "      > pacman -update Gratia-SGE-Probe\n";
       print "      > cp -p ProbeConfig \"$sge_meter_py\"\n";
     }
-	}
+  }
 }
 
 1;
@@ -228,19 +281,19 @@ proxy) to diagnose problems with gratia probes.
 
 B<gratia-site-diag> B<-h>|B<--help>|B<-?>
 
-B<gratia-site-diag> B<--man>
+B<gratia-site-diag> B<--man>|B<-m>
 
 [The perl functionality required by the B<--man> option is broken in some
 UPS KIT installations of perl.]
 
-B<gratia-site-diag> [B<--no-log-files>] I<gatekeeper DNS name>+
+B<gratia-site-diag> [B<--[no-]log-files>|B<-l>|B<-n>|B<-q+>] I<gatekeeper DNS name>+
 
 Options marked with B<+> are repeatable and cumulative.
 
 
 =head1 DESCRIPTION
 
-I<gratia-site-diag> is asimple script to obtain information useful for
+I<gratia-site-diag> is a simple script to obtain information useful for
 diagnosing problems with Gratia probes at a remote site.
 
 =head1 OPTIONS
@@ -253,6 +306,7 @@ diagnosing problems with Gratia probes at a remote site.
 
 =item B<-?>
 
+
 Short help.
 
 
@@ -260,16 +314,49 @@ Short help.
 
 =item B<--man>
 
+
 Full man page information.
 
 
+=item B<--log-files>
+
+=item B<-l>
+
 =item B<--no-log-files>
 
-Do not retrieve files from the I<gratia/var/logs> directory.
+=item B<-n>
+
+
+Select to receive or not receive files from the I<gratia/var/logs> directory (default is not).
+
+
+=item B<-q+>
+
+
+Quiet; multiple invocations may make the script progressively quieter.
+
 
 =back
 
 =head1 EXAMPLES
+
+=over 4
+
+=item C<gratia-site-diag -q>
+
+
+Run on the local node; note C<VDT_LOCATION> or C<OSG_LOCATION> will need to be set first.
+
+
+=item C<gratia-site-diag E<lt>my-remote-siteE<gt>>
+
+
+Run tests on C<E<lt>my-remote-siteE<gt>>. Note that you will need to
+have access to C<globus-url-copy> and C<globus-job-run>; and you should
+already have obtained a valid grid or VOMS proxy.
+
+
+=back
 
 
 =head1 FILES
