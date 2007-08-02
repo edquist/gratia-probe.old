@@ -3,7 +3,7 @@ Dear %%%SITE%%% site manager,
 Your site has been determined to be at OSG version 0.6.0 or
 higher, but according to our checks on %%%CHECK_DATE%%% does not appear
 to be reporting properly to the official OSG Gratia accounting server,
-http://opensciencegrid.org:8880/.
+http://gratia.opensciencegrid.org:8880/gratia-reporting/.
 
 Having a Gratia probe associated with the batch systems you have running
 properly installed and reporting is required for OSG gatekeepers of
@@ -42,6 +42,12 @@ vdt-control --on gratia-<probe-type>
 
 Then, check your configuration with the gratia-site-test script
 available from the trouble-shooting page linked above.
+
+A final note: your probes may be working correctly but not reporting a
+site name consistent with the GOC-registered site name: we have been
+able to catch some instances but probably not all. If %%%SITE%%% is the
+GOC-registered name and you are reporting under a different name, please
+let us know so that we may resolve the discrepancy.
 
 Thank you for your time and help,
 
