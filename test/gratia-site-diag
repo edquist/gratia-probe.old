@@ -72,7 +72,7 @@ foreach my $gk (@ARGV) {
   system("mkdir -p \"GratiaTests_${gk}_${test_timestamp}\"") == 0 or die "Unable to create test results directory";
   my $oldpwd = chdir("GratiaTests_${gk}_${test_timestamp}");
   print "  Directory output: listing.{out,err}\n";
-  execute("/usr/bin/find \"$osg_loc/gratia\" \"$osg_loc/monitoring\" \"$osg_loc/globus/lib/perl/Globus/GRAM/JobManager\" -follow -printf \"\%T\@ \" -ls > listing.out 2>listing.err", $gk);
+  execute("/usr/bin/find \"$osg_loc/gratia\" \"$osg_loc/monitoring\" \"$osg_loc/globus/lib/perl/Globus/GRAM/JobManager\" -follow -printf \"\%T\@\\t\" -ls > listing.out 2>listing.err", $gk);
   open(SITE_LISTING, "listing.out") or
     die "Unable to open listing.out for read.";
   my @interesting_files = ("$osg_loc/o..pacman..o/logs/commands",
@@ -91,7 +91,7 @@ foreach my $gk (@ARGV) {
     push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/.*\.py$&;
     push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/urCollector\.conf$&;
     push @interesting_files, $name if $name =~ m&\Q$osg_loc\E//gratia/var/tmp/+[^/]+$&;
-    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/monitoring/&;
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/monitoring/+[^/]+$&;
     if ($name =~ m&gratia/var/logs/gratia-probe-.*\.log$&) {
       push @interesting_files, $name;
       my $short_name = basename $name;
@@ -108,7 +108,7 @@ foreach my $gk (@ARGV) {
           date => $date,
           time => $time
         };
-    } elsif (not $options{"no-log-files"}) {
+    } elsif ($options{"log-files"}) {
       # All log files
       push @interesting_files, $name if $name =~ m&gratia/var/logs/&;
     }
