@@ -3,7 +3,7 @@
 # pbs-lsfr_meter.cron.sh - Shell script used with cron to parse PBS and LSF
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: pbs-lsf_meter.cron.sh,v 1.5 2007-06-13 22:09:12 greenc Exp $
+# $Id: pbs-lsf_meter.cron.sh,v 1.6 2007-08-03 17:18:09 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/pbs-lsf/pbs-lsf_meter.cron.sh,v $
 ###################################################################
 function check_if_running {
@@ -110,9 +110,12 @@ fi
 
 log_file="`date +'%Y-%m-%d'`.log"
 
+# Remove erroneous log files from probe main area (should be in gratia/var/logs/)
+rm -f 2[0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9].log
+
 #--- run the probes ----
-./urCollector.pl --nodaemon >> "$log_file" 2>&1
-./pbs-lsf_meter.pl
+./urCollector.pl --nodaemon 2>&1 | ${pp_dir}/DebugPrint.py -l 1
+./pbs-lsf_meter.pl 2>&1 | ${pp_dir}/DebugPrint.py -l 1
 
 ExitCode=$?
 
@@ -127,6 +130,9 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.5  2007/06/13 22:09:12  greenc
+# Append output of urCollector.pl to log file.
+#
 # Revision 1.4  2007/05/25 23:34:56  greenc
 # New utilities GetProbeConfigAttribute.py and DebugPrint.py.
 #
