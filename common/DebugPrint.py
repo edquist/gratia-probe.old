@@ -6,8 +6,9 @@ import getopt
 import string
 
 def usage():
-    print """usage: DebugPrint [-h|--help]
-       DebugPrint [-l #|--level=#] [-c <probeconfig>|--conf=<probeconfig>] <message>""" 
+    print """usage: DebugPrint.py [-h|--help]
+       DebugPrint.py [-l #|--level=#] [-c <probeconfig>|--conf=<probeconfig>] <message>
+       cat message.txt | DebugPrint.py [-l #|--level=#] [-c <probeconfig>|--conf=<probeconfig>]""" 
 
 def main():
     level = 0
@@ -29,18 +30,27 @@ def main():
             customConfig = a
 
         if o in ["-l", "--level"]:
-            level = a
+            level = int(a)
 
     Gratia.quiet = 1
 
     if customConfig:
-        Config = Gratia.ProbeConfiguration(customConfig)
+        Gratia.Config = Gratia.ProbeConfiguration(customConfig)
     else:
-        Config = Gratia.ProbeConfiguration()
+        Gratia.Config = Gratia.ProbeConfiguration()
 
+    Gratia.Config.loadConfiguration()
     Gratia.quiet = 0
 
-    Gratia.DebugPrint(level, string.join(args, " "))
+    if len(args) > 0:
+        Gratia.DebugPrint(level, string.join(args, " ").rstrip())
+    else:
+        while 1:
+            line = sys.stdin.readline().rstrip()
+            if not line:
+                break
+            Gratia.DebugPrint(level, line)
+            
 
 if __name__ == "__main__":
     main()
