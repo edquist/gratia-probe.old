@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.26
-Release: 2
+Version: 0.26.2
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -283,7 +283,7 @@ fi
 
 (( min = $RANDOM % 15 ))
 %{__cat} >/etc/cron.d/gratia-probe-pbs-lsf.cron <<EOF
-$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
+$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/pbs-lsf/pbs-lsf_meter.cron.sh"
 EOF
 
@@ -405,7 +405,7 @@ EOF
 fi
 
 %{__cat} >/etc/cron.d/gratia-probe-psacct.cron <<EOF
-$(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * \
+$(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh"
 EOF
 
@@ -556,7 +556,7 @@ fi
 
 (( min = $RANDOM % 15 ))
 %{__cat} >/etc/cron.d/gratia-probe-condor.cron <<EOF
-$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
+$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/condor/condor_meter.cron.sh"
 EOF
 
@@ -633,7 +633,7 @@ fi
 
 (( min = $RANDOM % 15 ))
 %{__cat} >/etc/cron.d/gratia-probe-sge.cron <<EOF
-$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
+$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/sge/sge_meter.cron.sh"
 EOF
 
@@ -715,7 +715,7 @@ fi
 
 (( min = $RANDOM % 15 ))
 %{__cat} >/etc/cron.d/gratia-probe-glexec.cron <<EOF
-$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * \
+$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/glexec/glexec_meter.cron.sh"
 EOF
 
@@ -791,6 +791,11 @@ done
 %endif
 
 %changelog
+* Fri Aug  3 2007 Christopher Green <greenc@fnal.gov> - 0.26.2-1
+- Fix crontab entries to include user.
+- Fix and improve DebugPring.py logging utility.
+- Fix PBS probe logging.
+
 * Thu Jul 19 2007 Christopher Green <greenc@fnal.gov> - 0.26-2
 - Fix Grid assignment for psacct probe.
 
