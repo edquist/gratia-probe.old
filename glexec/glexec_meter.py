@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/usr/bin/env python
 #
 # Gratia plugin for gLExec-GUMS 
 #

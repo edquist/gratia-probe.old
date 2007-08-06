@@ -1,8 +1,8 @@
-#!/bin/env perl
+#!/usr/bin/env perl
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.11 2007-05-18 20:40:58 greenc Exp $
+# $Id: condor_meter.pl,v 1.12 2007-08-06 18:34:05 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.11 $ ';   # CVS Version number
+my $prog_revision = '$Revision: 1.12 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -1150,6 +1150,9 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.11  2007/05/18 20:40:58  greenc
+# Fix problems discovered with new features during testing.
+#
 # Revision 1.10  2007/02/13 22:37:47  greenc
 # Forward-looking improvement of embedded version (needs accompanying
 # change to build script).
