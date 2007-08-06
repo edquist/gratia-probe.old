@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.26.2a
+Version: 0.26.2b
 Release: 1
 License: GPL
 Group: Applications/System
@@ -791,6 +791,9 @@ done
 %endif
 
 %changelog
+* Mon Aug  6 2007 Christopher Green <greenc@fnal.gov> - 0.26.2b-1
+- /bin/env -> /usr/bin/env in pound-bang line.
+
 * Fri Aug  3 2007 Christopher Green <greenc@fnal.gov> - 0.26.2a-1
 - Fix crontab entries to include user.
 - Fix and improve DebugPring.py logging utility.
