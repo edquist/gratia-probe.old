@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.60 2007-08-29 17:07:08 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.61 2007-08-29 21:29:56 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -310,6 +310,7 @@ Config = None
 MaxConnectionRetries = 2
 MaxFilesToReprocess = 100000
 XmlRecordCheckers = []
+HandshakeReg = []
 
 # Instantiate a global connection object so it can be reused for
 # the lifetime of the server Instantiate a 'connected' flag as
@@ -321,6 +322,32 @@ __connectionError = False
 __connectionRetries = 0
 
 
+def RegisterReporterLibrary(name,version):
+    "Register the library named 'name' with version 'version'"
+    "as being used to generate the (upcoming) data"
+    "This will be send to the Gratia server as part of the initiliazation"
+
+    HandshakeReg.append( ("ReporterLibrary","version=\""+version+"\"",name ) )
+
+def RegisterReporter(name,version):
+    "Register the software named 'name' with version 'version'"
+    "as being used to generate the (upcoming) data"
+    "This will be send to the Gratia server as part of the initiliazation"
+
+    HandshakeReg.append( ("Reporter","version=\""+version+"\"",name ) )
+
+def RegisterService(name,version):
+    "Register the service (Condor, PBS, LSF, DCache) which is being reported on "
+    "when generating the (upcoming) data"
+    "This will be send to the Gratia server as part of the initiliazation"
+
+    HandshakeReg.append( ("Service","version=\""+version+"\"",name ) )
+
+def ExtractCvsRevision(revision):
+    # Extra the numerical information from the CVS keyword:
+    # $Revision: 1.61 $
+    return revision.split("$")[1].split(":")[1].strip()
+
 def Initialize(customConfig = "ProbeConfig"):
     "This function initializes the Gratia metering engine"
     "We connect/register with the collector and load"
@@ -331,11 +358,13 @@ def Initialize(customConfig = "ProbeConfig"):
     global Config
     if len(BackupDirList) == 0:
         # This has to be the first thing done (DebugPrint uses
-    # the information
+        # the information
         Config = ProbeConfiguration(customConfig)
 
         # Initialize cleanup function.
         atexit.register(disconnect_at_exit)
+
+        Handshake()
 
         DebugPrint(0, "Initializing Gratia with "+customConfig)
 
@@ -553,6 +582,50 @@ def __sendUsageXML(meterId, recordXml):
 
     return response
 
+def SendStatus(meterId):
+    # This function is not yet used.
+    # Use Handshake() and SendHandshake() instead.
+    
+    global __connection
+    global __connectionError
+    global __connectionRetries
+
+    try:
+        # Connect to the web service, in case we aren't already
+        # connected.  If we are already connected, this call will do
+        # nothing
+        if not __connect(): # Failed to connect
+            raise IOError # Kick out to except: clause
+        
+        # Generate a unique Id for this transaction
+        transactionId = meterId + TimeToString().replace(":","")
+        DebugPrint(1, 'Status Upload:  ' + transactionId)
+
+        if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
+            response = Response(0,"Status message not support in SOAP mode")
+
+        elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
+            __connection.request("POST",Config.get_CollectorService(),"command=handshake&arg1=probename=" + meterId)
+            responseString = __connection.getresponse().read()
+            print responseString
+            response = Response(-1, responseString)
+        else:
+            __connection.request("POST",Config.get_SSLCollectorService(),"command=handshake&arg1=probename" + meterId)
+            responseString = __connection.getresponse().read()
+            response = Response(-1, responseString)
+    except SystemExit:
+        raise
+    except:
+        DebugPrint(0,'Failed to send status update to web service:  ', sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1])
+        # Upon a connection error, we will stop to try to reprocess but will continue to
+        # try sending
+        __connectionError = True
+
+        response = Response(1,"Failed to send xml to web service")
+
+    return response
+   
+               
 LogFileIsWriteable = True
 
 def LogToFile(message):
@@ -916,6 +989,69 @@ class Record(object):
         self.__Grid = value
         self.__GridDescription = description
 
+class ProbeDetails(Record):
+#    ProbeDetails
+
+    def __init__(self, config):
+        # Initializer
+        super(self.__class__,self).__init__()
+        DebugPrint(2,"Creating a ProbeDetails record "+TimeToString())
+
+        self.ProbeDetails = []
+        
+        # Extract the revision number
+        rev = ExtractCvsRevision("$Revision: 1.61 $")
+
+        self.ReporterLibrary("Gratia",rev);
+
+    def ReporterLibrary(self,name,version):
+        self.ProbeDetails = self.AppendToList(self.ProbeDetails,"ReporterLibrary","version=\""+version+"\"",name)
+
+    def Reporter(self,name,version):
+        self.ProbeDetails = self.AppendToList(self.ProbeDetails,"Reporter","version=\""+version+"\"",name)
+
+    def Service(self,name,version):
+        self.ProbeDetails = self.AppendToList(self.ProbeDetails,"Service","version=\""+version+"\"",name)
+
+    def XmlAddMembers(self):
+        " This should add the value of the 'data' member of ProbeDetails "
+        " (as opposed to the information entered directly into self.RecordData "
+        super(self.__class__,self).XmlAddMembers()
+
+    def XmlCreate(self):
+        global RecordId
+        global HandshakeReg
+
+        for data in HandshakeReg:
+            self.ProbeDetails = self.AppendToList( self.ProbeDetails, data[0], data[1], data[2])
+        
+        self.XmlAddMembers()
+
+        self.XmlData = []
+        self.XmlData.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+        self.XmlData.append("<ProbeDetails>\n")
+
+        # Add the record indentity
+        self.XmlData.append("<RecordIdentity recordId=\""+socket.getfqdn()+":"+
+                            str(RecordPid)+"."+str(RecordId)+"\" createTime=\""+TimeToString(time.gmtime())+"\" />\n")
+        RecordId = RecordId + 1
+
+        for data in self.RecordData:
+            self.XmlData.append("\t")
+            self.XmlData.append(data)
+            self.XmlData.append("\n")
+
+        if len(self.ProbeDetails)>0 :
+            for data in self.ProbeDetails:
+                self.XmlData.append("\t")
+                self.XmlData.append(data)
+                self.XmlData.append("\n")
+
+        self.XmlData.append("</ProbeDetails>\n")
+
+    def Print(self):
+        DebugPrint(1,"ProbeDetails Record: ",self)
+      
 class UsageRecord(Record):
     "Base class for the Gratia Usage Record"
     JobId = []
@@ -1408,6 +1544,82 @@ def CheckXmlDoc(xmlDoc,external,resourceType = None):
         content = content + checker(xmlDoc,external,resourceType)
     return content
 
+def Handshake(resetRetries = False):
+    global Config
+    global __connection
+    global __connectionError
+    global __connectionRetries
+
+    h = ProbeDetails(Config)
+
+    if __connectionError:
+        # We are not currently connected, the SendHandshake
+        # will reconnect us if it is possible
+        result = SendHandshake(h)
+    else:
+        # We are connected but the connection may have timed-out
+        result = SendHandshake(h)
+        if __connectionError:
+            # Case of timed-out connection, let's try again
+            result = SendHandshake(h)
+    print result
+
+def SendHandshake(record):
+    global failedSendCount
+    global suppressedCount
+    global successfulSendCount
+
+    DebugPrint(0, "***********************************************************")
+
+    # Assemble the record into xml
+    record.XmlCreate()
+
+    # Parse it into nodes, etc (transitional: this will eventually be native format)
+    xmlDoc = safeParseXML(string.join(record.XmlData,""))
+
+    if not xmlDoc:
+        responseString = "Internal Error: cannot parse internally generated XML record"
+        DebugPrint(0, responseString)
+        DebugPrint(0, "***********************************************************")
+        return reponseString
+    
+    xmlDoc.normalize()
+    
+    # Generate the XML
+    record.XmlData = safeEncodeXML(xmlDoc).splitlines(True)
+
+    # Close and clean up the document2
+    xmlDoc.unlink()
+
+
+    # Currently, the recordXml is in a list format, with each item being a line of xml.  
+    # the collector web service requires the xml to be sent as a string.  
+    # This logic here turns the xml list into a single xml string.
+    usageXmlString = ""
+    for line in record.XmlData:
+        usageXmlString = usageXmlString + line
+    DebugPrint(3, 'UsageXml:  ' + usageXmlString)
+
+    connectionProblem = (__connectionRetries > 0) or (__connectionError)
+
+    # Attempt to send the record to the collector
+    response = __sendUsageXML(Config.get_MeterName(), usageXmlString)
+    responseString = response.get_message()
+
+    DebugPrint(0, 'Response code:  ' + str(response.get_code()))
+    DebugPrint(0, 'Response message:  ' + response.get_message())
+
+    # Determine if the call was successful based on the response
+    # code.  Currently, 0 = success
+    if response.get_code() == 0:
+        DebugPrint(1, 'Response indicates success, ')
+    else:
+        DebugPrint(1, 'Response indicates failure, ')
+
+    DebugPrint(0, responseString)
+    DebugPrint(0, "***********************************************************")
+    return responseString
+
 def Send(record):
     global failedSendCount
     global suppressedCount
@@ -1445,7 +1657,7 @@ def Send(record):
 
     # Generate the XML
     record.XmlData = safeEncodeXML(xmlDoc).splitlines(True)
-    
+
     # Close and clean up the document2
     xmlDoc.unlink()
 
