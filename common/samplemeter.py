@@ -1,8 +1,3 @@
-#$Revision: 1.5 $
-#$Revision: 1.5 $
-#$Id: samplemeter.py,v 1.5 2007-08-29 17:17:12 pcanal Exp $
-rev = "$Revision: 1.5 $"
-
 import Gratia
 
 
@@ -12,8 +7,7 @@ class Simple:
         def f(self):
                 return 'hello world'
 
-if __name__ == '__main__':
-        Gratia.Initialize()
+def GetRecord(jobid = 0):
         r = Gratia.UsageRecord("Batch")
 
         r.LocalUserId("cmsuser000")
@@ -21,9 +15,9 @@ if __name__ == '__main__':
         r.UserKeyInfo("CN=john ainsworth, L=MC, OU=Manchester, O=eScience, C=UK")
 
         r.LocalJobId("PBS.1234.0bad")
-        r.LocalJobId("PBS.1234.6")        # overwrite the previous entry
+        r.LocalJobId("PBS.1234." + str(jobid))        # overwrite the previous entry
 
-        r.JobName("cmsreco","this is not a real job name")
+        r.JobName("cmsreco ","this is not a real job name")
         r.Charge("1240")
         r.Status("4")
         r.Status(4)
@@ -55,6 +49,14 @@ if __name__ == '__main__':
 
         r.AdditionalInfo("RemoteWallTime",94365)
         r.Resource("RemoteCpuTime","PT23H")
-        #
-        # populate r
+
+        return r
+
+if __name__ == '__main__': 
+        rev = "$Revision: 1.6 $"
+        Gratia.RegisterReporterLibrary("samplemeter.py",Gratia.ExtractCvsRevision(rev))
+        
+        Gratia.Initialize()
+
+        r = GetRecord()
         print Gratia.Send(r)
