@@ -1,3 +1,7 @@
+#$Revision: 1.5 $
+#$Revision: 1.5 $
+#$Id: samplemeter.py,v 1.5 2007-08-29 17:17:12 pcanal Exp $
+rev = "$Revision: 1.5 $"
 
 import Gratia
 
@@ -17,7 +21,7 @@ if __name__ == '__main__':
         r.UserKeyInfo("CN=john ainsworth, L=MC, OU=Manchester, O=eScience, C=UK")
 
         r.LocalJobId("PBS.1234.0bad")
-        r.LocalJobId("PBS.1234.0")        # overwrite the previous entry
+        r.LocalJobId("PBS.1234.6")        # overwrite the previous entry
 
         r.JobName("cmsreco","this is not a real job name")
         r.Charge("1240")
@@ -35,7 +39,7 @@ if __name__ == '__main__':
         r.TimeDuration(24,"submit")
         r.TimeInstant("2005-11-02T15:48:39Z","submit")
 
-        r.WallDuration(3600*25+63*60+21.2,"Was entered in seconds")
+        r.WallDuration(6000*3600*25+63*60+21.2,"Was entered in seconds")
         r.CpuDuration("PT23H12M1.75S","user","Was entered as text")
         r.CpuDuration("PT12M1.75S","sys","Was entered as text")
         r.NodeCount(3) # default to total
