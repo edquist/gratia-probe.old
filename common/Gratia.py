@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.59 2007-07-11 22:03:21 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.60 2007-08-29 17:07:08 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1570,6 +1570,8 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
                 DebugPrint(0, "No unsuppressed usage records in " + \
                            xmlFilename + ": not sending")
                 suppressedCount += 1
+                # Cleanup old records - SPC - NERSC 08/28/07
+                if removeOriginal: os.remove(xmlFilename)
                 continue
 
             # Generate the XML
