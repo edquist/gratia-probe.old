@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.12 2007-08-06 18:34:05 greenc Exp $
+# $Id: condor_meter.pl,v 1.13 2007-09-04 17:15:55 pcanal Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.12 $ ';   # CVS Version number
+my $prog_revision = '$Revision: 1.13 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -849,14 +849,6 @@ foreach $name_arg (@ARGV) {
   }
 }
 
-if ($logs_found == 0) {
-  exit 0;
-} else {
-  if ($verbose) {
-    print "Number of log files found: $logs_found\n";
-  }
-}
-
 # Remove old temporary files (if still there) used for debugging
 foreach $tmp_file ( "/tmp/py.in", "/tmp/py.out" ) {
   if ( -e $tmp_file ) {
@@ -879,6 +871,14 @@ $count_submit = 0;
 
 print $py "import Gratia\n";
 print $py "Gratia.Initialize()\n";
+
+if ($logs_found == 0) {
+  exit 0;
+} else {
+  if ($verbose) {
+    print "Number of log files found: $logs_found\n";
+  }
+}
 
 if ( $reprocess_flag ) {
   # I should probably add a test here to see if there are files waiting
@@ -1150,6 +1150,9 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.12  2007/08/06 18:34:05  greenc
+# /bin/env -> /usr/bin/env to satisfy Linux filesystem hierarchy standard.
+#
 # Revision 1.11  2007/05/18 20:40:58  greenc
 # Fix problems discovered with new features during testing.
 #
