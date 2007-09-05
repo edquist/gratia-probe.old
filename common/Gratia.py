@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.63 2007-09-05 04:43:52 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.64 2007-09-05 15:34:45 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -350,7 +350,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.63 $
+    # $Revision: 1.64 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -496,7 +496,7 @@ def __disconnect():
 ##  param - meterId:  A unique Id for this meter, something the web service can use to identify communication from this meter
 ##  param - xmlData:  A string representation of usage xml
 ##
-def __sendUsageXML(meterId, recordXml, messageType):
+def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
     global __connection
     global __connectionError
     global __connectionRetries
@@ -1014,7 +1014,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.63 $")
+        rev = ExtractCvsRevision("$Revision: 1.64 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1534,7 +1534,7 @@ def Reprocess():
             continue
         
         # Send the xml to the collector for processing
-        response = __sendUsageXML(Config.get_MeterName(), xmlData, "URLEncodedUpdate")
+        response = __sendUsageXML(Config.get_MeterName(), xmlData)
         DebugPrint(1, 'Reprocess Response:  ' + response.get_message())
         responseString = responseString + '\nReprocessed ' + failedRecord + ':  ' + response.get_message()
 
@@ -1620,8 +1620,10 @@ def SendHandshake(record):
 
     connectionProblem = (__connectionRetries > 0) or (__connectionError)
 
-    # Attempt to send the record to the collector
-    response = __sendUsageXML(Config.get_MeterName(), usageXmlString, "URLEncodedHandshake")
+    # Attempt to send the record to the collector. Note that this must
+    # be sent currently as an update, not as a handshake (cf unused
+    # SendStatus() call)
+    response = __sendUsageXML(Config.get_MeterName(), usageXmlString)
     responseString = response.get_message()
 
     DebugPrint(0, 'Response code:  ' + str(response.get_code()))
@@ -1718,7 +1720,7 @@ def Send(record):
     connectionProblem = (__connectionRetries > 0) or (__connectionError)
 
     # Attempt to send the record to the collector
-    response = __sendUsageXML(Config.get_MeterName(), usageXmlString, "URLEncodedUpdate")
+    response = __sendUsageXML(Config.get_MeterName(), usageXmlString)
     responseString = response.get_message()
 
     DebugPrint(0, 'Response code:  ' + str(response.get_code()))
