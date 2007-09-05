@@ -1,10 +1,12 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.61 2007-08-29 21:29:56 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.62 2007-09-05 03:46:39 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
 import traceback
 import re, fileinput
 import atexit
+import urllib
+import xml.sax.saxutils
 
 quiet = 0
 
@@ -13,7 +15,10 @@ def disconnect_at_exit():
     DebugPrint(0, "End of execution summary: new records sent successfully: " + str(successfulSendCount))
     DebugPrint(0, "                          new records suppressed: " + str(suppressedCount))
     DebugPrint(0, "                          new records failed: " + str(failedSendCount))
+    DebugPrint(0, "                          records reprocessed successfully: " + str(successfulReprocessCount))
     DebugPrint(0, "                          reprocessed records failed: " + str(failedReprocessCount))
+    DebugPrint(0, "                          handshake records sent successfuly: " + str(successfulHandshakes))
+    DebugPrint(0, "                          handshake records failed: " + str(failedHandshakes))
     DebugPrint(1, "End-of-execution disconnect ...")
     __disconnect()
 
@@ -325,27 +330,27 @@ __connectionRetries = 0
 def RegisterReporterLibrary(name,version):
     "Register the library named 'name' with version 'version'"
     "as being used to generate the (upcoming) data"
-    "This will be send to the Gratia server as part of the initiliazation"
+    "This will be sent to the Gratia server as part of the initialization"
 
     HandshakeReg.append( ("ReporterLibrary","version=\""+version+"\"",name ) )
 
 def RegisterReporter(name,version):
     "Register the software named 'name' with version 'version'"
     "as being used to generate the (upcoming) data"
-    "This will be send to the Gratia server as part of the initiliazation"
+    "This will be sent to the Gratia server as part of the initialization"
 
     HandshakeReg.append( ("Reporter","version=\""+version+"\"",name ) )
 
 def RegisterService(name,version):
     "Register the service (Condor, PBS, LSF, DCache) which is being reported on "
     "when generating the (upcoming) data"
-    "This will be send to the Gratia server as part of the initiliazation"
+    "This will be sent to the Gratia server as part of the initialization"
 
     HandshakeReg.append( ("Service","version=\""+version+"\"",name ) )
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.61 $
+    # $Revision: 1.62 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -378,7 +383,7 @@ def Initialize(customConfig = "ProbeConfig"):
         Reprocess()
 
 ##
-## encodeXML
+## escapeXML
 ##
 ## Author - Tim Byrne
 ##
@@ -388,9 +393,8 @@ def Initialize(customConfig = "ProbeConfig"):
 ## param - xmlData:  The xml to encode
 ## returns - the encoded xml
 ##
-def __encodeXML(xmlData):
-    return string.rstrip(xmlData).replace("<", "&lt;").replace(">", "&gt;").replace("'", "&apos;").replace('"', "&quot;")
-
+def escapeXML(xmlData):
+    return xml.sax.saxutils.escape(xmlData, {"'" : "&apos;", '"' : "&quot;"})
 
 ##
 ## __connect
@@ -527,7 +531,7 @@ def __sendUsageXML(meterId, recordXml):
             """
 
             # Insert the actual xml data into the soap template, being sure to clean out any illegal characters
-            soapMessage = soapServiceTemplate%(transactionId, __encodeXML(recordXml))
+            soapMessage = soapServiceTemplate%(transactionId, escapeXML(recordXml))
             DebugPrint(4, 'Soap message:  ' + soapMessage)
 
             # Configure the requestor to request a Post to the GratiaCollector web service
@@ -563,11 +567,13 @@ def __sendUsageXML(meterId, recordXml):
             except:
                 response = Response(1,responseString)
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
-            __connection.request("POST",Config.get_CollectorService(),"command=update&arg1=" + recordXml)
+            queryString = urllib.urlencode([("command" , "UrlencodedUpdate"), ("arg1", recordXml)]);
+            __connection.request("POST", Config.get_CollectorService(), queryString);
             responseString = __connection.getresponse().read()
             response = Response(-1, responseString)
         else:
-            __connection.request("POST",Config.get_SSLCollectorService(),"command=update&arg1=" + recordXml)
+            queryString = urllib.urlencode([("command" , "UrlencodedUpdate"), ("arg1", recordXml)]);
+            __connection.request("POST",Config.get_SSLCollectorService(), queryString);
             responseString = __connection.getresponse().read()
             response = Response(-1, responseString)
     except SystemExit:
@@ -601,16 +607,17 @@ def SendStatus(meterId):
         transactionId = meterId + TimeToString().replace(":","")
         DebugPrint(1, 'Status Upload:  ' + transactionId)
 
+        queryString = urllib.urlencode([("command", "handshake"), ("arg1", "probename=" + meterId)]);
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
             response = Response(0,"Status message not support in SOAP mode")
 
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
-            __connection.request("POST",Config.get_CollectorService(),"command=handshake&arg1=probename=" + meterId)
+            __connection.request("POST", Config.get_CollectorService(), queryString);
             responseString = __connection.getresponse().read()
             print responseString
             response = Response(-1, responseString)
         else:
-            __connection.request("POST",Config.get_SSLCollectorService(),"command=handshake&arg1=probename" + meterId)
+            __connection.request("POST", Config.get_SSLCollectorService(), queryString);
             responseString = __connection.getresponse().read()
             response = Response(-1, responseString)
     except SystemExit:
@@ -931,18 +938,25 @@ class Record(object):
     def Print(self) :
         DebugPrint(1,"Usage Record: ",self)
         DebugPrint(1,"Username: ", self.Username)
-        
-    def AddToList(self,where,what,comment,value):
+
+    def VerbatimAppendToList(self,where,what,comment,value):
         " Helper Function to generate the xml (Do not call directly)"
-        # First filter out the previous value
-        where = [x for x in where if x.find("<"+what)!=0]
         where.append("<"+what+" "+comment+">"+value+"</"+what+">")
         return where
 
+    def VerbatimAddToList(self,where,what,comment,value):
+        " Helper Function to generate the xml (Do not call directly)"
+        # First filter out the previous value
+        where = [x for x in where if x.find("<"+what)!=0]
+        return self.VerbatimAppendToList(where,what,comment,value)
+
+    def AddToList(self,where,what,comment,value):
+        " Helper Function to generate the xml (Do not call directly)"
+        return self.VerbatimAddToList(where,what,comment,escapeXML(value))
+
     def AppendToList(self,where,what,comment,value):
         " Helper Function to generate the xml (Do not call directly)"
-        where.append("<"+what+" "+comment+">"+value+"</"+what+">")
-        return where
+        return self.VerbatimAppendToList(where,what,comment,escapeXML(value))
 
     def GenericAddToList(self, xmlelem, value, description = "") :
         self.RecordData = self.AddToList(self.RecordData, xmlelem, self.Description(description), value)
@@ -972,7 +986,7 @@ class Record(object):
         
     def Description(self,value):
         " Helper Function to generate the xml (Do not call directly)"
-        if len(value)>0 : return  "urwg:description=\""+value+"\" "
+        if len(value)>0 : return  "urwg:description=\""+escapeXML(value)+"\" "
         else : return ""
 
     def ProbeName(self, value, description = "") :
@@ -1000,7 +1014,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.61 $")
+        rev = ExtractCvsRevision("$Revision: 1.62 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1125,8 +1139,8 @@ class UsageRecord(Record):
            <ds:X509SubjectName>CN=john ainsworth, L=MC, OU=Manchester, O=eScience, C=UK</ds:X509SubjectName> \
         </ds:X509Data> \
           </ds:KeyInfo>"
-        complete = "\n\t\t<ds:X509Data>\n\t\t<ds:X509SubjectName>"+value+"</ds:X509SubjectName>\n\t\t</ds:X509Data>\n\t"
-        self.UserId = self.AddToList(self.UserId,"ds:KeyInfo","xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\" ",complete)
+        complete = "\n\t\t<ds:X509Data>\n\t\t<ds:X509SubjectName>"+escapeXML(value)+"</ds:X509SubjectName>\n\t\t</ds:X509Data>\n\t"
+        self.UserId = self.VerbatimAddToList(self.UserId,"ds:KeyInfo","xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\" ",complete)
 
     def VOName(self,value):
         self.UserId = self.AddToList(self.UserId,"VOName","",value)
@@ -1475,6 +1489,9 @@ def ProcessJobId(record,value):
 failedSendCount = 0
 suppressedCount = 0
 successfulSendCount = 0
+successfulReprocessCount = 0
+successfulHandshakes = 0
+failedHandshakes = 0
 failedReprocessCount = 0
 
 #
@@ -1483,7 +1500,7 @@ failedReprocessCount = 0
 #  Loops through all outstanding records and attempts to send them again
 #
 def Reprocess():
-    global successfulSendCount
+    global successfulReprocessCount
     global failedReprocessCount
     responseString = ""
 
@@ -1523,7 +1540,7 @@ def Reprocess():
 
         # Determine if the call succeeded, and remove the file if it did
         if response.get_code() == 0:
-            successfulSendCount += 1
+            successfulReprocessCount += 1
             os.remove(failedRecord)
             del OutstandingRecord[failedRecord]
         else:
@@ -1549,6 +1566,7 @@ def Handshake(resetRetries = False):
     global __connection
     global __connectionError
     global __connectionRetries
+    global failedHandshakes
 
     h = ProbeDetails(Config)
 
@@ -1561,13 +1579,13 @@ def Handshake(resetRetries = False):
         result = SendHandshake(h)
         if __connectionError:
             # Case of timed-out connection, let's try again
+            failedHandshakes -= 1 # Take a Mulligan
             result = SendHandshake(h)
     print result
 
 def SendHandshake(record):
-    global failedSendCount
-    global suppressedCount
-    global successfulSendCount
+    global successfulHandshakes
+    global failedHandshakes
 
     DebugPrint(0, "***********************************************************")
 
@@ -1578,6 +1596,7 @@ def SendHandshake(record):
     xmlDoc = safeParseXML(string.join(record.XmlData,""))
 
     if not xmlDoc:
+        FailedHandshakes += 1
         responseString = "Internal Error: cannot parse internally generated XML record"
         DebugPrint(0, responseString)
         DebugPrint(0, "***********************************************************")
@@ -1588,9 +1607,8 @@ def SendHandshake(record):
     # Generate the XML
     record.XmlData = safeEncodeXML(xmlDoc).splitlines(True)
 
-    # Close and clean up the document2
+    # Close and clean up the document
     xmlDoc.unlink()
-
 
     # Currently, the recordXml is in a list format, with each item being a line of xml.  
     # the collector web service requires the xml to be sent as a string.  
@@ -1613,8 +1631,10 @@ def SendHandshake(record):
     # code.  Currently, 0 = success
     if response.get_code() == 0:
         DebugPrint(1, 'Response indicates success, ')
+        successfulHandshakes += 1
     else:
         DebugPrint(1, 'Response indicates failure, ')
+        failedHandshakes += 1
 
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
