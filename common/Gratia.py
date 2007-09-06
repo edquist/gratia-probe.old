@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.64 2007-09-05 15:34:45 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.65 2007-09-06 21:50:16 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -350,7 +350,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.64 $
+    # $Revision: 1.65 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -968,8 +968,8 @@ class Record(object):
 		
     def Duration(self,value):
         " Helper Function to generate the xml (Do not call directly)"
-        seconds = (int(value*100) % 6000 ) / 100.0
-        value = int( (value - seconds) / 60 )
+        seconds = (long(value*100) % 6000 ) / 100.0
+        value = long( (value - seconds) / 60 )
         minutes = value % 60
         value = (value - minutes) / 60
         hours = value % 24
@@ -1014,7 +1014,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.64 $")
+        rev = ExtractCvsRevision("$Revision: 1.65 $")
 
         self.ReporterLibrary("Gratia",rev);
 
