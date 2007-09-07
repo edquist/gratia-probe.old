@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.65 2007-09-06 21:50:16 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.66 2007-09-07 21:10:24 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -9,6 +9,9 @@ import urllib
 import xml.sax.saxutils
 
 quiet = 0
+__urlencode_records = 1
+__responseMatcher = re.compile(r'Unknown Command: URL', re.IGNORECASE)
+
 
 def disconnect_at_exit():
     if Config: RemoveOldLogs(Config.get_LogRotate())
@@ -350,7 +353,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.65 $
+    # $Revision: 1.66 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -366,12 +369,12 @@ def Initialize(customConfig = "ProbeConfig"):
         # the information
         Config = ProbeConfiguration(customConfig)
 
+        DebugPrint(0, "Initializing Gratia with "+customConfig)
+
         # Initialize cleanup function.
         atexit.register(disconnect_at_exit)
 
         Handshake()
-
-        DebugPrint(0, "Initializing Gratia with "+customConfig)
 
         # Need to initialize the list of possible directories
         InitDirList()
@@ -500,6 +503,10 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
     global __connection
     global __connectionError
     global __connectionRetries
+    global __urlencode_records
+
+    # Backward compatibility with old collectors
+    if (__urlencode_records == 0): messageType = "update"
 
     try:
         # Connect to the web service, in case we aren't already
@@ -567,15 +574,35 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
             except:
                 response = Response(1,responseString)
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
-            queryString = urllib.urlencode([("command" , messageType), ("arg1", recordXml)]);
-            __connection.request("POST", Config.get_CollectorService(), queryString);
+            queryString = __encodeData(messageType, recordXml)
+            __connection.request("POST", Config.get_CollectorService(), queryString)
             responseString = __connection.getresponse().read()
-            response = Response(-1, responseString)
+            if __urlencode_records == 1 and \
+                   __responseMatcher.search(responseString):
+                # We're talking to an old collector
+                DebugPrint(0, "Unable to send new record to old collector -- engaging backwards-compatible mode for remainder of connection")
+                __urlencode_records = 0;
+                # Try again with the same record before returning to the
+                # caller. There will be no infinite recursion because
+                # __url_records has been reset
+                response = __sendUsageXML(meterId, recordXml)
+            else:
+                response = Response(-1, responseString)
         else:
-            queryString = urllib.urlencode([("command" , messageType), ("arg1", recordXml)]);
-            __connection.request("POST",Config.get_SSLCollectorService(), queryString);
+            queryString = __encodeData(messageType, recordXml)
+            __connection.request("POST",Config.get_SSLCollectorService(), queryString)
             responseString = __connection.getresponse().read()
-            response = Response(-1, responseString)
+            if __urlencode_records == 1 and \
+                   __responseMatcher.search(responseString):
+                # We're talking to an old collector
+                DebugPrint(0, "Unable to send new record to old collector -- engaging backwards-compatible mode for remainder of connection")
+                __urlencode_records = 0;
+                # Try again with the same record before returning to the
+                # caller. There will be no infinite recursion because
+                # __url_records has been reset
+                response = __sendUsageXML(meterId, recordXml)
+            else:
+                response = Response(-1, responseString)
     except SystemExit:
         raise
     except:
@@ -583,7 +610,6 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
         # Upon a connection error, we will stop to try to reprocess but will continue to
         # try sending
         __connectionError = True
-
         response = Response(1,"Failed to send xml to web service")
 
     return response
@@ -607,7 +633,7 @@ def SendStatus(meterId):
         transactionId = meterId + TimeToString().replace(":","")
         DebugPrint(1, 'Status Upload:  ' + transactionId)
 
-        queryString = urllib.urlencode([("command", "handshake"), ("arg1", "probename=" + meterId)]);
+        queryString = __encodeData("handshake", "probename=" + meterId);
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
             response = Response(0,"Status message not support in SOAP mode")
 
@@ -1009,12 +1035,12 @@ class ProbeDetails(Record):
     def __init__(self, config):
         # Initializer
         super(self.__class__,self).__init__()
-        DebugPrint(2,"Creating a ProbeDetails record "+TimeToString())
+        DebugPrint(0,"Creating a ProbeDetails record "+TimeToString())
 
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.65 $")
+        rev = ExtractCvsRevision("$Revision: 1.66 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1596,11 +1622,11 @@ def SendHandshake(record):
     xmlDoc = safeParseXML(string.join(record.XmlData,""))
 
     if not xmlDoc:
-        FailedHandshakes += 1
+        failedHandshakes += 1
         responseString = "Internal Error: cannot parse internally generated XML record"
         DebugPrint(0, responseString)
         DebugPrint(0, "***********************************************************")
-        return reponseString
+        return responseString
     
     xmlDoc.normalize()
     
@@ -1665,7 +1691,7 @@ def Send(record):
         responseString = "Internal Error: cannot parse internally generated XML record"
         DebugPrint(0, responseString)
         DebugPrint(0, "***********************************************************")
-        return reponseString
+        return responseString
     
     xmlDoc.normalize()
     
@@ -2160,3 +2186,9 @@ def VOfromUser(user):
             print c
             return None
     return __UserVODictionary.get(user, None)
+
+def __encodeData(messageType, xmlData):
+    if messageType[0:2] == "URL":
+        return urllib.urlencode([("command" , messageType), ("arg1", xmlData)]);
+    else:
+        return "command=" + messageType + "&arg1=" + xmlData
