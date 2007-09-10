@@ -3,7 +3,7 @@
 # glexec_meter.cron.sh - Shell script used with cron to parse glexec
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: glexec_meter.cron.sh,v 1.4 2007-05-25 23:34:56 greenc Exp $
+# $Id: glexec_meter.cron.sh,v 1.5 2007-09-10 20:17:14 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/glexec/glexec_meter.cron.sh,v $
 ###################################################################
 PGM=$(basename $0)
@@ -73,7 +73,7 @@ ExitCode=$?
 
 # If the probe ended in error, report this in Syslog and exit
 if [ $ExitCode != 0 ]; then
-  ${Logger} "ALERT: $0 exited abnormally with [$ExitCode]"
+  ${pp_dir}/DebugPrint.py -l -1 "ALERT: $0 exited abnormally with [$ExitCode]"
   exit $ExitCode
 fi
   
@@ -82,6 +82,14 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.4  2007/05/25 23:34:56  greenc
+# New utilities GetProbeConfigAttribute.py and DebugPrint.py.
+#
+# Cron scripts now check for EnableProbe attribute in config -- if present
+# and 0, probe will not be invoked and log entry will be made.
+#
+# Fix fragility in spec file using "global" macro.
+#
 # Revision 1.3  2007/05/24 23:33:52  greenc
 # Fix minor problems with glexec probe.
 #

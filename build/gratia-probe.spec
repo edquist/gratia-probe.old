@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.26.2b
-Release: 1
+Version: 0.27.2
+Release: 1a
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -791,6 +791,14 @@ done
 %endif
 
 %changelog
+* Mon Sep 10 2007 Christopher Green <greenc@fnal.gov> - 0.27.2-1a
+- Better redirection of non-managed output.
+
+* Mon Sep 10 2007 Christopher Green <greenc@fnal.gov> - 0.27.2-1
+- Handshaking facility with collector.
+- Gratia.py can handle larger numbers for time durations.
+- URLencoding and XML escaping (backward compatible with old collectors).
+
 * Mon Aug  6 2007 Christopher Green <greenc@fnal.gov> - 0.26.2b-1
 - /bin/env -> /usr/bin/env in pound-bang line.
 

@@ -19,6 +19,10 @@ use POSIX;
 use urCollector::Common qw(:DEFAULT :Locking);
 use urCollector::Configuration;
 
+sub local_error {
+  system("$URCOLLECTOR_LOC/DebugPrint.py", "-l", "-1", @_);
+}
+
 ####################################
 # BEGIN clause
 ####################################
@@ -47,13 +51,13 @@ POSIX::sigaction(&POSIX::SIGQUIT, $cleanup_action);
 POSIX::sigaction(&POSIX::SIGTERM, $cleanup_action);
 
 if (putLock($configValues{collectorLockFileName}) != 0) {
-  error("Fatal Error: Couldn't open lock file $configValues{collectorLockFileName}.\n");
+  local_error("Fatal Error: Couldn't open lock file $configValues{collectorLockFileName}.\n");
 };
 
 my $status = system("$URCOLLECTOR_LOC/pbs-lsf.py", "$configValues{URBox}");
 
 if (delLock($configValues{collectorLockFileName}) != 0) {
-  print "Error removing lock file.\n";
+  local_error("Error removing lock file.\n");
 }
 
 exit($status);

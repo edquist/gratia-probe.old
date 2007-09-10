@@ -8,4 +8,4 @@ if __name__ == '__main__':
 		print Gratia.SendXMLFiles(sys.argv[1], True, "Batch")
 #		print Gratia.SendXMLFiles(sys.argv[1], False, "Batch")
 	else:
-		print "No records directory specified"
+		Gratia.DebugPrint(-1, "No records directory specified")

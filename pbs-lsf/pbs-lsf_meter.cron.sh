@@ -3,7 +3,7 @@
 # pbs-lsfr_meter.cron.sh - Shell script used with cron to parse PBS and LSF
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: pbs-lsf_meter.cron.sh,v 1.6 2007-08-03 17:18:09 greenc Exp $
+# $Id: pbs-lsf_meter.cron.sh,v 1.7 2007-09-10 20:17:14 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/pbs-lsf/pbs-lsf_meter.cron.sh,v $
 ###################################################################
 function check_if_running {
@@ -104,7 +104,7 @@ fi
 
 enabled=`${pp_dir}/GetProbeConfigAttribute.py EnableProbe`
 if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
-  ${pp_dir}/DebugPrint.py -l 0 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
+  ${pp_dir}/DebugPrint.py -l -1 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
 	exit 1
 fi
 
@@ -115,13 +115,13 @@ rm -f 2[0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9].log
 
 #--- run the probes ----
 ./urCollector.pl --nodaemon 2>&1 | ${pp_dir}/DebugPrint.py -l 1
-./pbs-lsf_meter.pl 2>&1 | ${pp_dir}/DebugPrint.py -l 1
+./pbs-lsf_meter.pl 2>&1
 
 ExitCode=$?
 
 # If the probe ended in error, report this in Syslog and exit
 if [ $ExitCode != 0 ]; then
-  ${Logger} "ALERT: $0 exited abnormally with [$ExitCode]"
+  ${pp_dir}/DebugPrint.py -l -1 "ALERT: $0 exited abnormally with [$ExitCode]"
   exit $ExitCode
 fi
   
@@ -130,6 +130,11 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.6  2007/08/03 17:18:09  greenc
+# All output goes to DebugPrint();
+#
+# Remove erroneously placed logfiles from previous version.
+#
 # Revision 1.5  2007/06/13 22:09:12  greenc
 # Append output of urCollector.pl to log file.
 #
