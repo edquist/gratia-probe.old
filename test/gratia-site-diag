@@ -19,7 +19,7 @@ use File::Path;
 use Pod::Usage;
 
 # Use the Cwd package;
-use Cwd 'chdir';
+use Cwd qw(:DEFAULT chdir);
 
 # Set parsing options
 Getopt::Long::Configure(qw(no_ignore_case bundling require_order));
@@ -70,7 +70,8 @@ foreach my $gk (@ARGV) {
     next;
   }
   system("mkdir -p \"GratiaTests_${gk}_${test_timestamp}\"") == 0 or die "Unable to create test results directory";
-  my $oldpwd = chdir("GratiaTests_${gk}_${test_timestamp}");
+  my $oldpwd = cwd();
+  chdir("GratiaTests_${gk}_${test_timestamp}");
   print "  Directory output: listing.{out,err}\n";
   execute("/usr/bin/find \"$osg_loc/gratia\" \"$osg_loc/monitoring\" \"$osg_loc/globus/lib/perl/Globus/GRAM/JobManager\" -follow -printf \"\%T\@\\t\" -ls > listing.out 2>listing.err", $gk);
   open(SITE_LISTING, "listing.out") or
@@ -128,7 +129,6 @@ foreach my $gk (@ARGV) {
       $file_map{$file} = $local_file;
     }
   }
-  chdir($oldpwd);
   print "  Diagnostics ...\n";
   print "  > Found $tmpfiles_count unsent XML files in $osg_loc/gratia/var/tmp/gratiafiles\n";
 
@@ -228,6 +228,55 @@ EOF
       }
     }
   }
+  my ($urcollector_conf) = grep /urCollector\.conf$/, @interesting_files;
+  if ($urcollector_conf and $file_map{$urcollector_conf}) {
+    print "  > Checking $urcollector_conf ...\n";
+    open(URCOLLECTOR_CONF, $file_map{$urcollector_conf})
+      or die "INTERNAL ERROR: missing downloaded file $file_map{$urcollector_conf}";
+    my ($lrmsType, $pbsAcctLogDir, $lsfAcctLogDir);
+    while (<URCOLLECTOR_CONF>) {
+      m&^\s*lrmsType\s*=\s*"([^"]+)"& and $lrmsType = $1;
+      m&^\s*pbsAcctLogDir\s*=\s*"([^"]+)"& and $pbsAcctLogDir = $1;
+      m&^\s*lsfAcctLogDir\s*=\s*"([^"]+)"& and $lsfAcctLogDir = $1;
+    }
+    close URCOLLECTOR_CONF;
+    if (not (defined $lrmsType and ($lrmsType eq "pbs" or $lrmsType eq "lsf"))) {
+      print "    > lrmsType not correct: set to \"pbs\" or \"lsf\"\n";
+    }
+    if ($lrmsType eq "pbs") {
+      if ($pbsAcctLogDir eq "/var/spool/pbs/server_priv/accounting/") {
+        print "    > pbsAcctLogDir is set to default value";
+      } else {
+        print "    > pbsAcctLogDir is set to $pbsAcctLogDir";
+      }
+      print ": checking existence ... ";
+      execute("/bin/ls -ld '$pbsAcctLogDir' > pbsAcctLogDir.txt 2>/dev/null", $gk);
+      if ( -s "pbsAcctLogDir.txt") {
+        print "OK\n";
+      } else {
+        my $checkdir = $pbsAcctLogDir;
+        $checkdir =~ s/\/accounting\/?//;
+        execute("/bin/ls -ld '$checkdir' > pbsAcctLogDir.txt 2>/dev/null", $gk);
+        if ( -s "pbsAcctLogDir.txt") {
+          print "PROBABLY OK ($pbsAcctLogDir inaccessible but $checkdir present)\n";
+        } else {
+          print "MISSING\n";
+        }
+      }
+    } elsif ($lrmsType eq "lsf") {
+      if ($lsfAcctLogDir eq "{path_lsf}/mnt/work/{cluster name}/logdir") {
+        print "    > lsfAcctLogDir is set to default value: MUST FIX!\n";
+      } else {
+        print "    > lsfAcctLogDir is set to $lsfAcctLogDir: checking existence ... ";
+        execute("/bin/ls -ld '$lsfAcctLogDir' > lsfAcctLogDir.txt 2>/dev/null", $gk);
+        if ( -s "lsfAcctLogDir.txt") {
+          print "OK\n";
+        } else {
+          print "MISSING\n";
+        }
+      }
+    }
+  }
   # sge_meter.py check
   my ($sge_meter_py) = grep /sge_meter\.py$/, @interesting_files;
   if ($sge_meter_py) {
@@ -240,6 +289,7 @@ EOF
       print "      > cp -p ProbeConfig \"$sge_meter_py\"\n";
     }
   }
+  chdir($oldpwd);
 }
 
 1;
