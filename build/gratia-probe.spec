@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.27.2
-Release: 1a
+Version: 0.27.2a
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -791,7 +791,7 @@ done
 %endif
 
 %changelog
-* Mon Sep 10 2007 Christopher Green <greenc@fnal.gov> - 0.27.2-1a
+* Mon Sep 10 2007 Christopher Green <greenc@fnal.gov> - 0.27.2a-1
 - Better redirection of non-managed output.
 
 * Mon Sep 10 2007 Christopher Green <greenc@fnal.gov> - 0.27.2-1
