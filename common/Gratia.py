@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.66 2007-09-07 21:10:24 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.67 2007-09-24 21:43:59 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -353,7 +353,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.66 $
+    # $Revision: 1.67 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1040,7 +1040,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.66 $")
+        rev = ExtractCvsRevision("$Revision: 1.67 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1607,7 +1607,7 @@ def Handshake(resetRetries = False):
             # Case of timed-out connection, let's try again
             failedHandshakes -= 1 # Take a Mulligan
             result = SendHandshake(h)
-    print result
+
 
 def SendHandshake(record):
     global successfulHandshakes
@@ -2188,7 +2188,7 @@ def VOfromUser(user):
     return __UserVODictionary.get(user, None)
 
 def __encodeData(messageType, xmlData):
-    if messageType[0:2] == "URL":
+    if messageType[0:3] == "URL":
         return urllib.urlencode([("command" , messageType), ("arg1", xmlData)]);
     else:
         return "command=" + messageType + "&arg1=" + xmlData
