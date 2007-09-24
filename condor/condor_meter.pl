@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.13 2007-09-04 17:15:55 pcanal Exp $
+# $Id: condor_meter.pl,v 1.14 2007-09-24 21:41:09 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.13 $ ';   # CVS Version number
+my $prog_revision = '$Revision: 1.14 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -63,7 +63,7 @@ sub NumSeconds {
     warn "Invalid time string: $time_string\n";
     return -1;
   }
-} # End of subroutine NumSeconds
+}                               # End of subroutine NumSeconds
 
 #------------------------------------------------------------------
 # Subroutine Feed_Gratia ($hash_ref)
@@ -84,17 +84,17 @@ sub Feed_Gratia {
 
   print $py "# initialize and populate r\n";
   print $py "r = Gratia.UsageRecord(\"Batch\")\n";
-	
+  
   # 2.1 RecordIdentity must be set by Philippe's module?
-        # RecordIdentity is a required string which must be unique
+  # RecordIdentity is a required string which must be unique
 
   # 2.2 GlobalJobId - optional, string
   # Sample: GlobalJobId = "fngp-osg.fnal.gov#1126868442#6501.0"
-    print $py qq/r.GlobalJobId(\"/ . $hash{'UniqGlobalJobId'} . qq/\")\n/;
+  print $py qq/r.GlobalJobId(\"/ . $hash{'UniqGlobalJobId'} . qq/\")\n/;
 
   # 2.3 LocalJobId - optional, string
   if ($hash{'ClusterId'}) {
-      # Sample: ClusterId = 6501
+    # Sample: ClusterId = 6501
     print $py qq/r.LocalJobId(\"/ . $hash{'ClusterId'} . qq/\")\n/;
   }
 
@@ -109,20 +109,20 @@ sub Feed_Gratia {
     }
     if ($verbose) {
       print "From ($hash{'LastClaimId'})" .
-	"I got process id ($condor_process_id)\n";
+        "I got process id ($condor_process_id)\n";
     }
     print $py qq/r.ProcessId(/ . $condor_process_id . qq/)\n/;
   }
 
   # 2.5 LocalUserId - optional, string
   if ( defined ($hash{'Owner'})) {
-      # Sample: Owner = "cdf"
+    # Sample: Owner = "cdf"
     print $py qq/r.LocalUserId(\"/ . $hash{'Owner'} . qq/\")\n/;
   }
 
   # 2.6 GlobalUsername - such as the distinguished name from the certificate
   if ( defined ($hash{'User'})) {
-      # sample: User = "sdss@fnal.gov"
+    # sample: User = "sdss@fnal.gov"
     print $py qq/r.GlobalUsername(\"/ . $hash{'User'} . qq/\")\n/;
     #print $py qq/r.AdditionalInfo(\"GlobalUsername\", \"/
     #  . $hash{'User'} . qq/\")\n/;
@@ -148,7 +148,7 @@ sub Feed_Gratia {
   # ??? Should I set this default, or leave it undefined if I can't set it ???
   $condor_submit_host = "unknown submit host";
   if ( defined ($hash{'GlobalJobId'})) {
-      # Sample: GlobalJobId = "fngp-osg.fnal.gov#1126868442#6501.0"
+    # Sample: GlobalJobId = "fngp-osg.fnal.gov#1126868442#6501.0"
     print $py qq/r.JobName(\"/ . $hash{'GlobalJobId'} . qq/\")\n/;
 
     if ($hash{'GlobalJobId'} =~ /(.*)\#\d*\#.*/) {
@@ -160,14 +160,14 @@ sub Feed_Gratia {
 
   # 2.9 Status - optional, integer, exit status
   if ( defined ($hash{'ExitStatus'})) {
-      # Sample: ExitStatus = 0
+    # Sample: ExitStatus = 0
     print $py qq/r.Status(\"/ . $hash{'ExitStatus'} .
       qq/\", "Condor Exit Status")\n/;
   }
 
   # 2.10 WallDuration - "Wall clock time that elpased while the job was running."
   if ( defined ($hash{'RemoteWallClockTime'})) {
-      # Sample: RemoteWallClockTime = 10251.000000
+    # Sample: RemoteWallClockTime = 10251.000000
     print $py qq/r.WallDuration(int(/ . $hash{'RemoteWallClockTime'} .
       qq/),\"Was entered in seconds\")\n/;
   }
@@ -179,33 +179,41 @@ sub Feed_Gratia {
   #       set the ones that were not found to zero so later math does
   #       not fail due to an undefined value.
   if ( defined ($hash{'RemoteUserCpu'})) {
-      # Sample: RemoteUserCpu = 9231.000000
+    # Sample: RemoteUserCpu = 9231.000000
     print $py qq/r.TimeDuration(/ . $hash{'RemoteUserCpu'} .
       qq/, \"RemoteUserCpu\")\n/;
-  } else { $hash{'RemoteUserCpu'} = 0; }
+  } else {
+    $hash{'RemoteUserCpu'} = 0;
+  }
   if ( defined ($hash{'LocalUserCpu'})) {
-      # Sample: LocalUserCpu = 0.000000
+    # Sample: LocalUserCpu = 0.000000
     print $py qq/r.TimeDuration(/ . $hash{'LocalUserCpu'} .
       qq/, \"LocalUserCpu\")\n/;
-  } else { $hash{'LocalUserCpu'} = 0; }
+  } else {
+    $hash{'LocalUserCpu'} = 0;
+  }
   if ( defined ($hash{'RemoteSysCpu'})) {
-      # Sample: RemoteSysCpu = 36.000000
+    # Sample: RemoteSysCpu = 36.000000
     print $py qq/r.TimeDuration(/  . $hash{'RemoteSysCpu'} .
       qq/, \"RemoteSysCpu\")\n/;
-  } else { $hash{'RemoteSysCpu'} = 0; }
+  } else {
+    $hash{'RemoteSysCpu'} = 0;
+  }
   if ( defined ($hash{'LocalSysCpu'})) {
-      # Sample: LocalSysCpu = 0.000000
+    # Sample: LocalSysCpu = 0.000000
     print $py qq/r.TimeDuration(/  . $hash{'LocalSysCpu'} .
       qq/, \"LocalSysCpu\")\n/;
-  } else { $hash{'LocalSysCpu'} = 0; }
+  } else {
+    $hash{'LocalSysCpu'} = 0;
+  }
 
   if ( defined ($hash{'CumulativeSuspensionTime'})) {
-      # Sample: CumulativeSuspensionTime = 0
+    # Sample: CumulativeSuspensionTime = 0
     print $py qq/r.TimeDuration(/ . $hash{'CumulativeSuspensionTime'} .
       qq/, \"CumulativeSuspensionTime\")\n/;
   }
   if ( defined ($hash{'CommittedTime'})) {
-      # Sample: CommittedTime = 0
+    # Sample: CommittedTime = 0
     print $py qq/r.TimeDuration(/ . $hash{'CommittedTime'} .
       qq/, \"CommittedTime\")\n/;
   }
@@ -220,14 +228,14 @@ sub Feed_Gratia {
 
   # 2.12 EndTime - "The time at which the job completed"
   if ( defined ($hash{'CompletionDate'})) {
-      # Sample: CompletionDate = 1126898099
+    # Sample: CompletionDate = 1126898099
     print $py qq/r.EndTime(/ . $hash{'CompletionDate'} .
       qq/,\"Was entered in seconds\")\n/;
   }
 
   # 2.13 StartTime - The time at which the job started"
   if ( defined ($hash{'JobStartDate'})) {
-      # Sample: JobStartDate = 1126887848
+    # Sample: JobStartDate = 1126887848
     print $py qq/r.StartTime(/ . $hash{'JobStartDate'} .
       qq/,\"Was entered in seconds\")\n/;
   }
@@ -250,7 +258,7 @@ sub Feed_Gratia {
   #   virtual machine (which MIGHT be present)
   #      sample: LastRemoteHost = "vm1@fnpc210.fnal.gov"
   if ( defined ($hash{'LastRemoteHost'})) {
-      # Sample: LastRemoteHost = "fnpc212.fnal.gov"
+    # Sample: LastRemoteHost = "fnpc212.fnal.gov"
     if ($hash{'LastRemoteHost'} =~ /vm\d+?\@(.*)/) {
       $fqdn_last_rem_host = "$1";
     } else {
@@ -269,7 +277,7 @@ sub Feed_Gratia {
   }
 
   # 2.18 - ProjectName - optional, effective GID (string)
-         # I am unsure if this should be the AccountingGroup below ###
+  # I am unsure if this should be the AccountingGroup below ###
 
   # 2.19 - Network - optional, integer
   #        Can have storageUnit, phaseUnit, metric, description
@@ -284,43 +292,43 @@ sub Feed_Gratia {
 
   # 2.23 - NodeCount - optional, positive integer - physical nodes
   if ( defined ($hash{'MaxHosts'})) {
-      # Sample: MaxHosts = 1
+    # Sample: MaxHosts = 1
     print $py qq/r.NodeCount(\"/ . $hash{'MaxHosts'} . qq/\", "max", )\n/;
   }
 
   # 2.24 - Processors - optional, positive integer - processors used/requested
 
   # 2.25 - ServiceLevel - optional, string (referred to as record identity?)
-		
+    
   # To use r.AddAdditionalInfo: record.AddAdditionalInfo("name",value)
   #    where value can be a string or number
   if ( defined ($hash{'MyType'})) {
-      # Sample: MyType = "Job"
+    # Sample: MyType = "Job"
     print $py qq/r.AdditionalInfo(\"CondorMyType\", \"/
       . $hash{'MyType'} . qq/\")\n/;
   }
   if ( defined ($hash{'AccountingGroup'})) {
-      # Sample: AccountingGroup = "group_sdss.sdss"
+    # Sample: AccountingGroup = "group_sdss.sdss"
     print $py qq/r.AdditionalInfo(\"AccountingGroup\", \"/
       . $hash{'AccountingGroup'} . qq/\")\n/;
   }
   if ( defined ($hash{'ExitBySignal'})) {
-      # Sample: ExitBySignal = FALSE
+    # Sample: ExitBySignal = FALSE
     print $py qq/r.AdditionalInfo(\"ExitBySignal\", \"/
       . $hash{'ExitBySignal'} . qq/\")\n/;
   }
   if ( defined ($hash{'ExitCode'})) {
-      # Sample: ExitCode = 0
+    # Sample: ExitCode = 0
     print $py qq/r.AdditionalInfo(\"ExitCode\", \"/
       . $hash{'ExitCode'} . qq/\")\n/;
   }
   if ( defined ($hash{'JobStatus'})) {
-      # Sample: JobStatus = 4
+    # Sample: JobStatus = 4
     print $py qq/r.AdditionalInfo(\"condor.JobStatus\", \"/
       . $hash{'JobStatus'} . qq/\")\n/;
   }
   #print $py qq/r.AdditionalInfo(\"\", \"/ . $hash{''} . qq/\")\n/;
-      # Sample: 
+  # Sample: 
 
   print $py "Gratia.Send(r)\n";
   print $py "#\n";
@@ -328,7 +336,7 @@ sub Feed_Gratia {
 
   # Moved to outer block
   # $py->close;
-} # End of subroutine Feed_Gratia
+}                               # End of subroutine Feed_Gratia
 
 #------------------------------------------------------------------
 # Subroutine Read_ClassAd
@@ -337,38 +345,37 @@ sub Feed_Gratia {
 #------------------------------------------------------------------
 sub Read_ClassAd {
 
-    my $filename = shift;
+  my $filename = shift;
 
-    unless (open(FH, $filename)) {
-        warn "error opening $filename: $!\n";
-		return ();
-	}
+  unless (open(FH, $filename)) {
+    warn "error opening $filename: $!\n";
+    return ();
+  }
 
-    my %condor_hist_data;
-    while ($line = <FH>) {
+  my %condor_hist_data;
+  while ($line = <FH>) {
 
-        # Most lines look something like:  MyType = "Job"
-        if ($line =~ /(\S+) = (.*)/) {
-	
-            $element = $1;  $value=$2;
+    # Most lines look something like:  MyType = "Job"
+    if ($line =~ /(\S+) = (.*)/) {
+  
+      $element = $1;  $value=$2;
 
-            # Strip double quotes where needed
-            if ($value =~ /"(.*)"/) {
-                $value = $1;
-            }
+      # Strip double quotes where needed
+      if ($value =~ /"(.*)"/) {
+        $value = $1;
+      }
 
-            # Place attribute in the hash
-            $condor_hist_data{$element} = $value;
-        }
-        elsif ($record_in =~ /\S+/) {
-            warn "Invalid line in ClassAd: $line\n";
-			return ();
-        }
+      # Place attribute in the hash
+      $condor_hist_data{$element} = $value;
+    } elsif ($record_in =~ /\S+/) {
+      warn "Invalid line in ClassAd: $line\n";
+      return ();
     }
+  }
 
-    create_unique_id(%condor_hist_data);
+  create_unique_id(%condor_hist_data);
 
-    return %condor_hist_data;
+  return %condor_hist_data;
 }
 
 #------------------------------------------------------------------
@@ -390,7 +397,7 @@ sub Query_Condor_History {
   {
     if ($cluster_id) {
       $fh->open("$current_condor_hist_cmd -l $cluster_id |")
-	or die "Unable to open condor_history pipe\n";
+        or die "Unable to open condor_history pipe\n";
     } else {
       warn "Tried to call condor_history with no cluster_id data.\n";
       return ();
@@ -413,25 +420,25 @@ sub Query_Condor_History {
       $record_seen = 1;
       # Most lines look something like:  MyType = "Job"
       if ($record_in =~ /(\S+) = (.*)/) {
-	$element = $1;  $value=$2;
-					
-	# Strip double quotes where needed
-	if ($value =~ /"(.*)"/) {
-	  $value = $1;
-	}
-	$condor_hist_data{$element} = $value;
+        $element = $1;  $value=$2;
+          
+        # Strip double quotes where needed
+        if ($value =~ /"(.*)"/) {
+          $value = $1;
+        }
+        $condor_hist_data{$element} = $value;
       } elsif ($record_in =~ /-- Quill/) {
-	# Quill header looks like:
-	#    -- Quill: quill@fngp-osg.fnal.gov : <fngp-osg.fnal.gov:5432> : quill
-	if ($verbose && $debug_mode) { 
-	  print "Query_Condor_History got Quill history data\n";
-	  print $record_in;
-	}
+        # Quill header looks like:
+        #    -- Quill: quill@fngp-osg.fnal.gov : <fngp-osg.fnal.gov:5432> : quill
+        if ($verbose && $debug_mode) { 
+          print "Query_Condor_History got Quill history data\n";
+          print $record_in;
+        }
       } elsif ($record_in =~ /No historical jobs in the database match your query/) {
-	$record_not_found = 1;
-	last;
+        $record_not_found = 1;
+        last;
       } elsif ($record_in =~ /\S+/) {
-	warn "Could not parse: $record_in (skipping)\n";
+        warn "Could not parse: $record_in (skipping)\n";
       }
     }
     $fh->close();
@@ -443,15 +450,15 @@ sub Query_Condor_History {
       my @condor_history_file_list = glob("${condor_hist_file}*");
       my $next_history_file;
       while ($next_history_file = shift @condor_history_file_list and
-	     exists $seen_history_list{$next_history_file}) {
+             exists $seen_history_list{$next_history_file}) {
       }
       if ($next_history_file) {
-	$current_condor_hist_cmd = "$condor_hist_cmd -f $next_history_file";
-	$seen_history_list{$next_history_file} = 1;
-	redo HISTORY_SEARCH;
+        $current_condor_hist_cmd = "$condor_hist_cmd -f $next_history_file";
+        $seen_history_list{$next_history_file} = 1;
+        redo HISTORY_SEARCH;
       }
       if ($verbose) {
-	warn "Query_Condor_History found no record of this job\n";
+        warn "Query_Condor_History found no record of this job\n";
       }
       return ();
     }
@@ -490,16 +497,16 @@ sub create_unique_id(\%) {
 #
 # Sample '004 Job was evicted' event record
 # 004 (16110.000.000) 10/31 11:46:13 Job was evicted.
-# 	(0) Job was not checkpointed.
-# 		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
-# 		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
-# 	0  -  Run Bytes Sent By Job
-# 	0  -  Run Bytes Received By Job
+#   (0) Job was not checkpointed.
+#     Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+#     Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+#   0  -  Run Bytes Sent By Job
+#   0  -  Run Bytes Received By Job
 # ...
 #------------------------------------------------------------------
 sub Process_004 {
   my $filename = shift;
-  my @term_event = @_;  # A Job evicted (004) event
+  my @term_event = @_;          # A Job evicted (004) event
   my $next_line = "";
   my $return_value = 0;
   my %condor_history = ();
@@ -511,13 +518,13 @@ sub Process_004 {
     warn "Error parsing the 'Job was evicted' record:\n$id_line";
     return ();
   }
-  $job_id = $1; # $end_date = $2; $end_time = $3;
+  $job_id = $1;                 # $end_date = $2; $end_time = $3;
   #if ($verbose) {
   #  print "(Process_004) From $id_line: I got id $job_id which ended $end_date at $end_time\n";
   #}
 
   if ($job_id =~ /\((\d+)\.(\d+)\.(\d+)\)/) {
-    $cluster_id = $1; # $cluster_field2 = $2; $cluster_field3 = $3;
+    $cluster_id = $1;           # $cluster_field2 = $2; $cluster_field3 = $3;
     if ($verbose) {
       print "(Process_004) From $job_id: I got ClusterId $cluster_id\n";
     }
@@ -531,7 +538,7 @@ sub Process_004 {
   if ($next_line =~ /was not checkpointed/) {
     if ($verbose) {
       print "\n" . basename($filename) . 
-	": Cluster_Id $cluster_id was evicted but did not checkpoint.\n";
+        ": Cluster_Id $cluster_id was evicted but did not checkpoint.\n";
     }
   }
 
@@ -556,20 +563,20 @@ sub Process_004 {
   if ($verbose) {
     print "   Remote task CPU Duration: $rem_cpusecs seconds"
       . "($rem_usr_cpusecs/$rem_sys_cpusecs)\n"
-	if ($rem_cpusecs);
+        if ($rem_cpusecs);
 
     print    "Local task CPU Duration: $lcl_cpusecs seconds"
       . "($lcl_usr_cpusecs/$lcl_sys_cpusecs)\n" 
-	if ($lcl_cpusecs);
+        if ($lcl_cpusecs);
   }
   unless ($cluster_id) {
     die "Somehow we got here without getting a cluster id"
   }
 
   unless ( (%condor_history = Query_Condor_History($cluster_id)) &&
-	  (defined ($condor_history{'GlobalJobId'})) ) {
+           (defined ($condor_history{'GlobalJobId'})) ) {
     warn "This job ($cluster_id) had no record in Condor History.\n";
-    return (); # Failure - return an empty hash
+    return ();                  # Failure - return an empty hash
   }
   if ($verbose) {
     print "Query_Condor_History returned GlobalJobId of " .
@@ -581,7 +588,7 @@ sub Process_004 {
   } else {
     return ();
   }
-} # End of Subroutine Process_004 --------------------
+}                               # End of Subroutine Process_004 --------------------
 
 #------------------------------------------------------------------
 # Subroutine Process_005
@@ -602,7 +609,7 @@ sub Process_004 {
 #------------------------------------------------------------------
 sub Process_005 {
   my $filename = shift;
-  my @term_event = @_;  # A Terminate (005) event
+  my @term_event = @_;          # A Terminate (005) event
   my $next_line = "";
   my $return_value = 0;
   my %condor_history = ();
@@ -614,13 +621,13 @@ sub Process_005 {
     warn "Error parsing the 'Job terminated' record:\n$id_line";
     return ();
   }
-  $job_id = $1; # $end_date = $2; $end_time = $3;
+  $job_id = $1;                 # $end_date = $2; $end_time = $3;
   #if ($verbose) {
   #  print "(Process_005) From $id_line: I got id $job_id which ended $end_date at $end_time\n";
   #}
 
   if ($job_id =~ /\((\d+)\.(\d+)\.(\d+)\)/) {
-    $cluster_id = $1; # $cluster_field2 = $2; $cluster_field3 = $3;
+    $cluster_id = $1;           # $cluster_field2 = $2; $cluster_field3 = $3;
     if ($verbose) {
       print "(Process_005) From $job_id: I got ClusterId $cluster_id\n";
     }
@@ -636,8 +643,8 @@ sub Process_005 {
     if ($next_line =~ /return value (\d*)/) {
       $return_value = $1;
       if ($verbose) {
-	print "\n" . basename($filename) . 
-	  ": Cluster_Id $cluster_id had return value: $return_value\n";
+        print "\n" . basename($filename) . 
+          ": Cluster_Id $cluster_id had return value: $return_value\n";
       }
     } else {
       warn "Malformed termination record:\n";
@@ -687,23 +694,23 @@ sub Process_005 {
   if ($verbose) {
     print "   Remote task CPU Duration: $rem_cpusecs seconds"
       . "($rem_usr_cpusecs/$rem_sys_cpusecs)\n"
-	if ($rem_cpusecs && $rem_cpusecs != $rem_cpusecs_total);
+        if ($rem_cpusecs && $rem_cpusecs != $rem_cpusecs_total);
     print    "Local task CPU Duration: $lcl_cpusecs seconds"
       . "($lcl_usr_cpusecs/$lcl_sys_cpusecs)\n" 
-	if ($lcl_cpusecs && $lcl_cpusecs != $lcl_cpusecs_total);
+        if ($lcl_cpusecs && $lcl_cpusecs != $lcl_cpusecs_total);
     print "   Remote CPU Duration: $rem_cpusecs_total seconds"
       . "($rem_usr_cpusecs_total/$rem_sys_cpusecs_total)\n";
     print "   Local CPU Duration: $lcl_cpusecs_total seconds"
       . "($lcl_usr_cpusecs_total/$lcl_sys_cpusecs_total)\n"
-	if ($lcl_cpusecs_total);
+        if ($lcl_cpusecs_total);
   }
   unless ($cluster_id) {
     die "Somehow we got here without getting a cluster id"
   }
   unless ((%condor_history = Query_Condor_History($cluster_id)) &&
-	  (defined ($condor_history{'GlobalJobId'})) ) {
+          (defined ($condor_history{'GlobalJobId'})) ) {
     warn "This job ($cluster_id) had no record in Condor History.\n";
-    return (); # Failure - return an empty hash
+    return ();                  # Failure - return an empty hash
   }
   if ($verbose) {
     print "Query_Condor_History returned GlobalJobId of " .
@@ -718,7 +725,7 @@ sub Process_005 {
   } else {
     return ();
   }
-} # End of Subroutine Process_005 --------------------
+}                               # End of Subroutine Process_005 --------------------
 
 #------------------------------------------------------------------
 # Subroutine Usage_message
@@ -734,7 +741,7 @@ sub Usage_message {
   print "         and -x enters debug mode\n\n";
 
   return;
-} # End of Subroutine Usage_message  --------------------
+}                               # End of Subroutine Usage_message  --------------------
 
 #==================================================================
 #==================================================================
@@ -781,7 +788,7 @@ if ($verbose) {
 
 #------------------------------------------------------------------
 # Locate and verify the path to the condor_history executable
-use Env qw(CONDOR_LOCATION PATH);  #Import only the Env variables we need
+use Env qw(CONDOR_LOCATION PATH); #Import only the Env variables we need
 @path = split(/:/, $PATH);
 push(@path, "/usr/local/bin");
 $condor_history = '';
@@ -794,7 +801,7 @@ if (( $CONDOR_LOCATION ) && ( -x "$CONDOR_LOCATION/bin/condor_history" )) {
   foreach $path_dir (@path) {
     unless ( $condor_history ) {
       if (-x "$path_dir/condor_history") {
-	 $condor_history = "$path_dir/condor_history";
+        $condor_history = "$path_dir/condor_history";
       }
     }
   }
@@ -805,19 +812,21 @@ unless ( -x $condor_history ) {
   exit 2;
 }
 
-if ($verbose) { print "Condor_history at $condor_history\n"; }
+if ($verbose) {
+  print "Condor_history at $condor_history\n";
+}
 
 $condor_hist_cmd = $condor_history;
 
 open(CONDOR_HISTORY_HELP, "$condor_hist_cmd -help|")
-	or die "Unable to open condor_history pipe\n";
+  or die "Unable to open condor_history pipe\n";
 my @condor_history_help_text = <CONDOR_HISTORY_HELP>;
 close CONDOR_HISTORY_HELP;
 chomp @condor_history_help_text;
 grep /-backwards\b/, @condor_history_help_text and
-	$condor_hist_cmd = "$condor_hist_cmd -backwards";
+  $condor_hist_cmd = "$condor_hist_cmd -backwards";
 grep /-match\b/, @condor_history_help_text and
-	$condor_hist_cmd = "$condor_hist_cmd -match 1";
+  $condor_hist_cmd = "$condor_hist_cmd -match 1";
 
 $condor_config_val_cmd = sprintf("%s/condor_config_val", dirname($condor_history));
 $condor_hist_file = `$condor_config_val_cmd HISTORY`;
@@ -837,12 +846,12 @@ foreach $name_arg (@ARGV) {
       or die "Could not open the directory $name_arg.";
     while (defined($file = readdir(DIR))) {
       if ($file =~ /gram_condor_log\./ && -f "$name_arg/$file" && -s _ ) {
-	# This plain, non-empty file looks like one of our log files
-	push(@logfiles, "$name_arg/$file"); $logs_found++;
+        # This plain, non-empty file looks like one of our log files
+        push(@logfiles, "$name_arg/$file"); $logs_found++;
       }
       if ($file =~ /history.\d+.\d+/ && -f "$name_arg/$file" && -s _ ) {
-	# This plain, non-empty file looks like a ClassAd
-	push(@logfiles, "$name_arg/$file"); $logs_found++;
+        # This plain, non-empty file looks like a ClassAd
+        push(@logfiles, "$name_arg/$file"); $logs_found++;
       }
     }
     closedir(DIR);
@@ -860,12 +869,7 @@ foreach $tmp_file ( "/tmp/py.in", "/tmp/py.out" ) {
 #------------------------------------------------------------------
 # Open the pipe to the Gratia meter library process
 $py = new FileHandle;
-if ($debug_mode) {
-  $py->open(" > /tmp/py.in ");
-} else {
-  $py->open("| tee /tmp/py.in | python -u >/tmp/py.out 2>&1");
-  # $py->open("| python ");
-}
+$py->open("| tee /tmp/py.in | python -u >/tmp/py.out 2>&1");
 autoflush $py 1;
 $count_submit = 0;
 
@@ -903,26 +907,28 @@ foreach $logfile (@logfiles) {
   open(LOGF, $logfile)
     or die "Unable to open logfile: $logfile\n";
 
-  if ($verbose) { print "Processing file: $logfile\n"; }
+  if ($verbose) {
+    print "Processing file: $logfile\n";
+  }
 
   $logfile_errors = 0;
 
   # See if the file is a per-job history file (a ClassAd)
   if ($logfile =~ /history.(\d+).(\d+)/) {
 
-      # get the class ad from the file
-      unless (%condor_data_hash = Read_ClassAd($logfile)) {
-	      $logfile_errors++;
-      }
+    # get the class ad from the file
+    unless (%condor_data_hash = Read_ClassAd($logfile)) {
+      $logfile_errors++;
+    }
 
-      # add-in UniqGlobalJobId
-      if ($condor_hist_data{'GlobalJobId'}) {
-          $condor_hist_data{'UniqGlobalJobId'} =
-              'condor.' . $condor_hist_data{'GlobalJobId'};
-      }
+    # add-in UniqGlobalJobId
+    if ($condor_hist_data{'GlobalJobId'}) {
+      $condor_hist_data{'UniqGlobalJobId'} =
+        'condor.' . $condor_hist_data{'GlobalJobId'};
+    }
 
-	  # hand data off to gratia
-      Feed_Gratia(%condor_data_hash);
+    # hand data off to gratia
+    Feed_Gratia(%condor_data_hash);
   }
 
   # Otherwise, get the first record to test format of the file
@@ -933,167 +939,171 @@ foreach $logfile (@logfiles) {
 
     if ($record_in =~ /\<c\>/) {
       #if ($debug_mode) { print "Processing as an XML format logfile.\n" }
-      $count_xml++;   # This is counting XML log files (not records)
-      my $last_was_c = 0; # To work around a bug in the condor xml generation
+      $count_xml++;             # This is counting XML log files (not records)
+      my $last_was_c = 0;       # To work around a bug in the condor xml generation
 
       $event_hash = {};  $ctag_depth=1;
       # Parse the XML log file
       while (<LOGF>) {
-	# See fngp-osg:/export/osg/grid/globus/lib/perl/Globus/GRAM
-	# And the JobManger/condor.pm module - under sub poll()
-	
-	# I adapted the code the Globus condor JobManager uses. While
-	# it lacks some error handling, it will work as well or
-	# better than the GRAM job manager.
+        # See fngp-osg:/export/osg/grid/globus/lib/perl/Globus/GRAM
+        # And the JobManger/condor.pm module - under sub poll()
+  
+        # I adapted the code the Globus condor JobManager uses. While
+        # it lacks some error handling, it will work as well or
+        # better than the GRAM job manager.
 
-	if (/<c>/) { # Open tag --------------------
+        if (/<c>/) {            # Open tag --------------------
           # allow for more than one open tag in a row (known condor
           # xml format error).
 
-	  if ($last_was_c != 1) {
-              $ctag_depth++;
+          if ($last_was_c != 1) {
+            $ctag_depth++;
           }
-	  if ($ctag_depth > 1) {
-	    warn "$logfile: Improperly formatted XML records, missing \<c/\>\n";
-	    $logfile_errors++; # An error means we won't delete this log file
-	  }
-	  $event_hash = {};
+          if ($ctag_depth > 1) {
+            warn "$logfile: Improperly formatted XML records, missing \<c/\>\n";
+            $logfile_errors++;  # An error means we won't delete this log file
+          }
+          $event_hash = {};
           $last_was_c = 1;
         } else {
           $last_was_c = 0;
         }
         if (/<a n="([^"]+)">/) { # Attribute line --------------------
-	  my $attr = $1;
+          my $attr = $1;
 
-	  # In the XML version of log files, the Cluster ID was
-	  # labeled just 'Cluster' rather than ClusterId' as it is in
-	  # the original format and in Condor_History
-	  $attr = 'ClusterId' if ($attr =~ /^Cluster$/);
+          # In the XML version of log files, the Cluster ID was
+          # labeled just 'Cluster' rather than ClusterId' as it is in
+          # the original format and in Condor_History
+          $attr = 'ClusterId' if ($attr =~ /^Cluster$/);
 
-	  if (/<s>([^<]+)<\/s>/) {
-	    $event_hash{$attr} = $1;
-	  } elsif (/<i>([^<]+)<\/i>/) {
-	    $event_hash{$attr} = int($1);
-	  } elsif (/<b v="([tf])"\/>/) {
-	    $event_hash{$attr} = ($1 eq 't');
-	  } elsif (/<r>([^<]+)<\/r>/) {
-	    $event_hash{$attr} = $1;
-	  }
-	} elsif (/<\/c>/) { # Close tag --------------------
-	  if ($event_hash{'ClusterId'}) {
-	    # I now "fix" this when setting this attribute (above)
-	    #$event_hash{'ClusterId'} = $event_hash{'Cluster'};
+          if (/<s>([^<]+)<\/s>/) {
+            $event_hash{$attr} = $1;
+          } elsif (/<i>([^<]+)<\/i>/) {
+            $event_hash{$attr} = int($1);
+          } elsif (/<b v="([tf])"\/>/) {
+            $event_hash{$attr} = ($1 eq 't');
+          } elsif (/<r>([^<]+)<\/r>/) {
+            $event_hash{$attr} = $1;
+          }
+        } elsif (/<\/c>/) {     # Close tag --------------------
+          if ($event_hash{'ClusterId'}) {
+            # I now "fix" this when setting this attribute (above)
+            #$event_hash{'ClusterId'} = $event_hash{'Cluster'};
 
-	    # All events have an these "standard" elements: MyType,
-	    #    EventTypeNumber, EventTime, Cluster, Proc, and Subproc
-	    # Process the events that report CPU usage
-	    if ($event_hash{'EventTypeNumber'} == 0) { # Job submitted
-	      # SubmitEvent: has Std and a SubmitHost IP
-	      #if (%condor_data_hash = 
-	      #	      Query_Condor_History($event_hash{'ClusterId'})) {
-	      #	push @logfile_clusterids, $event_hash{'ClusterId'};
-	      #} else {
-	      #	warn "No Condor History found - Logfile: " . 
-	      #	  basename($logfile) . " ClusterId: $event_hash{'Cluster'}\n";
-	      #	#Not sure if this case should be considered "fatal"
-	      #	$logfile_errors++; # An error means we won't delete this log file
-	      #}
-	    } elsif ($event_hash{'EventTypeNumber'} == 1) { # Job began exectuting
-	      # ExecuteEvent: has Std and an ExecuteHost IP
-	    } elsif ($event_hash{'EventTypeNumber'} == 4) { # Job was Evicted
-	      $count_xml_004++;
-	      if (%condor_data_hash = 
-		  Query_Condor_History($event_hash{'ClusterId'})) {
-		if (! defined (Feed_Gratia(%condor_data_hash))) {
-		  warn "Failed to feed XML 004 event to Gratia\n";
-		  $logfile_errors++; # An error means we won't delete this log file
-		}
-	      } else {
-	      }
-	    } elsif ($event_hash{'EventTypeNumber'} == 5) { # Job finished
-	      # JobTerminatedEvent: has Std and several others
-	      $count_xml_005++;
-	      if (%condor_data_hash = 
-		  Query_Condor_History($event_hash{'ClusterId'})) {
-		if (! defined (Feed_Gratia(%condor_data_hash))) {
-		  warn "Failed to feed XML 005 event to Gratia\n";
-		  $logfile_errors++; # An error means we won't delete this log file
-		}
-	      } else {
-		warn "No Condor History found (XML-5) - Logfile: " . 
-		  basename($logfile) . " ClusterId: $event_hash{'ClusterId'}\n";
-	      }
-	    } elsif ($event_hash{'EventTypeNumber'} == 6) { # Image Size
-	      # JobImageSizeEvent: has Std and a Size
-	    } elsif ($event_hash{'EventTypeNumber'} == 9) { # Job Aborted
-	      # JobAbortedEvent: has Std and Reason (string)
-	      $count_xml_009++;
-	      # I think it is helpful to count these,
-	      # but there is no data in them worth reporting to Gratia
-	    }
-	  } else {
-	    warn "I have an XML event record with no Cluster Id.\n";
-	    $logfile_errors++; # An error means we won't delete this log file
-	  }
-	  $ctag_depth--;
-	} # End of close tag
+            # All events have an these "standard" elements: MyType,
+            #    EventTypeNumber, EventTime, Cluster, Proc, and Subproc
+            # Process the events that report CPU usage
+            if ($event_hash{'EventTypeNumber'} == 0) { # Job submitted
+              # SubmitEvent: has Std and a SubmitHost IP
+              #if (%condor_data_hash = 
+              #       Query_Condor_History($event_hash{'ClusterId'})) {
+              # push @logfile_clusterids, $event_hash{'ClusterId'};
+              #} else {
+              # warn "No Condor History found - Logfile: " . 
+              #   basename($logfile) . " ClusterId: $event_hash{'Cluster'}\n";
+              # #Not sure if this case should be considered "fatal"
+              # $logfile_errors++; # An error means we won't delete this log file
+              #}
+            } elsif ($event_hash{'EventTypeNumber'} == 1) { # Job began exectuting
+              # ExecuteEvent: has Std and an ExecuteHost IP
+            } elsif ($event_hash{'EventTypeNumber'} == 4) { # Job was Evicted
+              $count_xml_004++;
+              if (%condor_data_hash = 
+                  Query_Condor_History($event_hash{'ClusterId'})) {
+                if (! defined (Feed_Gratia(%condor_data_hash))) {
+                  warn "Failed to feed XML 004 event to Gratia\n";
+                  $logfile_errors++; # An error means we won't delete this log file
+                }
+              } else {
+              }
+            } elsif ($event_hash{'EventTypeNumber'} == 5) { # Job finished
+              # JobTerminatedEvent: has Std and several others
+              $count_xml_005++;
+              if (%condor_data_hash = 
+                  Query_Condor_History($event_hash{'ClusterId'})) {
+                if (! defined (Feed_Gratia(%condor_data_hash))) {
+                  warn "Failed to feed XML 005 event to Gratia\n";
+                  $logfile_errors++; # An error means we won't delete this log file
+                }
+              } else {
+                warn "No Condor History found (XML-5) - Logfile: " . 
+                  basename($logfile) . " ClusterId: $event_hash{'ClusterId'}\n";
+              }
+            } elsif ($event_hash{'EventTypeNumber'} == 6) { # Image Size
+              # JobImageSizeEvent: has Std and a Size
+            } elsif ($event_hash{'EventTypeNumber'} == 9) { # Job Aborted
+              # JobAbortedEvent: has Std and Reason (string)
+              $count_xml_009++;
+              # I think it is helpful to count these,
+              # but there is no data in them worth reporting to Gratia
+            }
+          } else {
+            warn "I have an XML event record with no Cluster Id.\n";
+            $logfile_errors++;  # An error means we won't delete this log file
+          }
+          $ctag_depth--;
+        }                       # End of close tag
       }
-    } else { # Non-XML format
+    } else {                    # Non-XML format
       #if ($debug_mode) {print "Processing as a non-XML format logfile.\n"} 
       #This is the original condor log file format
-      $count_orig++;   # This is counting 005 files
+      $count_orig++;            # This is counting 005 files
       @event_records = ();
       push @event_records, $record_in;
 
       while ($record_in = <LOGF>) {
-	if ($verbose && $debug_mode) {
-	  print "Next input record: " . $record_in . "\n";
-	}
-	push @event_records, $record_in;
-	
-	if ($record_in =~ /^\.\.\./) { # Terminates this event
-	  if ($event_records[0] =~ /^000 /) {
-	    if ($verbose) { print "Original format 000 record\n"; }
-	  } elsif ($event_records[0] =~ /^001 /) {
-	    if ($verbose) { print "Original format 001 record\n"; }
-	  } elsif ($event_records[0] =~ /^004 /) {
-	    # Is this a '004 Job was Evicted' event?
-	    $count_orig_004++;
-	    if (%condor_data_hash =
-		Process_004($logfile, @event_records)) {
-	      if ($verbose) {
-		print "Process_004 returned Cluster_id of $condor_data_hash{'ClusterId'}\n";
-	      }
-	    } else {
-	      if ($verbose) {
-		warn "No Condor History found (Orig-004) - Logfile: " .
-		  basename($logfile) . "\n";
-		$logfile_errors++; # An error means we won't delete this log file
-	      }
-	    }
-	  } elsif ($event_records[0] =~ /^005 /) {
-	    # Is this a '005 Job Terminated' event?
-	    $count_orig_005++;
-	    if (%condor_data_hash =
-		Process_005($logfile, @event_records)) {
-	      if ($verbose) {
-		print "Process_005 returned Cluster_id of $condor_data_hash{'ClusterId'}\n";
-	      }
-	    } else {
-	      if ($verbose) {
-		warn "No Condor History found (Orig-005) - Logfile: " .
-		  basename($logfile) . "\n";
-		$logfile_errors++; # An error means we won't delete this log file
-	      }
-	    }
-	  } elsif ($event_records[0] =~ /^009 /) {
-	    $count_orig_009++;
-	    # While I think it is helpful to count these,
-	    # but there is no data in them worth reporting to Gratia
-	  }
-	  # Reset array to capture next event
-	  @event_records = ();
-	}
+        if ($verbose && $debug_mode) {
+          print "Next input record: " . $record_in . "\n";
+        }
+        push @event_records, $record_in;
+  
+        if ($record_in =~ /^\.\.\./) { # Terminates this event
+          if ($event_records[0] =~ /^000 /) {
+            if ($verbose) {
+              print "Original format 000 record\n";
+            }
+          } elsif ($event_records[0] =~ /^001 /) {
+            if ($verbose) {
+              print "Original format 001 record\n";
+            }
+          } elsif ($event_records[0] =~ /^004 /) {
+            # Is this a '004 Job was Evicted' event?
+            $count_orig_004++;
+            if (%condor_data_hash =
+                Process_004($logfile, @event_records)) {
+              if ($verbose) {
+                print "Process_004 returned Cluster_id of $condor_data_hash{'ClusterId'}\n";
+              }
+            } else {
+              if ($verbose) {
+                warn "No Condor History found (Orig-004) - Logfile: " .
+                  basename($logfile) . "\n";
+                $logfile_errors++; # An error means we won't delete this log file
+              }
+            }
+          } elsif ($event_records[0] =~ /^005 /) {
+            # Is this a '005 Job Terminated' event?
+            $count_orig_005++;
+            if (%condor_data_hash =
+                Process_005($logfile, @event_records)) {
+              if ($verbose) {
+                print "Process_005 returned Cluster_id of $condor_data_hash{'ClusterId'}\n";
+              }
+            } else {
+              if ($verbose) {
+                warn "No Condor History found (Orig-005) - Logfile: " .
+                  basename($logfile) . "\n";
+                $logfile_errors++; # An error means we won't delete this log file
+              }
+            }
+          } elsif ($event_records[0] =~ /^009 /) {
+            $count_orig_009++;
+            # While I think it is helpful to count these,
+            # but there is no data in them worth reporting to Gratia
+          }
+          # Reset array to capture next event
+          @event_records = ();
+        }
       }
     }
   }
@@ -1105,7 +1115,7 @@ foreach $logfile (@logfiles) {
     } else {
       warn "Logfile ($logfile) was not removed due to errors ($logfile_errors)\n";
     }
-  } # End of the 'foreach $logfile' loop.
+  }                             # End of the 'foreach $logfile' loop.
 }
 
 # Close Python pipe to Gratia.py
@@ -1115,8 +1125,8 @@ $py->close;
 #    were just processed.
 if ($delete_flag) {
   foreach $plog (@processed_logfiles) {
-      unlink ($plog) or warn "Unable to remove logfile ($plog)\n"
-    }
+    unlink ($plog) or warn "Unable to remove logfile ($plog)\n"
+  }
 }
 
 #------------------------------------------------------------------
@@ -1150,6 +1160,9 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.13  2007/09/04 17:15:55  pcanal
+# Send a ping to Gratia even if there is no data to process
+#
 # Revision 1.12  2007/08/06 18:34:05  greenc
 # /bin/env -> /usr/bin/env to satisfy Linux filesystem hierarchy standard.
 #
