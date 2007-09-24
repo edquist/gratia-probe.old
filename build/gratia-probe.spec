@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.27.3
+Version: 0.27.5a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -791,6 +791,11 @@ done
 %endif
 
 %changelog
+* Mon Sep 24 2007 Christopher Green <greenc@fnal.gov> - 0.27.5a-1
+- Remove bad debug message in Gratia.py.
+- Fix encoding behavior in Gratia.py.
+- Fix dangerous behavior in debug mode in condor_meter.pl.
+
 * Tue Sep 11 2007 Christopher Green <greenc@fnal.gov> - 0.27.3-1
 - Match collector version bump.
 
