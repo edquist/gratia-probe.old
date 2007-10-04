@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.27.5a
+Version: 0.27.5b
 Release: 1
 License: GPL
 Group: Applications/System
@@ -791,6 +791,9 @@ done
 %endif
 
 %changelog
+* Thu Oct  4 2007 Christopher Green <greenc@fnal.gov> - 0.27.5b-1
+- Fix location of DebugPrint.py for PBS error conditions.
+
 * Mon Sep 24 2007 Christopher Green <greenc@fnal.gov> - 0.27.5a-1
 - Remove bad debug message in Gratia.py.
 - Fix encoding behavior in Gratia.py.
