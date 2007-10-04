@@ -20,7 +20,7 @@ use urCollector::Common qw(:DEFAULT :Locking);
 use urCollector::Configuration;
 
 sub local_error {
-  system("$URCOLLECTOR_LOC/DebugPrint.py", "-l", "-1", @_);
+  system("$URCOLLECTOR_LOC/../common/DebugPrint.py", "-l", "-1", @_);
 }
 
 ####################################
