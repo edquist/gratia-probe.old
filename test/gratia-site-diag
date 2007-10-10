@@ -88,15 +88,18 @@ foreach my $gk (@ARGV) {
     my ($mtime_epoch, $index, $n_blocks, $perms, $dummy, $user, $group, $size, $month, $date, $time, $name) = split;
     $name or next;
     $perms =~ m&^d& and next;
-    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/ProbeConfig&;
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/ProbeConfig$&;
     push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/.*\.py$&;
     push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/probe/[^/]+/urCollector\.conf$&;
-    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E//gratia/var/tmp/+[^/]+$&;
-    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/monitoring/+[^/]+$&;
-    if ($name =~ m&gratia/var/logs/gratia-probe-.*\.log$&) {
-      push @interesting_files, $name;
-      my $short_name = basename $name;
-      $probe_log_file_info{$short_name} =
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/gratia/var/tmp/+[^/]+$&;
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/monitoring/osg-vo-user-map\.txt$&;
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/monitoring/osg-attributes\.conf$&;
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/monitoring/osg-supported-vo-list\.txt$&;
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/monitoring/osg-undefined-accounts\.txt$&;
+    push @interesting_files, $name if $name =~ m&\Q$osg_loc\E/monitoring/osg-vo-user-map\.txt\.last_checked$&;
+    if ($name =~ m&gratia/var/logs/.*\.log$&) {
+      push @interesting_files, $name if ($name =~ m&gratia/var/logs/gratia-probe-.*\.log$&);
+      $probe_log_file_info{$name} =
         { line => $_,
           mtime_epoch => $mtime_epoch,
           index => $index,
@@ -117,6 +120,8 @@ foreach my $gk (@ARGV) {
     ++$tmpfiles_count if $name =~ m&gratia/var/tmp/gratiafiles/&g;
   }
   close SITE_LISTING;
+  my @dated_log_list = reverse sort grep m&\d\d\d\d-\d\d-\d\d\.log$&, keys %probe_log_file_info;
+  push @interesting_files, $dated_log_list[0] if scalar @dated_log_list;
   foreach my $file (@interesting_files) {
     my $local_file = $file;
     $local_file =~ s&^.*?\Q$osg_loc\E/&&;
@@ -140,10 +145,11 @@ foreach my $gk (@ARGV) {
     my $local_config_file = $file_map{$remote_config_file};
     next unless $local_config_file;
     my ($probe_type) = ($remote_config_file =~ m&([^/]+)/ProbeConfig$&);
-    my $log_file = "gratia_var_log_gratia-probe-$probe_type.log";
+    my $log_file = "gratia_var_log_gratia-probe-$probe_type.log"; 
     print "  > Checking for existence and date of probe log file gratia-probe-$probe_type.log ... ";
-    if ($probe_log_file_info{"gratia-probe-$probe_type.log"}) { # Log file exists
-      if ((time - $probe_log_file_info{"gratia-probe-$probe_type.log"}->{mtime_epoch}) > 86400) {
+    my ($remote_log_file) = (grep m&gratia/var/logs/gratia-probe-$probe_type\.log$&, keys %probe_log_file_info);
+    if ($remote_log_file and $probe_log_file_info{$remote_log_file}) { # Log file exists
+      if ((time - $probe_log_file_info{$remote_log_file}->{mtime_epoch}) > 86400) {
         print "\n    > WARNING: gratia-probe-$probe_type.log is more than 1 day old:\n",
           "      is probe service enabled with vdt-control --on?\n";
         $file_ok = 0;
