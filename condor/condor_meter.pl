@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.14 2007-09-24 21:41:09 greenc Exp $
+# $Id: condor_meter.pl,v 1.15 2007-10-10 18:02:13 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.14 $ ';   # CVS Version number
+my $prog_revision = '$Revision: 1.15 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -354,10 +354,11 @@ sub Read_ClassAd {
 
   my %condor_hist_data;
   while ($line = <FH>) {
+    chomp $line;
 
     # Most lines look something like:  MyType = "Job"
     if ($line =~ /(\S+) = (.*)/) {
-  
+
       $element = $1;  $value=$2;
 
       # Strip double quotes where needed
@@ -367,7 +368,7 @@ sub Read_ClassAd {
 
       # Place attribute in the hash
       $condor_hist_data{$element} = $value;
-    } elsif ($record_in =~ /\S+/) {
+    } elsif ($line =~ /\S+/) {
       warn "Invalid line in ClassAd: $line\n";
       return ();
     }
@@ -849,7 +850,7 @@ foreach $name_arg (@ARGV) {
         # This plain, non-empty file looks like one of our log files
         push(@logfiles, "$name_arg/$file"); $logs_found++;
       }
-      if ($file =~ /history.\d+.\d+/ && -f "$name_arg/$file" && -s _ ) {
+      if ($file =~ /history\.\d+\.\d+/ && -f "$name_arg/$file" && -s _ ) {
         # This plain, non-empty file looks like a ClassAd
         push(@logfiles, "$name_arg/$file"); $logs_found++;
       }
@@ -1160,6 +1161,9 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.14  2007/09/24 21:41:09  greenc
+# Remove dangerous behavior during use of debug flag.
+#
 # Revision 1.13  2007/09/04 17:15:55  pcanal
 # Send a ping to Gratia even if there is no data to process
 #
