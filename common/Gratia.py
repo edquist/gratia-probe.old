@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.67 2007-09-24 21:43:59 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.68 2007-10-16 22:58:20 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -353,7 +353,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.67 $
+    # $Revision: 1.68 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1040,7 +1040,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.67 $")
+        rev = ExtractCvsRevision("$Revision: 1.68 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -2090,6 +2090,7 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     return [VOName, ReportableVOName]
 
 def getUsageRecords(xmlDoc):
+    if not xmlDoc.documentElement: return [] # Major problem
     namespace = xmlDoc.documentElement.namespaceURI
     return xmlDoc.getElementsByTagNameNS(namespace, 'UsageRecord') + \
            xmlDoc.getElementsByTagNameNS(namespace, 'JobUsageRecord')
