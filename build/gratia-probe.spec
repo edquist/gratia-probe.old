@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.27.5b
+Version: 0.27.5c
 Release: 1
 License: GPL
 Group: Applications/System
@@ -791,6 +791,9 @@ done
 %endif
 
 %changelog
+* Tue Oct 16 2007 Christopher Green <greenc@fnal.gov> - 0.27.5c-1
+- Correct handling of suppressed records.
+
 * Thu Oct  4 2007 Christopher Green <greenc@fnal.gov> - 0.27.5b-1
 - Fix location of DebugPrint.py for PBS error conditions.
 
