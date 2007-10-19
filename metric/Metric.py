@@ -1,7 +1,8 @@
-#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.9 2007-07-11 22:03:21 greenc Exp $
+#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.10 2007-10-19 21:20:15 pcanal Exp $
 
-## Updated by Arvind Gopu, Indiana University (http://peart.ucs.indiana.edu
- 
+## Updated by Arvind Gopu, Indiana University (http://peart.ucs.indiana.edu)
+## More Updates by Arvind Gopu 2007-10-19
+
 import Gratia
 from Gratia import *
 
@@ -46,6 +47,10 @@ class MetricRecord(Gratia.Record):
         " The name of the metric "
         self.RecordData = self.AddToList(self.RecordData, "MetricName", "", value)
         
+    def MetricType(self,value):
+        " The Type of the metric: status or performance "
+        self.RecordData = self.AddToList(self.RecordData, "MetricType", "", value)
+        
     def MetricStatus(self,value):
         " This determines the status of a particular subset of functionality of the service. "
         " It is returned from the probe with key metricStatus. It uses a set of standard status values to categorize this "
@@ -63,7 +68,7 @@ class MetricRecord(Gratia.Record):
     def ServiceType(self,value):
         " The service type being tested "
         self.RecordData = self.AddToList(self.RecordData, "ServiceType", "", value)
-        
+
     def ServiceUri(self,value):
         " The Service URI of the resource being tested "
         self.RecordData = self.AddToList(self.RecordData, "ServiceUri", "", value)
@@ -72,17 +77,29 @@ class MetricRecord(Gratia.Record):
         " Resource name where metric was gathered at "
         self.RecordData = self.AddToList(self.RecordData, "GatheredAt", "", value)
 
-    def HostName(self,value):
-        " For local probes, (local) resource name where metric was gathered at "
-        self.RecordData = self.AddToList(self.RecordData, "HostName", "", value)
-
     def SummaryData(self,value):
         " Summary of results of this metric "
         self.RecordData = self.AddToList(self.RecordData, "SummaryData", "", value)
 
     def DetailsData(self,value):
-        " Detailed information about results of this metric "
+        " Detailed information about results of this metric if status metric"
         self.RecordData = self.AddToList(self.RecordData, "DetailsData", "", value)
+
+    def PerformanceData(self,value):
+        " Detailed information about results of this metric if performance metric"
+        self.RecordData = self.AddToList(self.RecordData, "PerformanceData", "", value)
+
+    def VOName(self,value):
+        " The VO the proxy is authorized to run under "
+        self.RecordData = self.AddToList(self.RecordData, "VOName", "", value)
+        
+    def SamUploadFlag(self,value):
+        " Integer flag indicating upload status to SAM and other external resources: NULL=New_Record; 0=Sent; 1=In_Transit; 2=Permanent_Send_Error "
+        self.RecordData = self.AddToList(self.RecordData, "SamUploadFlag", "", value)
+
+    def HostName(self,value):
+        " For local probes, (local) resource name where metric was gathered at "
+        self.RecordData = self.AddToList(self.RecordData, "HostName", "", value)
 
 def getMetricRecords(xmlDoc):
     namespace = xmlDoc.documentElement.namespaceURI
