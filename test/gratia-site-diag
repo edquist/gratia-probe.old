@@ -319,7 +319,8 @@ sub obtain {
   if ($options{local}) {
     $result = system("cp", "$file", "$ENV{PWD}/$local_file");
   } else {
-    $result = system("globus-url-copy", "gsiftp://$gk$file", "file://$ENV{PWD}/$local_file");
+#    $result = system("globus-url-copy", "gsiftp://$gk$file", "file://$ENV{PWD}/$local_file");
+    $result = system("globus-job-run \"$gk\" /bin/cat \"$file\" > \"$local_file\" 2>/dev/null");
   }
   return $result;
 }
