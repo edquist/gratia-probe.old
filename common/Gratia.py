@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.68 2007-10-16 22:58:20 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.69 2007-11-20 22:48:09 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -353,7 +353,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.68 $
+    # $Revision: 1.69 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -430,7 +430,7 @@ def __connect():
                 return
             if (current_time - __last_retry_time) > __retryDelay:
                 __last_retry_time = current_time
-                DebugPrint(1, "Retry connection after", __retryDelay, "s")
+                DebugPrint(1, "Retry connection after ", __retryDelay, "s")
                 __retryDelay = __retryDelay * __backoff_factor
                 if __retryDelay > __maximumDelay: __retryDelay = __maximumDelay
                 __connectionRetries = 0
@@ -836,10 +836,10 @@ def SearchOutstandingRecord():
     for dir in BackupDirList:
         path = os.path.join(dir,"gratiafiles")
         path = os.path.join(path,"r*."+Config.get_GratiaExtension())
-        files = glob.glob(path)
+        files = glob.glob(path) + glob.glob(path + "__*")
         for f in files:
             # Legacy reprocess files or ones with the correct fragment
-            if re.search(r'/?r[0-9]+\.[0-9]+(?:\.'+fragment+r')?\.'+Config.get_GratiaExtension()+r'$',f):
+            if re.search(r'/?r(?:[0-9]+)?\.?[0-9]+(?:\.'+fragment+r')?\.'+Config.get_GratiaExtension()+r'(?:__.{10})?$',f):
                 OutstandingRecord[f] = 1
                 if len(OutstandingRecord) >= MaxFilesToReprocess: break
 
@@ -847,14 +847,22 @@ def SearchOutstandingRecord():
 
     DebugPrint(1,"List of Outstanding records: ",OutstandingRecord.keys())
 
-def GenerateFilename(dir,RecordIndex):
-    "Generate a filename of the for gratia/r$index.$pid.gratia.xml"
+def GenerateFilename(dir):
+    "Generate a filename of the for gratia/r$UNIQUE.$pid.gratia.xml"
     "in the directory 'dir'"
-    filename = "r"+str(RecordIndex)+"."+str(RecordPid)+ \
+    filename = "r."+str(RecordPid)+ \
                "."+FilenameProbeCollectorFragment()+ \
-               "."+Config.get_GratiaExtension()
+               "."+Config.get_GratiaExtension() + "__XXXXXXXXXX"
     filename = os.path.join(dir,filename)
-    return filename
+    mktemp_pipe = os.popen("mktemp -q \"" + filename + "\"");
+    if mktemp_pipe != None:
+        filename = mktemp_pipe.readline()
+        mktemp_pipe.close()
+        filename = string.strip(filename)
+        if filename != "":
+            return filename
+
+    raise IOError
 
 def FilenameProbeCollectorFragment():
     "Generate a filename fragment based on the collector destination"
@@ -867,17 +875,10 @@ def FilenameProbeCollectorFragment():
 
     return re.sub(r'[:/]', r'_', fragment)
 
-def OpenNewRecordFile(DirIndex,RecordIndex):
-    "Try to open the first available file"
-    "DirIndex indicates which directory to try first"
-    "RecordIndex indicates which file index to try first"
-    "The routine returns the opened file and the next"
-    "directory index and record index"
-    "If all else fails, we print the xml to stdout"
+def OpenNewRecordFile(DirIndex):
 
-    # The file name will be r$index.$pid.gratia.xml
-
-    DebugPrint(3,"Open request: ",DirIndex," ",RecordIndex)
+    # The file name will be rUNIQUE.$pid.gratia.xml
+    DebugPrint(3,"Open request: ",DirIndex)
     index = 0
     for dir in BackupDirList:
         index = index + 1
@@ -893,20 +894,17 @@ def OpenNewRecordFile(DirIndex,RecordIndex):
         if not os.path.exists(dir):
             continue
         if not os.access(dir,os.W_OK): continue
-        filename = GenerateFilename(dir,RecordIndex)
-        while os.access(filename,os.F_OK):
-            RecordIndex = RecordIndex + 1
-            filename = GenerateFilename(dir,RecordIndex)
         try:
+            filename = GenerateFilename(dir)
             DebugPrint(1,"Creating file:",filename)
             f = open(filename,'w')
             DirIndex = index
-            return(f,DirIndex,RecordIndex)
+            return(f,DirIndex)
         except:
             continue
     f = sys.stdout
     DirIndex = index
-    return (f,DirIndex,RecordIndex)
+    return (f,DirIndex)
 
 
 def TimeToString(t = time.gmtime() ):
@@ -1040,7 +1038,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.68 $")
+        rev = ExtractCvsRevision("$Revision: 1.69 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1710,15 +1708,14 @@ def Send(record):
     xmlDoc.unlink()
 
     dirIndex = 0
-    recordIndex = 0
     success = False
     ind = 0
     f = 0
 
     while not success:
-        (f,dirIndex,recordIndex) = OpenNewRecordFile(dirIndex,recordIndex)
+        (f,dirIndex) = OpenNewRecordFile(dirIndex)
         DebugPrint(1,"Will save in the record in:",f.name)
-        DebugPrint(3,"DirIndex=",dirIndex," RecordIndex=",recordIndex)
+        DebugPrint(3,"DirIndex=",dirIndex)
         if f.name != "<stdout>":
             try:
                 for line in record.XmlData:
@@ -1856,15 +1853,14 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
         # fill the back up file
 
         dirIndex = 0
-        recordIndex = 0
         success = False
         ind = 0
         f = 0
 
         while not success:
-            (f,dirIndex,recordIndex) = OpenNewRecordFile(dirIndex,recordIndex)
+            (f,dirIndex) = OpenNewRecordFile(dirIndex)
             DebugPrint(1,"Will save in the record in:",f.name)
-            DebugPrint(3,"DirIndex=",dirIndex," RecordIndex=",recordIndex)
+            DebugPrint(3,"DirIndex=",dirIndex)
             if f.name == "<stdout>":
                 responseString = "Fatal Error: unable to save record prior to send attempt"
                 DebugPrint(0, responseString)
