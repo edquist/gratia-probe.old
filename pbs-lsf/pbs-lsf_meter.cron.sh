@@ -3,7 +3,7 @@
 # pbs-lsfr_meter.cron.sh - Shell script used with cron to parse PBS and LSF
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: pbs-lsf_meter.cron.sh,v 1.8 2007-10-10 18:03:04 greenc Exp $
+# $Id: pbs-lsf_meter.cron.sh,v 1.9 2007-12-10 22:37:05 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/pbs-lsf/pbs-lsf_meter.cron.sh,v $
 ###################################################################
 function check_if_running {
@@ -15,13 +15,15 @@ function check_if_running {
   #       ends prematurely like on a system shutdown.
     
   NCMeter=`ps -ef | egrep "\./urCollector.pl|\./pbs-lsf_meter.pl" | grep -v grep | wc -l`
-  if [ ${NCMeter} -ne 0 ]; then
-    return 1 
-  fi
   get_lockfile
   if [ -f $LOCKFILE ];then
+    if [ ${NCMeter} -ne 0 ]; then
+      return 1 
+    else
+      rm -f $LOCKFILE
+    fi
+  else
     mkdir -p `dirname "$LOCKFILE"`
-    rm -f $LOCKFILE
   fi
   return 0
 } # end of terminate_if_running
@@ -131,6 +133,9 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.8  2007/10/10 18:03:04  greenc
+# Make sure lock directory exists.
+#
 # Revision 1.7  2007/09/10 20:17:14  greenc
 # Update SPEC file.
 #
