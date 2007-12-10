@@ -9,6 +9,7 @@
 
 rpmbuild_top=/usr/src/redhat
 urCollector_dir=./build/urCollector
+dCache_dir=./build/dCache
 
 function usage() {
   echo "usage: ${0##*/} -h" 1>&2
@@ -42,6 +43,6 @@ if [[ ! -w "$rpmbuild_top/SOURCES" ]]; then
   usage
 fi
 
-cp -pv "$urCollector_dir/"* "$@" "$rpmbuild_top/SOURCES" 2>/dev/null
+cp -pv "$dCache_dir/"*.{tar.gz,egg} "$urCollector_dir/"* "$@" "$rpmbuild_top/SOURCES" 2>/dev/null
 
 exit 0

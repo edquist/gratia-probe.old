@@ -1,13 +1,20 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.27.5c
+Version: 0.30a
 Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
 Packager: Chris Green <greenc@fnal.gov>
 Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
+BuildRequires: python >= 2.3
+BuildRequires: postgresql-devel
+
+%global sqlalchemy_version 0.4.1
+%global psycopg2_version 2.0.6
+%global dcache_probe_version 2.0
+%global dcache_storage_probe_version 0_1
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
 %define _unpackaged_files_terminate_build 0
@@ -41,13 +48,21 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 
 %global osg_attr %{vdt_loc}/monitoring/osg-attributes.conf
 
-%{!?site_name: %global site_name '"$( ( if [[ -r \"%{osg_attr}\" ]]; then . \"%{osg_attr}\" ; echo \"${OSG_SITE_NAME}\"; else echo \"Generic Site\"; fi ) )"'}
+%{!?site_name: %global site_name \$(( if [[ -r \"%{osg_attr}\" ]]; then . \"%{osg_attr}\" ; echo \"${OSG_SITE_NAME}\"; else echo \"Generic Site\"; fi ) )}
 
 %{!?meter_name: %global meter_name `hostname -f`}
 
-%global scrub_root_crontab tmpfile=`mktemp /tmp/gratia-cleanup.XXXXXXXXXX`; crontab -l 2>/dev/null | %{__grep} -v -e 'gratia/probe/' > "$tmpfile" 2>/dev/null; crontab "$tmpfile" 2>/dev/null 2>&1; %{__rm} -f "$tmpfile"
+%define scrub_root_crontab tmpfile=`mktemp /tmp/gratia-cleanup.XXXXXXXXXX`; crontab -l 2>/dev/null | %{__grep} -v -e 'gratia/probe/' > "$tmpfile" 2>/dev/null; crontab "$tmpfile" 2>/dev/null 2>&1; %{__rm} -f "$tmpfile"
 
-%global final_post_message() [[ "%1" == *ProbeConfig* ]] && echo "IMPORTANT: please check %1 and remember to set EnableProbe = \"1\" to start operation." 1>&2
+%define final_post_message() [[ "%1" == *ProbeConfig* ]] && echo "IMPORTANT: please check %1 and remember to set EnableProbe = \"1\" to start operation." 1>&2
+
+%define max_pending_files_check() (( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\\"\\{0,1\\}\\([0-9]\\{1,\\}\\)\\"\\{0,1\\}.*$/\\1/p' "${RPM_INSTALL_PREFIX1}/probe/%1/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\\n"; fi
+
+%define configure_probeconfig_pre(p:d:m:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; %{__perl} -wni.orig -e 's&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $meter_name = "%{meter_name}"; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":"%{osg_collector}"; my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&(MeterName\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
+
+%define configure_probeconfig_post(g:) my $grid = "%{-g*}" || "%{grid}"; s&(Grid\\s*=\\s*)\\\"[^\\\"]*\\\"&${1}"${grid}"&; m&%{ProbeConfig_template_marker}& or print; ' "$config_file" >/dev/null 2>&1; %{expand: %final_post_message $config_file }; done
+
+%global setuptools_source setuptools-0.6c3-py2.3.egg
 
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
@@ -57,6 +72,9 @@ Source4: urCollector-%{urCollector_version}.tgz
 Source5: %{name}-sge-%{version}.tar.bz2
 Source6: %{name}-glexec-%{version}.tar.bz2
 Source7: %{name}-metric-%{version}.tar.bz2
+Source8: SQLAlchemy-%{sqlalchemy_version}.tar.gz
+Source9: psycopg2-%{psycopg2_version}.tar.gz
+Source10: %{name}-dCache-storage-%{version}.tar.bz2
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch2: urCollector-2006-06-13-createTime-timezone.patch
@@ -85,10 +103,18 @@ cd urCollector-%{urCollector_version}
 %patch -P 4 -b .modules-1
 %patch -P 5 -b .modules-2
 %patch -P 6 -b .xmlUtil.h-gcc4.1-fixes
+%setup -q -D -T -a 9
 %endif
 %setup -q -D -T -a 5
 %setup -q -D -T -a 6
 %setup -q -D -T -a 7
+%setup -q -D -T -a 8
+%{__cp} ${RPM_SOURCE_DIR}/%{setuptools_source} SQLAlchemy-%{sqlalchemy_version}/
+mkdir dCache
+%{__tar} zxvf ${RPM_SOURCE_DIR}/gratia-dcache-probe-%{dcache_probe_version}.tar.gz -C dCache/
+%{__rm} -rf dCache/{external,tmp,install.sh} # Not needed by this install.
+%setup -q -D -T -a 10
+%{__tar} zxvf ${RPM_SOURCE_DIR}/dcacheStorageMeter_%{dcache_storage_probe_version}.tar.gz -C dCache-storage/
 
 %build
 %ifnarch noarch
@@ -96,6 +122,11 @@ cd urCollector-%{urCollector_version}
 %{__make} clean
 %{__make}
 cd -
+cd psycopg2-%{psycopg2_version}
+python setup.py build
+%else
+cd SQLAlchemy-%{sqlalchemy_version}
+python setup.py build
 %endif
 
 %install
@@ -105,7 +136,7 @@ cd -
 
 %ifarch noarch
   # Obtain files
-  %{__cp} -pR {common,condor,psacct,sge,glexec,metric} "${RPM_BUILD_ROOT}%{default_prefix}/probe"
+  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache,dCache-storage} "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
   for probe_config in \
@@ -114,17 +145,30 @@ cd -
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/sge/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/glexec/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/metric/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-storage/ProbeConfig" \
       ; do
     %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
   done
 
+  # dCache init script
+  %{__install} -d "${RPM_BUILD_ROOT}/etc/rc.d/init.d/"
+  %{__install} -m 755 "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache/gratia-dcache-probe" "${RPM_BUILD_ROOT}/etc/rc.d/init.d/"
+  %{__rm} -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache/"{gratia-dcache-probe,Gratia.py}
+
+  # YUM repository install
   install -d "${RPM_BUILD_ROOT}/etc/yum.repos.d"
   %{__mv} -v "${RPM_BUILD_ROOT}%{default_prefix}/probe/common/gratia.repo" "${RPM_BUILD_ROOT}/etc/yum.repos.d/"
-%else
-  %{__cp} -pR pbs-lsf "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
-  # Get uncustomized ProbeConfigTemplate file (see post below)
+  # Get already-built SQLAlchemy software
+  %{__cp} -R SQLAlchemy-%{sqlalchemy_version}/build/lib/sqlalchemy \
+  "${RPM_BUILD_ROOT}%{default_prefix}/probe/common/"
+
+%else
+
+  # PBS / LSF probe install
+  %{__cp} -pR pbs-lsf "${RPM_BUILD_ROOT}%{default_prefix}/probe"
   for probe_config in \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/ProbeConfig" \
       ; do
@@ -132,6 +176,10 @@ cd -
           "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
   done
+  cd "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf"
+  %{__ln_s} . etc
+  %{__ln_s} . libexec
+  cd - >/dev/null
 
   # Get urCollector software
   cd urCollector-%{urCollector_version}
@@ -148,10 +196,12 @@ cd -
   "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector"
   %{__cp} -p urCollector/Configuration.pm \
   "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector"
+  cd - >/dev/null
 
-  cd "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf"
-  %{__ln_s} . etc
-  %{__ln_s} . libexec
+  # Get already-built psycopg2 software
+  %{__cp} -R psycopg2-%{psycopg2_version}/build/lib.* \
+  "${RPM_BUILD_ROOT}%{default_prefix}/probe/"
+
 %endif
 
 cd "${RPM_BUILD_ROOT}%{default_prefix}"
@@ -176,6 +226,23 @@ cd "${RPM_BUILD_ROOT}%{default_prefix}"
 Probes for the Gratia OSG accounting system
 
 %ifnarch noarch
+%package extra-libs-arch-spec
+Summary: Architecture-specific third-party libraries required by some Gratia probes.
+Group: Application/System
+Requires: postgresql-libs
+Requires: python >= 2.3
+License: See psycopg2-LICENSE.
+
+%description extra-libs-arch-spec
+Architecture-specific third-party libraries required by some Gratia probes.
+
+Currently this consists of the psycopg2 postgresql interface package;
+see http://www.initd.org/pub/software/psycopg/ for details.
+
+%files extra-libs-arch-spec
+%defattr(-,root,root,-)
+%{default_prefix}/probe/lib.*
+
 %package pbs-lsf%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for PBS and LSF batch systems.
 Group: Application/System
@@ -218,6 +285,7 @@ This product includes software developed by The EU EGEE Project
 %post pbs-lsf%{?maybe_itb_suffix}
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+# /etc -> "${RPM_INSTALL_PREFIX2}"
 
 # Configure urCollector.conf
 %{__cat} <<EOF | while read config_file; do
@@ -239,50 +307,25 @@ m&%{pbs_lsf_template_marker}& or print;
 "$config_file" >/dev/null 2>&1
 done
 
-# Configure ProbeConfig
-%{__cat} <<EOF | while read config_file; do
-`%{__grep} -le '^%{ProbeConfig_template_marker}$' \
-"${RPM_INSTALL_PREFIX1}"/probe/pbs-lsf/ProbeConfig{,.rpmnew} \
-2>/dev/null`
-EOF
-test -n "$config_file" || continue
-%{__perl} -wni.orig -e \
-'
-s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-%{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
-s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-my $install_host = `hostname -f`;
-chomp $install_host;
-$install_host = "%{meter_name}" unless $install_host =~ m&\.&;
-my $collector_host = ($install_host =~ m&\.fnal\.&i)?"%{fnal_collector}":"%{osg_collector}";
-s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${collector_host}:%{collector_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
-s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"pbs-lsf:'"%{meter_name}"'"&;
-s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
-s&(Grid\s*=\s*)\"[^\"]*\"&${1}"%{grid}"&;
-m&%{ProbeConfig_template_marker}& or print;
-' \
-"$config_file" >/dev/null 2>&1
-%final_post_message $config_file
+%configure_probeconfig_pre -d pbs-lsf -m pbs-lsf
+%configure_probeconfig_post
 
-done
-
-# Check for sensible value of MaxPendingFiles in config file.
-(( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/pbs-lsf/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
+%max_pending_files_check pbs-lsf
 
 # Configure crontab entry
 %scrub_root_crontab
 if %{__grep} -re 'pbs-lsf_meter.cron\.sh' \
-        /etc/crontab /etc/cron.??* >/dev/null 2>&1; then
+        ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
 %{__cat} <<EOF 1>&2
 
-WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
+WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*
          Please check and remove to avoid clashes with root's crontab
 
 EOF
 fi
 
 (( min = $RANDOM % 15 ))
-%{__cat} >/etc/cron.d/gratia-probe-pbs-lsf.cron <<EOF
+%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-pbs-lsf.cron <<EOF
 $min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/pbs-lsf/pbs-lsf_meter.cron.sh"
 EOF
@@ -290,7 +333,7 @@ EOF
 %preun pbs-lsf%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  %{__rm} -f /etc/gratia-probe-pbs-lsf.cron
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/gratia-probe-pbs-lsf.cron
 fi
 
 %else
@@ -312,10 +355,12 @@ Common files and examples for Gratia OSG accounting system probes.
 %doc common/README
 %doc common/samplemeter.pl
 %doc common/samplemeter.py
+%doc common/samplemeter_multi.py
 %doc common/ProbeConfigTemplate
 %{default_prefix}/probe/common/README
 %{default_prefix}/probe/common/samplemeter.pl
 %{default_prefix}/probe/common/samplemeter.py
+%{default_prefix}/probe/common/samplemeter_multi.py
 %{default_prefix}/probe/common/ProbeConfigTemplate
 %{default_prefix}/probe/common/Gratia.py
 %{default_prefix}/probe/common/GetProbeConfigAttribute.py
@@ -323,6 +368,22 @@ Common files and examples for Gratia OSG accounting system probes.
 %{default_prefix}/probe/common/RegisterProbe.py
 %{default_prefix}/probe/common/test/db-find-job
 %config(noreplace) /etc/yum.repos.d/gratia.repo
+
+%package extra-libs
+Summary: Third-party libraries required by some Gratia probes.
+Group: Application/System
+Requires: python >= 2.3
+License: See SQLAlchemy-LICENSE.
+
+%description extra-libs
+Third-party libraries required by some Gratia probes.
+
+Currently this consists of the SQLAlchemy postgresql interface package;
+see http://www.sqlalchemy.org/ for details.
+
+%files extra-libs
+%defattr(-,root,root,-)
+%{default_prefix}/probe/common/sqlalchemy
 
 %package psacct
 Summary: A ps-accounting probe
@@ -352,59 +413,37 @@ The psacct probe for the Gratia OSG accounting system.
 %post psacct
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+# /etc -> "${RPM_INSTALL_PREFIX2}"
 
-%{__cat} <<EOF | while read config_file; do
-`%{__grep} -le '^%{ProbeConfig_template_marker}$' \
-"${RPM_INSTALL_PREFIX1}"/probe/psacct/ProbeConfig{,.rpmnew} \
-2>/dev/null`
-${RPM_INSTALL_PREFIX1}/probe/psacct/facct-catchup
-${RPM_INSTALL_PREFIX1}/probe/psacct/facct-turnoff.sh
-${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh
-${RPM_INSTALL_PREFIX1}/probe/psacct/gratia-psacct
-/etc/rc.d/init.d/gratia-psacct
-EOF
-test -n "$config_file" || continue
-# Configure ProbeConfig
-%{__perl} -wni.orig -e \
-'
-s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"%{fnal_collector}:8882"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
-s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"psacct:'"%{meter_name}"'"&;
-s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
+%configure_probeconfig_pre -p 8882 -d psacct -m psacct ${RPM_INSTALL_PREFIX1}/probe/psacct/facct-catchup ${RPM_INSTALL_PREFIX1}/probe/psacct/facct-turnoff.sh ${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh ${RPM_INSTALL_PREFIX1}/probe/psacct/gratia-psacct ${RPM_INSTALL_PREFIX2}/rc.d/init.d/gratia-psacct
 m&^/>& and print <<EOF;
     PSACCTFileRepository="$ENV{RPM_INSTALL_PREFIX1}/var/account/"
     PSACCTBackupFileRepository="$ENV{RPM_INSTALL_PREFIX1}/var/backup/"
     PSACCTExceptionsRepository="$ENV{RPM_INSTALL_PREFIX1}/logs/exceptions/"
 EOF
-s&(Grid\s*=\s*)\"[^\"]*\"&${1}"Local"&;
-m&^\s*VDTSetupFile\s*=& or m&%{ProbeConfig_template_marker}& or print;' \
-"$config_file" >/dev/null 2>&1
-%final_post_message $config_file
-
-done
+m&^\s*VDTSetupFile\s*=& and next;
+%configure_probeconfig_post -g Local
 
 # Configure boot-time activation of accounting.
 /sbin/chkconfig --add gratia-psacct
 /sbin/chkconfig --level 35 gratia-psacct on
 
-# Check for sensible value of MaxPendingFiles in config file.
-(( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/psacct/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
+%max_pending_files_check psacct
 
 # Configure crontab entry
 %scrub_root_crontab
 if %{__grep} -re 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' \
-        /etc/crontab /etc/cron.??* >/dev/null 2>&1; then
+        ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
 %{__cat} 1>&2 <<EOF
 
 
-WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
+WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*
          Please check and remove to avoid clashes with root's crontab
 
 EOF
 fi
 
-%{__cat} >/etc/cron.d/gratia-probe-psacct.cron <<EOF
+%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-psacct.cron <<EOF
 $(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh"
 EOF
@@ -415,7 +454,7 @@ EOF
 After configuring ${RPM_INSTALL_PREFIX1}/probe/psacct/ProbeConfig
 invoke
 
-/etc/rc.d/init.d/gratia-psacct start
+${RPM_INSTALL_PREFIX2}/rc.d/init.d/gratia-psacct start
 
 to start process accounting
 
@@ -429,7 +468,7 @@ if %{__grep} -e 'fiscal/monacct\.log' >/dev/null 2>&1; then
         -e 'fiscal/monacct\.log' > "$tmpfile" 2>/dev/null
   crontab "$tmpfile" >/dev/null 2>&1
   echo "Shutting down facct service" 1>&2
-  chkconfig --del facct
+  /sbin/chkconfig --del facct
   echo "
 
 Execute 
@@ -445,7 +484,7 @@ fi
 %preun psacct
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  %{__rm} -f /etc/gratia-probe-psacct.cron
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/gratia-probe-psacct.cron
 fi
 
 %package condor%{?maybe_itb_suffix}
@@ -472,31 +511,8 @@ The Condor probe for the Gratia OSG accounting system.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
-%{__cat} <<EOF | while read config_file; do
-`%{__grep} -le '^%{ProbeConfig_template_marker}$' \
-"${RPM_INSTALL_PREFIX1}"/probe/condor/ProbeConfig{,.rpmnew} \
-2>/dev/null`
-EOF
-test -n "$config_file" || continue
-# Configure ProbeConfig
-%{__perl} -wni.orig -e \
-'
-s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-%{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
-s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-my $install_host = `hostname -f`;
-chomp $install_host;
-$install_host = "%{meter_name}" unless $install_host =~ m&\.&;
-my $collector_host = ($install_host =~ m&\.fnal\.&i)?"%{fnal_collector}":"%{osg_collector}";
-s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${collector_host}:%{collector_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
-s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"condor:'"%{meter_name}"'"&;
-s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
-s&(Grid\s*=\s*)\"[^\"]*\"&${1}"%{grid}"&;
-m&%{ProbeConfig_template_marker}& or print;' \
-"$config_file" >/dev/null 2>&1
-%final_post_message $config_file
-
-done
+%configure_probeconfig_pre -d condor -m condor
+%configure_probeconfig_post
 
 # Configure GRAM perl modules
 vdt_setup_sh=`%{__perl} -ne 's&^\s*VDTSetupFile\s*=\s*\"([^\"]+)\".*$&$1& and print;' \
@@ -539,23 +555,22 @@ for jobmanager in "$condor_pm" "$managedfork_pm"; do
         perl -wi.gratia-`date +%Y%m%d` "$patch_script" "$jobmanager"
 done
 
-# Check for sensible value of MaxPendingFiles in config file.
-(( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/condor/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
+%max_pending_files_check condor
 
 # Configure crontab entry
 %scrub_root_crontab
 if %{__grep} -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' \
-        /etc/crontab /etc/cron.??* >/dev/null 2>&1; then
+        ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
 %{__cat} <<EOF 1>&2
 
-WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
+WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*
          Please check and remove to avoid clashes with root's crontab
 
 EOF
 fi
 
 (( min = $RANDOM % 15 ))
-%{__cat} >/etc/cron.d/gratia-probe-condor.cron <<EOF
+%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-condor.cron <<EOF
 $min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/condor/condor_meter.cron.sh"
 EOF
@@ -563,7 +578,7 @@ EOF
 %preun condor%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  %{__rm} -f /etc/cron.d/gratia-probe-condor.cron
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-condor.cron
 fi
 
 %package sge%{?maybe_itb_suffix}
@@ -590,49 +605,28 @@ The SGE probe for the Gratia OSG accounting system.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
-%{__cat} <<EOF | while read config_file; do
-`%{__grep} -le '^%{ProbeConfig_template_marker}$' \
-"${RPM_INSTALL_PREFIX1}"/probe/sge/ProbeConfig{,.rpmnew} \
-2>/dev/null`
-EOF
-test -n "$config_file" || continue
-%{__perl} -wni.orig -e \
-'
-s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-%{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
-s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-my $install_host = `hostname -f`;
-chomp $install_host;
-$install_host = "%{meter_name}" unless $install_host =~ m&\.&;
-my $collector_host = ($install_host =~ m&\.fnal\.&i)?"%{fnal_collector}":"%{osg_collector}";
-s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${collector_host}:%{collector_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
-s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"sge:'"%{meter_name}"'"&;
-s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
+%configure_probeconfig_pre -d sge -m sge
 m&^/>& and print <<EOF;
     SGEAccountingFile=""
 EOF
-s&(Grid\s*=\s*)\"[^\"]*\"&${1}"%{grid}"&;
-m&%{ProbeConfig_template_marker}& or print;' \
-"$config_file" >/dev/null 2>&1
-done
+%configure_probeconfig_post
 
-# Check for sensible value of MaxPendingFiles in config file.
-(( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/sge/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
+%max_pending_files_check sge
 
 # Configure crontab entry
 %scrub_root_crontab
 if %{__grep} -re 'sge_meter.cron\.sh' -e 'sge\.py' \
-        /etc/crontab /etc/cron.??* >/dev/null 2>&1; then
+        ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
 %{__cat} <<EOF 1>&2
 
-WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
+WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*
          Please check and remove to avoid clashes with root's crontab
 
 EOF
 fi
 
 (( min = $RANDOM % 15 ))
-%{__cat} >/etc/cron.d/gratia-probe-sge.cron <<EOF
+%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-sge.cron <<EOF
 $min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/sge/sge_meter.cron.sh"
 EOF
@@ -640,7 +634,7 @@ EOF
 %preun sge%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  %{__rm} -f /etc/gratia-probe-sge.cron
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/gratia-probe-sge.cron
 fi
 
 %package glexec%{?maybe_itb_suffix}
@@ -668,53 +662,30 @@ The gLExec probe for the Gratia OSG accounting system.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
-%{__cat} <<EOF | while read config_file; do
-`%{__grep} -le '^%{ProbeConfig_template_marker}$' \
-"${RPM_INSTALL_PREFIX1}"/probe/glexec/ProbeConfig{,.rpmnew} \
-2>/dev/null`
-EOF
-test -n "$config_file" || continue
-%{__perl} -wni.orig -e \
-'
-s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-%{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
-s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-my $install_host = `hostname -f`;
-chomp $install_host;
-$install_host = "%{meter_name}" unless $install_host =~ m&\.&;
-my $collector_host = ($install_host =~ m&\.fnal\.&i)?"%{fnal_collector}":"%{osg_collector}";
-s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${collector_host}:%{collector_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
-s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"glexec:'"%{meter_name}"'"&;
-s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
-s&(CertificateFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxy.pem"&;
-s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxykey.pem"&;
+%configure_probeconfig_pre -d glexec -m glexec
+s&(CertificateFile\s*=\s*)\"[^\"]*\"&${1}"${RPM_INSTALL_PREFIX2}/grid-security/hostproxy.pem"&;
+s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"${RPM_INSTALL_PREFIX2}/grid-security/hostproxykey.pem"&;
 m&^/>& and print <<EOF;
     gLExecMonitorLog="/var/log/glexec/glexec_monitor.log"
 EOF
-s&(Grid\s*=\s*)\"[^\"]*\"&${1}"%{grid}"&;
-m&%{ProbeConfig_template_marker}& or print;' \
-"$config_file" >/dev/null 2>&1
-%final_post_message $config_file
+%configure_probeconfig_post
 
-done
-
-# Check for sensible value of MaxPendingFiles in config file.
-(( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/glexec/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
+%max_pending_files_check glexec
 
 # Configure crontab entry
 %scrub_root_crontab
 if %{__grep} -re 'glexec_meter.cron\.sh' \
-        /etc/crontab /etc/cron.??* >/dev/null 2>&1; then
+        ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
 %{__cat} <<EOF 1>&2
 
-WARNING: non-standard installation of probe in /etc/crontab or /etc/cron.*
+WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*
          Please check and remove to avoid clashes with root's crontab
 
 EOF
 fi
 
 (( min = $RANDOM % 15 ))
-%{__cat} >/etc/cron.d/gratia-probe-glexec.cron <<EOF
+%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-glexec.cron <<EOF
 $min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/glexec/glexec_meter.cron.sh"
 EOF
@@ -724,7 +695,7 @@ EOF
 %preun glexec%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  %{__rm} -f /etc/cron.d/gratia-probe-glexec.cron
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-glexec.cron
 fi
 #   End of glExec preun
 # End of gLExec section
@@ -753,44 +724,163 @@ The metric probe for the Gratia OSG accounting system.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
-%{__cat} <<EOF | while read config_file; do
-`%{__grep} -le '^%{ProbeConfig_template_marker}$' \
-"${RPM_INSTALL_PREFIX1}"/probe/metric/ProbeConfig{,.rpmnew} \
-2>/dev/null`
-EOF
-test -n "$config_file" || continue
-%{__perl} -wni.orig -e \
-'
-s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-%{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;}
-s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&;
-my $install_host = `hostname -f`;
-chomp $install_host;
-$install_host = "%{meter_name}" unless $install_host =~ m&\.&;
-s&^(\s*(?:SOAPHost|SSLRegistrationHost)\s*=\s*).*$&${1}"${metric_collector}:%{metric_port}"&; s&^(\s*SSLHost\s*=\s*).*$&${1}""&;
-s&(MeterName\s*=\s*)\"[^\"]*\"&${1}"metric:'"%{meter_name}"'"&;
-s&(SiteName\s*=\s*)\"[^\"]*\"&${1}"%{site_name}"&;
-s&(CertificateFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxy.pem"&;
-s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxykey.pem"&;
+%configure_probeconfig_pre -d metric -m metric
+s&(CertificateFile\s*=\s*)\"[^\"]*\"&${1}"${RPM_INSTALL_PREFIX2}/grid-security/hostproxy.pem"&;
+s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"${RPM_INSTALL_PREFIX2}/grid-security/hostproxykey.pem"&;
 m&^/>& and print <<EOF;
     metricMonitorLog="/var/log/metric/metric_monitor.log"
 EOF
-s&(Grid\s*=\s*)\"[^\"]*\"&${1}"%{grid}"&;
-m&%{ProbeConfig_template_marker}& or print;' \
-"$config_file" >/dev/null 2>&1
-%final_post_message $config_file
+%configure_probeconfig_post
 
-done
-
-# Check for sensible value of MaxPendingFiles in config file.
-(( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\"\{0,1\}\([0-9]\{1,\}\)\"\{0,1\}.*$/\1/p' "${RPM_INSTALL_PREFIX1}/probe/metric/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\n"; fi
+%max_pending_files_check metric
 
 # End of metric post
 # End of metric section
 
+%package dCache%{?maybe_itb_suffix}
+Summary: Gratia OSG accounting system probe for dCache billing.
+Group: Application/System
+Requires: %{name}-common >= 0.30
+Requires: %{name}-extra-libs
+Requires: %{name}-extra-libs-arch-spec
+License: See LICENSE.
+%{?config_itb:Obsoletes: %{name}-dCache}
+%{!?config_itb:Obsoletes: %{name}-dCache%{itb_suffix}}
+
+%description dCache%{?maybe_itb_suffix}
+Gratia OSG accounting system probe for dCache billing.
+Contributed by Greg Sharp and the dCache project.
+
+%files dCache%{?maybe_itb_suffix}
+%defattr(-,root,root,-)
+/etc/rc.d/init.d/gratia-dcache-probe
+%{default_prefix}/probe/dCache/README
+%{default_prefix}/probe/dCache/Alarm.py
+%{default_prefix}/probe/dCache/Checkpoint.py
+%{default_prefix}/probe/dCache/CheckpointTest.py
+%{default_prefix}/probe/dCache/DCacheAggregator.py
+%{default_prefix}/probe/dCache/dCacheBillingAggregator.py
+%config(noreplace) %{default_prefix}/probe/dCache/ProbeConfig
+
+%post dCache%{?maybe_itb_suffix}
+# /usr -> "${RPM_INSTALL_PREFIX0}"
+# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+# /etc -> "${RPM_INSTALL_PREFIX2}"
+
+# Configure ProbeConfig
+%configure_probeconfig_pre -d dCache -m dcache
+m&^/>& and print <<EOF;
+    UpdateFrequency="120"
+    DBHostName="localhost"
+    DBLoginName="srmdcache"
+    DBPassword="srmdcache"
+    StopFileName="stopGratiaFeed"
+    DCacheServerHost="BILLING_HOST"
+    EmailServerHost="localhost"
+    EmailFromAddress="dCacheProbe@localhost"
+    EmailToList=""
+    AggrLogLevel="warn"
+EOF
+^PROBE_DIR
+%configure_probeconfig_post
+
+# Configure init script
+perl -wapi.bak -e 'if (s&^PROBE_DIR=.*$&'"${RPM_INSTALL_PREFIX1}"'/probe/dCache&) {
+  print;
+  print <<'"'"'EOF'"'"';
+arch_spec_dir=${PROBE_DIR}/../lib.*
+if test -n "$PYTHONPATH" ; then
+  if echo "$PYTHONPATH" | grep -e '"'"':$'"'"' >/dev/null 2>&1; then
+    PYTHONPATH="${PYTHONPATH}${PROBE_DIR}/../common:${arch_spec_dir}:"
+  else
+    PYTHONPATH="${PYTHONPATH}:${PROBE_DIR}/../common:${arch_spec_dir}"
+  fi
+else
+  PYTHONPATH="${PROBE_DIR}/../common:${arch_spec_dir}"
+fi
+export PYTHONPATH
+EOF
+  next;
+}
+' "${RPM_INSTALL_PREFIX2}/rc.d/init.d/gratia-dcache-probe"
+
+# Activate init script
+/sbin/chkconfig --add gratia-dcache-probe
+
+%max_pending_files_check dCache
+
+# End of dCache post
+# End of dCache section
+
+%package dCache-storage%{?maybe_itb_suffix}
+Summary: Gratia OSG accounting system probe for dCache storage.
+Group: Application/System
+Requires: %{name}-common >= 0.30
+Requires: %{name}-extra-libs
+Requires: %{name}-extra-libs-arch-spec
+License: See LICENSE.
+%{?config_itb:Obsoletes: %{name}-dCache-storage}
+%{!?config_itb:Obsoletes: %{name}-dCache-storage%{itb_suffix}}
+
+%description dCache-storage%{?maybe_itb_suffix}
+Gratia OSG accounting system probe for dCache billing.
+Contributed by Greg Sharp and the dCache project.
+
+%files dCache-storage%{?maybe_itb_suffix}
+%defattr(-,root,root,-)
+%{default_prefix}/probe/dCache-storage/README
+%{default_prefix}/probe/dCache-storage/dcacheStorageMeter.py
+%{default_prefix}/probe/dCache-storage/dCache-storage_meter.cron.sh
+%config(noreplace) %{default_prefix}/probe/dCache-storage/ProbeConfig
+
+%post dCache-storage%{?maybe_itb_suffix}
+# /usr -> "${RPM_INSTALL_PREFIX0}"
+# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
+%configure_probeconfig_pre -d dCache-storage -m dcache-storage
+m&^/>& and print <<EOF;
+    DBHostName="localhost"
+    DBLoginName="srmdcache"
+    DBPassword="srmdcache"
+    AdminSvrPort="22223"
+    AdminSvrLogin="admin"
+    AdminSvrPassword="ADMIN_SVR_PASSWORD"
+    DCacheServerHost="POSTGRES_HOST"
+    DcacheLogLevel="debug"
+EOF
+%configure_probeconfig_post
+
+%max_pending_files_check dCache-storage
+
+# Configure crontab entry
+%scrub_root_crontab
+if %{__grep} -re '_meter.cron\.sh' \
+        ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
+%{__cat} <<EOF 1>&2
+
+WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*
+         Please check and remove to avoid clashes with root's crontab
+
+EOF
+fi
+
+(( min = $RANDOM % 15 ))
+%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-dcache-storage.cron <<EOF
+$min * * * * root \
+"${RPM_INSTALL_PREFIX1}/probe/pbs-lsf/dcache-storage_meter.cron.sh"
+EOF
+
+# End of dCache-storage post
+# End of dCache-storage section
+
 %endif
 
 %changelog
+* Mon Dec 10 2007 Christopher Green <greenc@fnal.gov> - 0.30a-1
+- Better code reuse in scriptlets.
+- Package dCache probes and associated third party libraries.
+- Better method of naming temporary XML files prior to upload.
+
 * Tue Oct 16 2007 Christopher Green <greenc@fnal.gov> - 0.27.5c-1
 - Correct handling of suppressed records.
 
