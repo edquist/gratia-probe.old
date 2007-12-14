@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.30a
+Version: 0.30b
 Release: 1
 License: GPL
 Group: Applications/System
@@ -9,7 +9,9 @@ URL: http://sourceforge.net/projects/gratia/
 Packager: Chris Green <greenc@fnal.gov>
 Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 BuildRequires: python >= 2.3
+BuildRequires: python-devel >= 2.3
 BuildRequires: postgresql-devel
+BuildRequires: gcc-c++
 
 %global sqlalchemy_version 0.4.1
 %global psycopg2_version 2.0.6
@@ -29,6 +31,8 @@ BuildRequires: postgresql-devel
 %{?config_itb: %global maybe_itb_suffix -itb }
 %{?config_itb: %global itb 1}
 %{!?config_itb: %global itb 0}
+
+%{!?pexec: %global pexec python }
 
 %if %{itb}
   %global collector_port 8881
@@ -58,11 +62,13 @@ BuildRequires: postgresql-devel
 
 %define max_pending_files_check() (( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\\"\\{0,1\\}\\([0-9]\\{1,\\}\\)\\"\\{0,1\\}.*$/\\1/p' "${RPM_INSTALL_PREFIX1}/probe/%1/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\\n"; fi
 
-%define configure_probeconfig_pre(p:d:m:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; %{__perl} -wni.orig -e 's&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $meter_name = "%{meter_name}"; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":"%{osg_collector}"; my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&(MeterName\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
+%define configure_probeconfig_pre(p:d:m:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; %{__perl} -wni.orig -e 's&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $meter_name = %{meter_name}; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":"%{osg_collector}"; my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&(MeterName\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
 
 %define configure_probeconfig_post(g:) my $grid = "%{-g*}" || "%{grid}"; s&(Grid\\s*=\\s*)\\\"[^\\\"]*\\\"&${1}"${grid}"&; m&%{ProbeConfig_template_marker}& or print; ' "$config_file" >/dev/null 2>&1; %{expand: %final_post_message $config_file }; done
 
 %global setuptools_source setuptools-0.6c3-py2.3.egg
+%global dcache_transfer_source gratia-dcache-probe-%{dcache_probe_version}.tar.gz
+%global dcache_storage_source dcacheStorageMeter_%{dcache_storage_probe_version}.tar.gz
 
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
@@ -75,6 +81,9 @@ Source7: %{name}-metric-%{version}.tar.bz2
 Source8: SQLAlchemy-%{sqlalchemy_version}.tar.gz
 Source9: psycopg2-%{psycopg2_version}.tar.gz
 Source10: %{name}-dCache-storage-%{version}.tar.bz2
+Source11: %{setuptools_source}
+Source12: %{dcache_transfer_source}
+Source13: %{dcache_storage_source}
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch2: urCollector-2006-06-13-createTime-timezone.patch
@@ -110,11 +119,11 @@ cd urCollector-%{urCollector_version}
 %setup -q -D -T -a 7
 %setup -q -D -T -a 8
 %{__cp} ${RPM_SOURCE_DIR}/%{setuptools_source} SQLAlchemy-%{sqlalchemy_version}/
-mkdir dCache
-%{__tar} zxvf ${RPM_SOURCE_DIR}/gratia-dcache-probe-%{dcache_probe_version}.tar.gz -C dCache/
-%{__rm} -rf dCache/{external,tmp,install.sh} # Not needed by this install.
+mkdir dCache-transfer
+%{__tar} zxvf ${RPM_SOURCE_DIR}/%{dcache_transfer_source} -C dCache-transfer/
+%{__rm} -rf dCache-transfer/{external,tmp,install.sh} # Not needed by this install.
 %setup -q -D -T -a 10
-%{__tar} zxvf ${RPM_SOURCE_DIR}/dcacheStorageMeter_%{dcache_storage_probe_version}.tar.gz -C dCache-storage/
+%{__tar} zxvf ${RPM_SOURCE_DIR}/%{dcache_storage_source} -C dCache-storage/
 
 %build
 %ifnarch noarch
@@ -123,10 +132,12 @@ cd urCollector-%{urCollector_version}
 %{__make}
 cd -
 cd psycopg2-%{psycopg2_version}
-python setup.py build
+type %{pexec}
+%{pexec} -V
+%{pexec} setup.py build
 %else
 cd SQLAlchemy-%{sqlalchemy_version}
-python setup.py build
+%{pexec} setup.py build
 %endif
 
 %install
@@ -136,7 +147,7 @@ python setup.py build
 
 %ifarch noarch
   # Obtain files
-  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache,dCache-storage} "${RPM_BUILD_ROOT}%{default_prefix}/probe"
+  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage} "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
   for probe_config in \
@@ -145,7 +156,7 @@ python setup.py build
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/sge/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/glexec/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/metric/ProbeConfig" \
-      "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-storage/ProbeConfig" \
       ; do
     %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
@@ -154,8 +165,20 @@ python setup.py build
 
   # dCache init script
   %{__install} -d "${RPM_BUILD_ROOT}/etc/rc.d/init.d/"
-  %{__install} -m 755 "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache/gratia-dcache-probe" "${RPM_BUILD_ROOT}/etc/rc.d/init.d/"
-  %{__rm} -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache/"{gratia-dcache-probe,Gratia.py}
+  %{__install} -m 755 "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/gratia-dcache-probe" "${RPM_BUILD_ROOT}/etc/rc.d/init.d/gratia-dcache-transfer-probe"
+  %{__rm} -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/"{gratia-dcache-probe,Gratia.py}
+
+  # dCache-transfer README change
+  perl -wani.bak -e 'm&^FILES:$& and print <<EOF;
+This README is only intended for beta testers, and to guide those who will
+make the RPM distribution of this probe.
+If you don'"'"'t understand any of the steps in the instructions, you
+probably should wait until the RPM version is available.
+
+EOF
+print;
+' "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/README"
+
 
   # YUM repository install
   install -d "${RPM_BUILD_ROOT}/etc/yum.repos.d"
@@ -737,38 +760,40 @@ EOF
 # End of metric post
 # End of metric section
 
-%package dCache%{?maybe_itb_suffix}
+%package dCache-transfer%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for dCache billing.
 Group: Application/System
 Requires: %{name}-common >= 0.30
 Requires: %{name}-extra-libs
 Requires: %{name}-extra-libs-arch-spec
 License: See LICENSE.
-%{?config_itb:Obsoletes: %{name}-dCache}
-%{!?config_itb:Obsoletes: %{name}-dCache%{itb_suffix}}
+Obsoletes: %{name}-dCache
+Obsoletes: %{name}-dCache%{itb_suffix}
+%{?config_itb:Obsoletes: %{name}-dCache-transfer}
+%{!?config_itb:Obsoletes: %{name}-dCache-transfer%{itb_suffix}}
 
-%description dCache%{?maybe_itb_suffix}
-Gratia OSG accounting system probe for dCache billing.
+%description dCache-transfer%{?maybe_itb_suffix}
+Gratia OSG accounting system probe for dCache transfers.
 Contributed by Greg Sharp and the dCache project.
 
-%files dCache%{?maybe_itb_suffix}
+%files dCache-transfer%{?maybe_itb_suffix}
 %defattr(-,root,root,-)
-/etc/rc.d/init.d/gratia-dcache-probe
-%{default_prefix}/probe/dCache/README
-%{default_prefix}/probe/dCache/Alarm.py
-%{default_prefix}/probe/dCache/Checkpoint.py
-%{default_prefix}/probe/dCache/CheckpointTest.py
-%{default_prefix}/probe/dCache/DCacheAggregator.py
-%{default_prefix}/probe/dCache/dCacheBillingAggregator.py
-%config(noreplace) %{default_prefix}/probe/dCache/ProbeConfig
+/etc/rc.d/init.d/gratia-dcache-transfer-probe
+%{default_prefix}/probe/dCache-transfer/README
+%{default_prefix}/probe/dCache-transfer/Alarm.py
+%{default_prefix}/probe/dCache-transfer/Checkpoint.py
+%{default_prefix}/probe/dCache-transfer/CheckpointTest.py
+%{default_prefix}/probe/dCache-transfer/DCacheAggregator.py
+%{default_prefix}/probe/dCache-transfer/dCacheBillingAggregator.py
+%config(noreplace) %{default_prefix}/probe/dCache-transfer/ProbeConfig
 
-%post dCache%{?maybe_itb_suffix}
+%post dCache-transfer%{?maybe_itb_suffix}
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 # /etc -> "${RPM_INSTALL_PREFIX2}"
 
 # Configure ProbeConfig
-%configure_probeconfig_pre -d dCache -m dcache
+%configure_probeconfig_pre -d dCache-transfer -m dcache-transfer
 m&^/>& and print <<EOF;
     UpdateFrequency="120"
     DBHostName="localhost"
@@ -781,11 +806,10 @@ m&^/>& and print <<EOF;
     EmailToList=""
     AggrLogLevel="warn"
 EOF
-^PROBE_DIR
 %configure_probeconfig_post
 
 # Configure init script
-perl -wapi.bak -e 'if (s&^PROBE_DIR=.*$&'"${RPM_INSTALL_PREFIX1}"'/probe/dCache&) {
+perl -wani.bak -e 'if (s&^(PROBE_DIR=).*$&$1'"${RPM_INSTALL_PREFIX1}"'/probe/dCache-transfer&) {
   print;
   print <<'"'"'EOF'"'"';
 arch_spec_dir=${PROBE_DIR}/../lib.*
@@ -802,15 +826,21 @@ export PYTHONPATH
 EOF
   next;
 }
-' "${RPM_INSTALL_PREFIX2}/rc.d/init.d/gratia-dcache-probe"
+s&gratia-d?cache-probe&gratia-dcache-transfer-probe&g;
+s&python &%{pexec} &g;
+print;
+' "${RPM_INSTALL_PREFIX2}/rc.d/init.d/gratia-dcache-transfer-probe"
 
 # Activate init script
-/sbin/chkconfig --add gratia-dcache-probe
+/sbin/chkconfig --add gratia-dcache-transfer-probe
 
-%max_pending_files_check dCache
+# Activate it
+service gratia-dcache-transfer-probe start
 
-# End of dCache post
-# End of dCache section
+%max_pending_files_check dCache-transfer
+
+# End of dCache-transfer post
+# End of dCache-transfer section
 
 %package dCache-storage%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for dCache storage.
@@ -823,7 +853,7 @@ License: See LICENSE.
 %{!?config_itb:Obsoletes: %{name}-dCache-storage%{itb_suffix}}
 
 %description dCache-storage%{?maybe_itb_suffix}
-Gratia OSG accounting system probe for dCache billing.
+Gratia OSG accounting system probe for available space in dCache.
 Contributed by Greg Sharp and the dCache project.
 
 %files dCache-storage%{?maybe_itb_suffix}
@@ -850,6 +880,9 @@ m&^/>& and print <<EOF;
 EOF
 %configure_probeconfig_post
 
+perl -wapi.bak -e 's&^python &%{pexec} &g' \
+"${RPM_INSTALL_PREFIX1}"/probe/dCache-storage/dCache-storage_meter.cron.sh
+
 %max_pending_files_check dCache-storage
 
 # Configure crontab entry
@@ -864,10 +897,10 @@ WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or
 EOF
 fi
 
-(( min = $RANDOM % 15 ))
+(( min = $RANDOM % 60 ))
 %{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-dcache-storage.cron <<EOF
 $min * * * * root \
-"${RPM_INSTALL_PREFIX1}/probe/pbs-lsf/dcache-storage_meter.cron.sh"
+"${RPM_INSTALL_PREFIX1}/probe/dCache-storage/dCache-storage_meter.cron.sh"
 EOF
 
 # End of dCache-storage post
@@ -876,6 +909,15 @@ EOF
 %endif
 
 %changelog
+* Fri Dec 14 2007 Christopher Green <greenc@fnal.gov> - 0.30b-1
+- Allow for non-standard name of python exec.
+- Fix directory problems in dCache-storage_meter.cron.sh.
+- Fix cron install for dCache-storage.
+- Add disclaimer to README file for dCache-transfer.
+
+* Thu Dec 13 2007 Christopher Green <greenc@fnal.gov> - 0.30a-2
+- Upon request, dCache probe is renamed to dCache-transfer.
+
 * Mon Dec 10 2007 Christopher Green <greenc@fnal.gov> - 0.30a-1
 - Better code reuse in scriptlets.
 - Package dCache probes and associated third party libraries.
