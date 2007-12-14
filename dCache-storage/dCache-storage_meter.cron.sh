@@ -3,7 +3,7 @@
 # dcache-storage_meter.cron.sh - Shell script used with cron to parse dcache-storage
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: dCache-storage_meter.cron.sh,v 1.1 2007-12-10 22:35:14 greenc Exp $
+# $Id: dCache-storage_meter.cron.sh,v 1.2 2007-12-14 21:44:42 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/dCache-storage/dCache-storage_meter.cron.sh,v $
 ###################################################################
 PGM=$(basename $0)
@@ -39,7 +39,7 @@ else
 fi
 
 # We need to locate the probe script and it must be executable
-if [ ! -x ./dcacheStorageMeter.py ]; then
+if [ ! -r ./dcacheStorageMeter.py ]; then
   ${Logger} "The dcacheStorageMeter.py file is not in this directory: $(pwd)"
   exit -2
 fi
@@ -67,20 +67,20 @@ else
 fi
 export PYTHONPATH
 
-enabled=`${pp_dir}/GetProbeConfigAttribute.py EnableProbe`
+enabled=`${pp_dir}/common/GetProbeConfigAttribute.py EnableProbe`
 if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
-  ${pp_dir}/DebugPrint.py -l 0 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
+  ${pp_dir}/common/DebugPrint.py -l 0 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
 	exit 1
 fi
 
 #--- run the probes ----
-./dcacheStorageMeter.py
+python ./dcacheStorageMeter.py
 
 ExitCode=$?
 
 # If the probe ended in error, report this in Syslog and exit
 if [ $ExitCode != 0 ]; then
-  ${pp_dir}/DebugPrint.py -l -1 "ALERT: $0 exited abnormally with [$ExitCode]"
+  ${pp_dir}/common/DebugPrint.py -l -1 "ALERT: $0 exited abnormally with [$ExitCode]"
   exit $ExitCode
 fi
   
@@ -89,6 +89,11 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.1  2007/12/10 22:35:14  greenc
+# Package dCache probes.
+#
+# Improve code reuse in scriptlets.
+#
 # Revision 1.5  2007/09/10 20:17:14  greenc
 # Update SPEC file.
 #
