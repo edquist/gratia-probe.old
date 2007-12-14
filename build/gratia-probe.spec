@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.30b
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -132,8 +132,6 @@ cd urCollector-%{urCollector_version}
 %{__make}
 cd -
 cd psycopg2-%{psycopg2_version}
-type %{pexec}
-%{pexec} -V
 %{pexec} setup.py build
 %else
 cd SQLAlchemy-%{sqlalchemy_version}
@@ -909,6 +907,9 @@ EOF
 %endif
 
 %changelog
+* Fri Dec 14 2007 Christopher Green <greenc@fnal.gov> - 0.30b-2
+- Remove debug statements from build.
+
 * Fri Dec 14 2007 Christopher Green <greenc@fnal.gov> - 0.30b-1
 - Allow for non-standard name of python exec.
 - Fix directory problems in dCache-storage_meter.cron.sh.
