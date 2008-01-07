@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.30b
-Release: 2
+Release: 3
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -354,7 +354,7 @@ EOF
 %preun pbs-lsf%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  %{__rm} -f ${RPM_INSTALL_PREFIX2}/gratia-probe-pbs-lsf.cron
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-pbs-lsf.cron
 fi
 
 %else
@@ -505,7 +505,7 @@ fi
 %preun psacct
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  %{__rm} -f ${RPM_INSTALL_PREFIX2}/gratia-probe-psacct.cron
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-psacct.cron
 fi
 
 %package condor%{?maybe_itb_suffix}
@@ -655,7 +655,7 @@ EOF
 %preun sge%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  %{__rm} -f ${RPM_INSTALL_PREFIX2}/gratia-probe-sge.cron
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-sge.cron
 fi
 
 %package glexec%{?maybe_itb_suffix}
@@ -902,11 +902,22 @@ $min * * * * root \
 EOF
 
 # End of dCache-storage post
+
+%preun dCache-storage%{?maybe_itb_suffix}
+# Only execute this if we're uninstalling the last package of this name
+if [ $1 -eq 0 ]; then
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-dcache-storage.cron
+fi
+#   End of dCache-storage preun
 # End of dCache-storage section
 
 %endif
 
 %changelog
+* Mon Jan  7 2008 Christopher Green <greenc@fnal.gov> - 0.30b-3
+- Fix crontab removal problems in multiple preun statements.
+- Add missing preun to gratia-storage.
+
 * Fri Dec 14 2007 Christopher Green <greenc@fnal.gov> - 0.30b-2
 - Remove debug statements from build.
 
