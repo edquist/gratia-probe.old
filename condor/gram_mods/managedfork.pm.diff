@@ -47,7 +47,7 @@
 +        $condor_version_number = 
 +        join("",
 +             map { m&^(\d+)&?sprintf("%03d", $1):"000" }
-+             ($condor_version_string =~ m!^\$CondorVersion: ([^\.]+)\.([^\.]+)\.([^\.]+)!s));
++             ($condor_version_string =~ m!^\$CondorVersion: ([^\.]+)\.([^\.]+)\.([^\.]+)!s)) + 0;
 +        return 1 unless ($condor_version_number < 6009000);
 +    }
 +    my $self = shift;
