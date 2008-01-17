@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.30b
-Release: 3
+Version: 0.30c
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -91,6 +91,7 @@ Patch3: urCollector-2006-06-13-nodect.patch
 Patch4: urCollector-2006-06-13-modules-1.patch
 Patch5: urCollector-2006-06-13-modules-2.patch
 Patch6: urCollector-2006-06-13-xmlUtil.h-gcc4.1-fixes.patch
+Patch7: urCollector-2006-06-13-tac-race.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -112,6 +113,7 @@ cd urCollector-%{urCollector_version}
 %patch -P 4 -b .modules-1
 %patch -P 5 -b .modules-2
 %patch -P 6 -b .xmlUtil.h-gcc4.1-fixes
+%patch -P 7 -b .tac-race
 %setup -q -D -T -a 9
 %endif
 %setup -q -D -T -a 5
@@ -914,6 +916,10 @@ fi
 %endif
 
 %changelog
+* Mon Jan 14 2008 Christopher Green <greenc@fnal.gov> - 0.30c-1
+- Quick fix for last line in file missing newline due to race with batch
+  system.
+
 * Mon Jan  7 2008 Christopher Green <greenc@fnal.gov> - 0.30b-3
 - Fix crontab removal problems in multiple preun statements.
 - Add missing preun to gratia-storage.

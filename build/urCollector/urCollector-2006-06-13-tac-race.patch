@@ -1,0 +1,23 @@
+--- urCollector.pl~	2008-01-14 11:08:18.000000000 -0600
++++ urCollector.pl	2008-01-14 11:22:14.000000000 -0600
+@@ -389,7 +389,7 @@
+ sub processLrmsLogFile {
+ 
+     my $filename = $_[0];
+-    # my $newestF = $_[1];
++    my $newestF = $_[1];
+ 
+     my $startJob = $_[2];
+     my $startTimestamp = $_[3];
+@@ -424,7 +424,10 @@
+     my $firstJobId = 1;
+ 
+     my $line = "";
+-    while ($line = <LRMSLOGFILE>) {
++    my $line_counter = 0;
++    while ($line = <LRMSLOGFILE> and ++$linecounter) {
++      # Ignore the first record: pick it up next time
++      $newestF and $line_counter == 1 and next;
+ 
+ 	if ($useGGFformat) {
+ 	    %urGridInfo = ();    # reset grid-related info
