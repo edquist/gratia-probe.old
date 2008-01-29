@@ -124,7 +124,8 @@ else
 fi
 
 
-build/package-probe "${version}" common condor pbs-lsf psacct sge glexec metric dCache-storage
+build/package-probe "${version}" common condor pbs-lsf psacct sge glexec \
+                                 metric dCache-storage dCache-transfer
 status=$?
 
 if (( $status == 0 )); then

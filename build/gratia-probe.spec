@@ -1,15 +1,17 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.30d
+Version: 0.32
 Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
 Packager: Chris Green <greenc@fnal.gov>
 Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
+%if %{?python:0}%{!?python:1}
 BuildRequires: python >= 2.3
 BuildRequires: python-devel >= 2.3
+%endif
 BuildRequires: postgresql-devel
 BuildRequires: gcc-c++
 
@@ -31,8 +33,8 @@ BuildRequires: gcc-c++
 %{?config_itb: %global maybe_itb_suffix -itb }
 %{?config_itb: %global itb 1}
 %{!?config_itb: %global itb 0}
-
-%{!?pexec: %global pexec python }
+%{?python: %global pexec %{python}}
+%{!?python: %global pexec python }
 
 %if %{itb}
   %global collector_port 8881
@@ -84,6 +86,7 @@ Source10: %{name}-dCache-storage-%{version}.tar.bz2
 Source11: %{setuptools_source}
 Source12: %{dcache_transfer_source}
 Source13: %{dcache_storage_source}
+Source14: %{name}-dCache-transfer-%{version}.tar.bz2
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch2: urCollector-2006-06-13-createTime-timezone.patch
@@ -126,6 +129,7 @@ cd urCollector-%{urCollector_version}
 mkdir dCache-transfer
 %{__tar} zxvf ${RPM_SOURCE_DIR}/%{dcache_transfer_source} -C dCache-transfer/
 %{__rm} -rf dCache-transfer/{external,tmp,install.sh} # Not needed by this install.
+%setup -q -D -T -a 14
 mkdir dCache-storage
 %{__tar} zxvf ${RPM_SOURCE_DIR}/%{dcache_storage_source} -C dCache-storage/
 %setup -q -D -T -a 10
@@ -256,7 +260,9 @@ Probes for the Gratia OSG accounting system
 Summary: Architecture-specific third-party libraries required by some Gratia probes.
 Group: Application/System
 Requires: postgresql-libs
+%if %{?python:0}%{!?python:1}
 Requires: python >= 2.3
+%endif
 License: See psycopg2-LICENSE.
 
 %description extra-libs-arch-spec
@@ -367,7 +373,9 @@ fi
 %package common
 Summary: Common files for Gratia OSG accounting system probes
 Group: Applications/System
+%if %{?python:0}%{!?python:1}
 Requires: python >= 2.2
+%endif
 
 %description common
 Common files and examples for Gratia OSG accounting system probes.
@@ -398,7 +406,9 @@ Common files and examples for Gratia OSG accounting system probes.
 %package extra-libs
 Summary: Third-party libraries required by some Gratia probes.
 Group: Application/System
+%if %{?python:0}%{!?python:1}
 Requires: python >= 2.3
+%endif
 License: See SQLAlchemy-LICENSE.
 
 %description extra-libs
@@ -414,7 +424,9 @@ see http://www.sqlalchemy.org/ for details.
 %package psacct
 Summary: A ps-accounting probe
 Group: Applications/System
+%if %{?python:0}%{!?python:1}
 Requires: python >= 2.2
+%endif
 Requires: psacct
 Requires: %{name}-common >= 0.12f
 
@@ -516,7 +528,9 @@ fi
 %package condor%{?maybe_itb_suffix}
 Summary: A Condor probe
 Group: Applications/System
+%if %{?python:0}%{!?python:1}
 Requires: python >= 2.2
+%endif
 Requires: %{name}-common >= 0.12f
 %{?config_itb:Obsoletes: %{name}-condor}
 %{!?config_itb:Obsoletes: %{name}-condor%{itb_suffix}}
@@ -610,7 +624,9 @@ fi
 %package sge%{?maybe_itb_suffix}
 Summary: An SGE probe
 Group: Applications/System
+%if %{?python:0}%{!?python:1}
 Requires: python >= 2.3
+%endif
 Requires: %{name}-common >= 0.12e
 %{?config_itb:Obsoletes: %{name}-sge}
 %{!?config_itb:Obsoletes: %{name}-sge%{itb_suffix}}
@@ -666,7 +682,9 @@ fi
 %package glexec%{?maybe_itb_suffix}
 Summary: A gLExec probe
 Group: Applications/System
+%if %{?python:0}%{!?python:1}
 Requires: python >= 2.2
+%endif
 Requires: %{name}-common >= 0.12e
 %{?config_itb:Obsoletes: %{name}-glexec}
 %{!?config_itb:Obsoletes: %{name}-glexec%{itb_suffix}}
@@ -729,7 +747,9 @@ fi
 %package metric%{?maybe_itb_suffix}
 Summary: A probe for OSG metrics
 Group: Applications/System
+%if %{?python:0}%{!?python:1}
 Requires: python >= 2.2
+%endif
 Requires: %{name}-common >= 0.25a
 %{?config_itb:Obsoletes: %{name}-metric}
 %{!?config_itb:Obsoletes: %{name}-metric%{itb_suffix}}
@@ -838,7 +858,14 @@ print;
 /sbin/chkconfig --add gratia-dcache-transfer-probe
 
 # Activate it
+#service gratia-dcache-transfer-probe start
+echo "
+
+Execute:
+
 service gratia-dcache-transfer-probe start
+
+to start the service." 1>&2
 
 %max_pending_files_check dCache-transfer
 
@@ -919,6 +946,13 @@ fi
 %endif
 
 %changelog
+* Tue Jan 29 2008 Christopher Green <greenc@fnal.gov> - 0.32-1
+- pexec should be global to get substituted in post properly.
+
+* Tue Jan 29 2008 Christopher Green <greenc@fnal.gov> - 0.32-0%rtext
+- Add override tar for dCache-transfer files.
+- Remove python requires if python exec is overridden.
+
 * Mon Jan 22 2008 Christopher Green <greenc@fnal.gov> - 0.30d-1
 - Parser is a whole lot careful for LSF files, and more efficient for
   both PBS and LSF.
