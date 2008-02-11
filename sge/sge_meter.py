@@ -84,7 +84,11 @@ class SGE:
 
     def reverseGridMap(self):
         user = self.sgeRecord['owner']
-        gridmapfile=open(gridmapFile, "r")
+        try:
+            gridmapfile=open(gridmapFile, "r")
+        except IOError:
+            Gratia.DebugPrint(verbose_level, "Warning: Failed to read " + gridmapFile + ". Continuing without DN")
+            return ""
 
         # read the gridmapfile
         for entry in gridmapfile:
@@ -111,9 +115,12 @@ class SGE:
                 
     
     def createUsageRecord(self):
-   	r=Gratia.UsageRecord("Batch")
+        r=Gratia.UsageRecord("Batch")
         # do a straight mapping where applicable
-        dn=self.reverseGridMap()
+        if noGridmap:
+            dn=""
+        else:
+            dn=self.reverseGridMap()
 
         # Values map to the Usage Record format recommendation
         # http://www.psc.edu/~lfm/PSC/Grid/UR-WG/UR-Spec-gfd.58-ggf18.pdf
@@ -268,7 +275,8 @@ class SGE:
 if __name__ == '__main__':
 
 
-    sgeRoot = os.getenv("SGE_ROOT", "/common/sge/6.0u4")
+    sgeRoot = os.getenv("SGE_ROOT", "/sge")
+    sgeCell = os.getenv("SGE_CELL", "default") 
 
     
     gridmapFile = os.getenv("GRIDMAP", "/etc/grid-security/grid-mapfile")
@@ -280,7 +288,7 @@ if __name__ == '__main__':
 
     optParser.add_option("-a", "--accounting",
                          action="store", dest="accounting", type="string",
-                         help="SGE accounting file. Default: $SGE_ROOT/default/common/accounting" )
+                         help="SGE accounting file. Default: $SGE_ROOT/$SGE_CELL/common/accounting" )
     optParser.add_option("-m", "--gridmap",
                          action="store", dest="gridmap", type="string",
                          default=gridmapFile,
@@ -289,6 +297,10 @@ if __name__ == '__main__':
                          action="store_true", dest="debug",
                          default=False,
                          help="print debug output")
+    optParser.add_option("-n", "--nogridmap",
+                         action="store_true", dest="noGridmap",
+                         default=False,
+                         help="turn off grid-mapfile account to DN mapping")
     optParser.add_option("-c", "--checkpoint",
                          action="store_true", dest="checkpoint",
                          default=False,
@@ -298,7 +310,12 @@ if __name__ == '__main__':
     (opts, args)=optParser.parse_args()
 
     debug = opts.debug
-    gridmapFile = opts.gridmap
+    noGridmap = opts.noGridmap
+
+    if noGridmap:
+        gridmapFile = ""
+    else:
+        gridmapFile = opts.gridmap
 
 
     # Initialize Gratia
@@ -307,7 +324,7 @@ if __name__ == '__main__':
     # Set the default accounting file per the ProbeConfig file if attribute exists
     defaultAccountingFile = Gratia.Config.getConfigAttribute("SGEAccountingFile")
     if not defaultAccountingFile or not os.path.exists(defaultAccountingFile):
-        defaultAccountingFile = sgeRoot+"/default/common/accounting"
+        defaultAccountingFile = sgeRoot+"/"+sgeCell+"/common/accounting"
 
     # get the accounting file name
 
@@ -340,14 +357,17 @@ if __name__ == '__main__':
                 checkpoint=int(CPFILE.readline())
                 CPFILE.close()
             except IOError:
-                Gratia.DebugPrint(0, "IOError: Failed to read checkpoint file " + checkpointFile)
+                Gratia.DebugPrint(info_level, "IOError: Failed to read checkpoint file " + checkpointFile)
                 checkpoint=0
         else:
             checkpoint=0
              
 
-    Gratia.DebugPrint(0, "Using Accounting file: " + accFileName)
-    Gratia.DebugPrint(0, "Using grid-mapfile: " + gridmapFile)
+    Gratia.DebugPrint(verbose_level, "Using Accounting file: " + accFileName)
+    if noGridmap:
+        Gratia.DebugPrint(verbose_level, "Not using grid-mapfile")
+    else:
+        Gratia.DebugPrint(verbose_level, "Using grid-mapfile: " + gridmapFile)
 
 
 
@@ -356,7 +376,7 @@ if __name__ == '__main__':
     try:
         file = open(accFileName, "r")
     except IOError:
-        Gratia.DebugPrint(0, "IOError: Failed to read accounting file " + accFileName)
+        Gratia.DebugPrint(info_level, "IOError: Failed to read accounting file " + accFileName)
         sys.exit(5);
         
     for line in file:
@@ -398,7 +418,7 @@ if __name__ == '__main__':
                 CPFILE.write(str(checkpoint) + "\n")
                 CPFILE.close()
             except IOError:
-                Gratia.DebugPrint(0, "IOError: Failed to write checkpoint file " + checkpointFile)
+                Gratia.DebugPrint(info_level, "IOError: Failed to write checkpoint file " + checkpointFile)
     
 
     # Clean things up
