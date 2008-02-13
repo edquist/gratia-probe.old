@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.32a
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -835,7 +835,7 @@ EOF
 perl -wani.bak -e 'if (s&^(PROBE_DIR=).*$&$1'"${RPM_INSTALL_PREFIX1}"'/probe/dCache-transfer&) {
   print;
   print <<'"'"'EOF'"'"';
-arch_spec_dir=${PROBE_DIR}/../lib.*
+arch_spec_dir=`echo "${PROBE_DIR}/../lib."*`
 if test -n "$PYTHONPATH" ; then
   if echo "$PYTHONPATH" | grep -e '"'"':$'"'"' >/dev/null 2>&1; then
     PYTHONPATH="${PYTHONPATH}${PROBE_DIR}/../common:${arch_spec_dir}:"
@@ -946,6 +946,12 @@ fi
 %endif
 
 %changelog
+* Wed Feb 13 2008 Christopher Green <greenc@fnal.gov> - 0.32a-2
+- Improve path setting in dCache-transfer init script.
+
+* Wed Feb 13 2008 Christopher Green <greenc@fnal.gov> - 0.32a-1
+- Incorporate Brian's files (NOP, but version bumped).
+
 * Tue Jan 29 2008 Christopher Green <greenc@fnal.gov> - 0.32-1
 - pexec should be global to get substituted in post properly.
 
