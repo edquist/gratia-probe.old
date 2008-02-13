@@ -1,7 +1,7 @@
 # Copyright 2007 Cornell University, Ithaca, NY. All rights reserved.
 #
 # Author:  Gregory J. Sharp
-# Version: $Id: dCacheBillingAggregator.py,v 1.1 2008-01-29 21:32:50 greenc Exp $
+# Version: $Id: dCacheBillingAggregator.py,v 1.2 2008-02-13 22:49:58 greenc Exp $
 #
 # This is a Python program that reads the dCache billing database, aggregates
 # any new content, and sends it to Gratia.

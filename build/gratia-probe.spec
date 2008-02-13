@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.32
+Version: 0.32a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -952,6 +952,7 @@ fi
 * Tue Jan 29 2008 Christopher Green <greenc@fnal.gov> - 0.32-0%rtext
 - Add override tar for dCache-transfer files.
 - Remove python requires if python exec is overridden.
+- glexec probe fixes ResourceType and ProbeName.
 
 * Mon Jan 22 2008 Christopher Green <greenc@fnal.gov> - 0.30d-1
 - Parser is a whole lot careful for LSF files, and more efficient for

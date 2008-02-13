@@ -3,7 +3,7 @@
 # Copyright 2007 Cornell University, Ithaca, NY. All rights reserved.
 #
 # Author:  Gregory J. Sharp
-# Version: $Id: dcacheStorageMeter.py,v 1.1 2008-01-22 23:47:38 greenc Exp $
+# Version: $Id: dcacheStorageMeter.py,v 1.2 2008-02-13 22:49:58 greenc Exp $
 #
 # This program is the dCache storage usage and capacity probe for Gratia.
 # It collects data from the Admin server and the SRM postgres database.
