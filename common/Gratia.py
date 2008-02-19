@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.69 2007-11-20 22:48:09 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.70 2008-02-19 16:32:13 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -353,7 +353,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.69 $
+    # $Revision: 1.70 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -575,7 +575,9 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
                 response = Response(1,responseString)
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
             queryString = __encodeData(messageType, recordXml)
-            __connection.request("POST", Config.get_CollectorService(), queryString)
+            # Attempt to make sure Collector can actually read the post.
+            headers = {"Content-type": "application/x-www-form-urlencoded"}
+            __connection.request("POST", Config.get_CollectorService(), queryString, headers)
             responseString = __connection.getresponse().read()
             if __urlencode_records == 1 and \
                    __responseMatcher.search(responseString):
@@ -588,9 +590,11 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
                 response = __sendUsageXML(meterId, recordXml)
             else:
                 response = Response(-1, responseString)
-        else:
+        else: # SSL
             queryString = __encodeData(messageType, recordXml)
-            __connection.request("POST",Config.get_SSLCollectorService(), queryString)
+            # Attempt to make sure Collector can actually read the post.
+            headers = {"Content-type": "application/x-www-form-urlencoded"}
+            __connection.request("POST",Config.get_SSLCollectorService(), queryString, headers)
             responseString = __connection.getresponse().read()
             if __urlencode_records == 1 and \
                    __responseMatcher.search(responseString):
@@ -1038,7 +1042,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.69 $")
+        rev = ExtractCvsRevision("$Revision: 1.70 $")
 
         self.ReporterLibrary("Gratia",rev);
 
