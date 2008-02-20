@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.70 2008-02-19 16:32:13 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.71 2008-02-20 23:34:08 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -353,7 +353,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.70 $
+    # $Revision: 1.71 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1042,7 +1042,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.70 $")
+        rev = ExtractCvsRevision("$Revision: 1.71 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1410,7 +1410,7 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
             textNode = xmlDoc.createTextNode(Config.get_MeterName())
             node.appendChild(textNode)
             recordElement.appendChild(node)
-        elif len(ProbeNameNodes) > 1:
+        elif ProbeNameNodes.length > 1:
             [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
             DebugPrint(0, "Warning: too many ProbeName entities in " + jobIdType + " " +
                                jobId + "(" + xmlFilename + ")")
@@ -1422,7 +1422,7 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
             textNode = xmlDoc.createTextNode(Config.get_SiteName())
             node.appendChild(textNode)
             recordElement.appendChild(node)
-        elif len(SiteNameNodes) > 1:
+        elif SiteNameNodes.length > 1:
             [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
             DebugPrint(0, "Warning: too many SiteName entities in " + jobIdType + " " +
                                jobId + "(" + xmlFilename + ")");
@@ -1434,7 +1434,7 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
             textNode = xmlDoc.createTextNode(Config.get_Grid())
             node.appendChild(textNode)
             recordElement.appendChild(node)
-        elif len(GridNodes) == 1:
+        elif GridNodes.length == 1:
             Grid = GridNodes[0].firstChild.data
             grid_info = Config.get_Grid()
             if grid_info and ((not Grid) or Grid == "Unknown"):
@@ -1474,15 +1474,15 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
             DebugPrint(0, "Warning: no UserIdentity block in " + jobIdType + " " +
                        jobId)
         else:
-            if len(UserIdentityNodes) > 1:
+            if UserIdentityNodes.length > 1:
                 [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
                 DebugPrint(0, "Warning: too many UserIdentity blocks  in " +  jobIdType + " " +
                            jobId)
             [VOName, ReportableVOName] = \
                      CheckAndExtendUserIdentity(xmlDoc,
-                                            UserIdentityNodes[0],
-                                            namespace,
-                                            prefix)
+                                                UserIdentityNodes[0],
+                                                namespace,
+                                                prefix)
 
         # If we are trying to handle only GRID jobs, suppress records
         # with a null or unknown VOName
@@ -2026,7 +2026,7 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
 
     # LocalUserId
     LocalUserIdNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'LocalUserId')
-    if len(LocalUserIdNodes) != 1 or not \
+    if not LocalUserIdNodes or LocalUserIdNodes.length != 1 or not \
            (LocalUserIdNodes[0].firstChild and
             LocalUserIdNodes[0].firstChild.data):
         [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
@@ -2039,40 +2039,43 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
 
     # VOName
     VONameNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'VOName')
-    if len(VONameNodes) > 1:
+    if not VONameNodes:
+        VONameNodes.append(xmlDoc.createElementNS(namespace, prefix + 'VOName'))
+        textNode = xmlDoc.createTextNode(r'');
+        VONameNodes[0].appendChild(textNode);
+        userIdentityNode.appendChild(VONameNodes[0])
+    elif VONameNodes.length > 1:
         [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
         DebugPrint(0,
                    "Warning: UserIdentity block has multiple VOName nodes in " +
                    jobIdType + " " + jobId)
         return [None, None]
-    elif not VONameNodes:
-        VONameNodes.append(xmlDoc.createElementNS(namespace, prefix + 'VOName'))
-        textNode = xmlDoc.createTextNode(r'');
-        VONameNodes[0].appendChild(textNode);
-        userIdentityNode.appendChild(VONameNodes[0])
 
     # ReportableVOName
     ReportableVONameNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'ReportableVOName')
-    if len(ReportableVONameNodes) > 1:
-        [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
-        DebugPrint(0, "Warning: UserIdentity block has multiple ",
-                   "ReportableVOName nodes in " + jobIdType + " " + jobId)
-        return [None, None]
-    elif not ReportableVONameNodes:
+    if not ReportableVONameNodes:
         ReportableVONameNodes.append(xmlDoc.createElementNS(namespace,
                                                             prefix +
                                                             'ReportableVOName'))
         textNode = xmlDoc.createTextNode(r'');
         ReportableVONameNodes[0].appendChild(textNode);
         userIdentityNode.appendChild(ReportableVONameNodes[0])
+    elif len(ReportableVONameNodes) > 1:
+        [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
+        DebugPrint(0, "Warning: UserIdentity block has multiple ",
+                   "ReportableVOName nodes in " + jobIdType + " " + jobId)
+        return [None, None]
 
-    VOName = VONameNodes[0].firstChild.data
-    ReportableVOName = ReportableVONameNodes[0].firstChild.data
-    
-    vo_info = VOfromUser(LocalUserId)
+    vo_info = verifyFromCertInfo(XmlDoc, userIdentityNode, namespace, prefix)
+
+    if not vo_info: # Priority from certinfo, else existing data
+        VOName = VONameNodes[0].firstChild.data
+        ReportableVOName = ReportableVONameNodes[0].firstChild.data
+        vo_info = VOfromUser(LocalUserId)
 
     if vo_info:
         if not (VOName and ReportableVOName) or VOName == "Unknown":
+            # VO info from reverse mapfile only overrides missing or inadequate data.
             VONameNodes[0].firstChild.data = vo_info['VOName']
             ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
 
@@ -2097,7 +2100,7 @@ def getUsageRecords(xmlDoc):
 
 # Check Python version number against requirements
 def pythonVersionRequire(major, minor = 0, micro = 0,
-                           releaseLevel = "final", serial = 0):
+                         releaseLevel = "final", serial = 0):
     if not 'version_info' in dir(sys):
         if major < 2: # Unlikely
             return True
@@ -2149,43 +2152,54 @@ def safeParseXML(xmlString):
     if (pythonVersionRequire(2,3)):
         return xml.dom.minidom.parseString(xmlString)
     else: # python < 2.3
-        # stringParse is not UTF-safe: use StringIO instead
+        # parseString is not UTF-safe: use StringIO instead
         stringBuf = StringIO.StringIO(xmlString)
         xmlDoc = xml.dom.minidom.parse(stringBuf)
         stringBuf.close()
         return xmlDoc
 
 __UserVODictionary = { }
+__voiToVOcDictionary = { }
+
+def __InitializeDictionary():
+    global __UserVODictionary
+    global __voiToVOcDictionary
+    mapfile = Config.get_UserVOMapFile()
+    if mapfile == None:
+         return None
+    __voi = []
+    __VOc = []
+    try:
+        for line in fileinput.input([mapfile]):
+            mapMatch = re.match(r'#(voi|VOc)\s', line)
+            if mapMatch:
+                # Translation line: fill translation tables
+                exec "__" + mapMatch.group(1) + " = re.split(r'\s*', line[mapMatch.end(0):])"
+            if re.match(r'\s*#', line): continue
+            mapMatch = re.match('\s*(?P<User>\S+)\s*(?P<voi>\S+)', line)
+            if mapMatch:
+                if (not len(__voiToVOcDictionary)) and \
+                       len(__voi) and len(__VOc):
+                    for index in xrange(0, len(__voi) - 1):
+                        __voiToVOcDictionary[__voi[index]] = __VOc[index]
+                __UserVODictionary[mapMatch.group('User')] = { "VOName" : mapMatch.group('voi'),
+                                                               "ReportableVOName" : __voiToVOcDictionary[mapMatch.group('voi')] }
+    except IOError, c:
+        print c
+        return None
+
+def VOc(voi):
+    if (len(__UserVODictionary) == 0):
+        # Initialize dictionary
+        __InitializeDictionary()
+    return __voiToVOcDictionary.get(voi, voi)
 
 def VOfromUser(user):
     " Helper function to obtain the voi and VOc from the user name via the reverse gridmap file"
     global __UserVODictionary
     if (len(__UserVODictionary) == 0):
         # Initialize dictionary
-        mapfile = Config.get_UserVOMapFile()
-        if mapfile == None:
-             return None
-        __voiToVOcDictionary = { }
-        __voi = []
-        __VOc = []
-        try:
-            for line in fileinput.input([mapfile]):
-                mapMatch = re.match(r'#(voi|VOc)\s', line)
-                if mapMatch:
-                    # Translation line: fill translation tables
-                    exec "__" + mapMatch.group(1) + " = re.split(r'\s*', line[mapMatch.end(0):])"
-                if re.match(r'\s*#', line): continue
-                mapMatch = re.match('\s*(?P<User>\S+)\s*(?P<voi>\S+)', line)
-                if mapMatch:
-                    if (not len(__voiToVOcDictionary)) and \
-                           len(__voi) and len(__VOc):
-                        for index in xrange(0, len(__voi) - 1):
-                            __voiToVOcDictionary[__voi[index]] = __VOc[index]
-                    __UserVODictionary[mapMatch.group('User')] = { "VOName" : mapMatch.group('voi'),
-                                                                   "ReportableVOName" : __voiToVOcDictionary[mapMatch.group('voi')] }
-        except IOError, c:
-            print c
-            return None
+        __InitializeDictionary()
     return __UserVODictionary.get(user, None)
 
 def __encodeData(messageType, xmlData):
@@ -2193,3 +2207,117 @@ def __encodeData(messageType, xmlData):
         return urllib.urlencode([("command" , messageType), ("arg1", xmlData)]);
     else:
         return "command=" + messageType + "&arg1=" + xmlData
+
+def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
+    " Use localJobID and probeName to find cert info file and insert info into XML record"
+
+    # Collect data needed by certinfo reader
+    JobIdentityNode = GetNode(xmlDoc.getElementsByTagNameNS(namespace, 'JobIdentity'))
+    if JobIdentityNode == None: return
+    localJobId = GetNodeData(JobIdentityNode.getElementsByTagNameNS(namespace, 'LocalJobId'))
+    usageRecord = userIdentityNode.parentNode
+    probeName = GetNodeData(usageRecord.getElementsByTagNameNS(namespace, 'ProbeName'))
+    # Read certinfo
+    certInfo = readCertInfo(localJobId, probeName)
+    if certInfo == None or not certInfo.hasKey('DN') or not certInfo['DN']: return
+    # Use certinfo
+    # First, find a KeyInfo node or make one:
+    keyInfoNS = 'http://www.w3.org/2000/09/xmldsig#';
+    keyInfoNode = GetNode(userIdentityNode.getElementsByTagNameNS(keyInfoNS, 'KeyInfo'))
+    if not keyInfoNode:
+        keyInfoNode = xmlDoc.createElementNS(keyInfoNS, 'ds:KeyInfo')
+        keyInfoNode.setAttribute('xmlns:ds', keyInfoNS) # Namespace prefix definition
+
+    # Next, find an X509Data node or make one:
+    x509DNodes = keyInfoNode.getElementsByTagNameNS(keyInfoNS, 'X509Data')
+    needDNode = True
+    if x509DNodes:
+        for x509DNode in x509DNodes:
+            if GetNodeData(x509DNode.getElementsByTagNameNS(keyInfoNS,
+                                                            'X509SubjectName')) \
+                                                            == certInfo['DN']:
+                needDNode = False
+                break
+
+    if needDNode:
+        x509DNode = xmlDoc.createElementNS(keyInfoNS, 'ds:X509Data')
+        x509SNode = xmlDoc.createElementNS(keyInfoNS, 'ds:X509SubjectName')
+        textNode = xmlDoc.createTextNode(certinfo['DN']) # "Standard" slash format
+        x509SNode.appendChild(textNode)
+        x509DNode.appendChild(x509SNode)
+        keyInfoNode.appendChild(x509DNode)
+
+    if not keyInfoNode.parentNode:
+        userIdentityNode.appendChild(keyInfoNode)
+
+    # Return VO information for insertion in a common place.
+    return { 'VOName': certinfo['FQAN'],
+             'ReportableVOName': certinfo['VO'] }
+
+def readCertInfo(localJobId, probeName)
+    " Look for and read contents of cert info file if present"
+    global Config
+
+    if localJobId == None: return # No LocalJobId, so no dice
+
+    matching_files = glob(Config.get_DataFolder() + 'gratia_certinfo_*_' + localJobId + '*')
+    if matching_files == None or len(matching_files == 0): return # No files
+    if len(matching_files) == 1:
+        certinfo = matching_files[0] # simple
+    else:
+        # Need to whittle it down
+        # Need probe type
+        match = re.search(r'^(?P<Type>.*?):', probeName)
+        if match:
+            ProbeType = string.lower(match.group("Type"))
+        else:
+            DebugPrint(0, 'Error: Unable to ascertain ProbeType to match against multiple certinfo entries')
+            return
+
+        JobManagers = []
+        for f in matching_files:
+            match = re.search(r'gratia_certinfo_(?P<JobManger>.*?)_', f)
+            if match:
+                JobManager = string.lower(match.group("JobManager"))
+                JobManagers.append(JobManager)
+            if ProbeType == JobManager or \
+                   (ProbeType == "condor" and \
+                    (JobManager == "condor" or \
+                     JobManager == "managedfork" or \
+                     JobManager == "cemon")) or \
+                     (ProbeType == "pbs-lsf" and \
+                      (JobManager == "pbs" or \
+                       JobManager == "lsf")):
+                cert_info = f
+                break
+
+        if certinfo == None: # Problem: multiple possibilities but no match.
+            DebugInfo(0, 'ERROR: Unable to match ProbeType ' + ProbeType +
+                      ' to JobManagers: ' + string.join(JobManagers, ', '))
+            return
+
+    try:
+        certinfo_doc = xml.dom.minimdom.parse(certinfo)
+    except e:
+        DebugInfo(0, 'ERROR: Unable to parse XML file ' + certinfo)
+        return
+
+    # Next, find the correct information and send it back.
+    certinfo_nodes = certinfo_doc.getElementsByTagName('GratiaCertInfo')
+    if certinfo_nodes.length == 1:
+        return {
+            "DN": GetNodeData(certinfo_nodes[0].getElementsByTagName('DN'), 0),
+            "VO": GetNodeData(certinfo_nodes[0].getElementsByTagName('VO'), 0),
+            "FQAN": GetNodeData(certinfo_nodes[0].getElementsByTagName('FQAN'), 0)
+            }
+    else:
+        DebugInfo(0, 'ERROR: certinfo file ' + certinfo + ' does not contain one valid GratiaCertInfo node')
+        return
+
+def GetNode(nodeList, nodeIndex = 0):
+    if (nodeList == None) or (nodeList.length <= nodeIndex): return None
+    return nodeList.item(0)
+
+def GetNodeData(nodeList, nodeIndex = 0):
+    if (nodeList == None) or (nodeList.length <= nodeIndex): return None
+    return nodeList.item(0).data
