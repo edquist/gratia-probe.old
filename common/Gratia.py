@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.72 2008-02-22 00:24:43 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.73 2008-02-22 20:52:42 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -14,7 +14,12 @@ __responseMatcher = re.compile(r'Unknown Command: URL', re.IGNORECASE)
 
 
 def disconnect_at_exit():
-    if Config: RemoveOldLogs(Config.get_LogRotate())
+    __disconnect()
+    if Config:
+        try:
+            RemoveOldLogs(Config.get_LogRotate())
+        except Exception, e:
+            DebugPrint(0, "Exception: " + e)
     DebugPrint(0, "End of execution summary: new records sent successfully: " + str(successfulSendCount))
     DebugPrint(0, "                          new records suppressed: " + str(suppressedCount))
     DebugPrint(0, "                          new records failed: " + str(failedSendCount))
@@ -23,7 +28,6 @@ def disconnect_at_exit():
     DebugPrint(0, "                          handshake records sent successfuly: " + str(successfulHandshakes))
     DebugPrint(0, "                          handshake records failed: " + str(failedHandshakes))
     DebugPrint(1, "End-of-execution disconnect ...")
-    __disconnect()
 
 class ProbeConfiguration:
     __doc = None
@@ -353,7 +357,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.72 $
+    # $Revision: 1.73 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1042,7 +1046,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.72 $")
+        rev = ExtractCvsRevision("$Revision: 1.73 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1701,132 +1705,137 @@ def Send(record):
     global suppressedCount
     global successfulSendCount
 
-    DebugPrint(0, "***********************************************************")
-    DebugPrint(4, "DEBUG: In Send(record)")
-    DebugPrint(4, "DEBUG: Printing record to send")
-    record.Print()
-    DebugPrint(4, "DEBUG: Printing record to send: OK")
-    if (failedSendCount + len(OutstandingRecord)) >= Config.get_MaxPendingFiles():
-        responseString = "Fatal Error: too many pending files"
-        DebugPrint(0, responseString)
+    try:
         DebugPrint(0, "***********************************************************")
-        return responseString
+        DebugPrint(4, "DEBUG: In Send(record)")
+        DebugPrint(4, "DEBUG: Printing record to send")
+        record.Print()
+        DebugPrint(4, "DEBUG: Printing record to send: OK")
+        if (failedSendCount + len(OutstandingRecord)) >= Config.get_MaxPendingFiles():
+            responseString = "Fatal Error: too many pending files"
+            DebugPrint(0, responseString)
+            DebugPrint(0, "***********************************************************")
+            return responseString
 
-    # Assemble the record into xml
-    DebugPrint(4, "DEBUG: Creating XML")
-    record.XmlCreate()
-    DebugPrint(4, "DEBUG: Creating XML: OK")
+        # Assemble the record into xml
+        DebugPrint(4, "DEBUG: Creating XML")
+        record.XmlCreate()
+        DebugPrint(4, "DEBUG: Creating XML: OK")
 
-    # Parse it into nodes, etc (transitional: this will eventually be native format)
-    DebugPrint(4, "DEBUG: parsing XML")
-    xmlDoc = safeParseXML(string.join(record.XmlData,""))
-    DebugPrint(4, "DEBUG: parsing XML: OK")
+        # Parse it into nodes, etc (transitional: this will eventually be native format)
+        DebugPrint(4, "DEBUG: parsing XML")
+        xmlDoc = safeParseXML(string.join(record.XmlData,""))
+        DebugPrint(4, "DEBUG: parsing XML: OK")
 
-    if not xmlDoc:
-        responseString = "Internal Error: cannot parse internally generated XML record"
-        DebugPrint(0, responseString)
-        DebugPrint(0, "***********************************************************")
-        return responseString
-    
-    DebugPrint(4, "DEBUG: Normalizing XML document")
-    xmlDoc.normalize()
-    DebugPrint(4, "DEBUG: Normalizing XML document: OK")
+        if not xmlDoc:
+            responseString = "Internal Error: cannot parse internally generated XML record"
+            DebugPrint(0, responseString)
+            DebugPrint(0, "***********************************************************")
+            return responseString
 
-    DebugPrint(4, "DEBUG: Checking XML content")
-    if not CheckXmlDoc(xmlDoc,False):
-        DebugPrint(4, "DEBUG: Checking XML content: BAD")
+        DebugPrint(4, "DEBUG: Checking XML content")
+        if not CheckXmlDoc(xmlDoc,False):
+            DebugPrint(4, "DEBUG: Checking XML content: BAD")
+            xmlDoc.unlink()
+            responseString = "No unsuppressed usage records in this packet: not sending"
+            suppressedCount += 1
+            DebugPrint(0, responseString)
+            DebugPrint(0, "***********************************************************")
+            return responseString
+        DebugPrint(4, "DEBUG: Checking XML content: OK")
+
+        DebugPrint(4, "DEBUG: Normalizing XML document")
+        xmlDoc.normalize()
+        DebugPrint(4, "DEBUG: Normalizing XML document: OK")
+
+        # Generate the XML
+        DebugPrint(4, "DEBUG: Generating data to send")
+        record.XmlData = safeEncodeXML(xmlDoc).splitlines(True)
+        DebugPrint(4, "DEBUG: Generating data to send: OK")
+
+        # Close and clean up the document2
         xmlDoc.unlink()
-        responseString = "No unsuppressed usage records in this packet: not sending"
-        suppressedCount += 1
+
+        dirIndex = 0
+        success = False
+        ind = 0
+        f = 0
+
+        DebugPrint(4, "DEBUG: Back up record to send")
+        while not success:
+            (f,dirIndex) = OpenNewRecordFile(dirIndex)
+            DebugPrint(1,"Will save in the record in:",f.name)
+            DebugPrint(3,"DirIndex=",dirIndex)
+            if f.name != "<stdout>":
+                try:
+                    for line in record.XmlData:
+                        f.write(line)
+                    f.flush()
+                    if f.tell() > 0:
+                        success = True
+                        DebugPrint(0, 'Saved record to ' + f.name)
+                    else:
+                        DebugPrint(0,"failed to fill: ",f.name)
+                        if f.name != "<stdout>": os.remove(f.name)
+                    f.close()
+                except:
+                    DebugPrint(0,"failed to fill with exception: ",f.name,"--",
+                               sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+
+        DebugPrint(4, "DEBUG: Backing up record to send: OK")
+
+        # Currently, the recordXml is in a list format, with each item being a line of xml.  
+        # the collector web service requires the xml to be sent as a string.  
+        # This logic here turns the xml list into a single xml string.
+        usageXmlString = ""
+        for line in record.XmlData:
+            usageXmlString = usageXmlString + line
+        DebugPrint(3, 'UsageXml:  ' + usageXmlString)
+
+        connectionProblem = (__connectionRetries > 0) or (__connectionError)
+
+        # Attempt to send the record to the collector
+        response = __sendUsageXML(Config.get_MeterName(), usageXmlString)
+        responseString = response.get_message()
+
+        DebugPrint(0, 'Response code:  ' + str(response.get_code()))
+        DebugPrint(0, 'Response message:  ' + response.get_message())
+
+        # Determine if the call was successful based on the response
+        # code.  Currently, 0 = success
+        if response.get_code() == 0:
+            DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+            successfulSendCount += 1
+            os.remove(f.name)
+        else:
+            failedSendCount += 1
+            if (f.name == "<stdout>"):
+                DebugPrint(0, 'Record send failed and no backup made: record lost!')
+                responseString += "\nFatal: failed record lost!"
+                match = re.search(r'^<(?:[^:]*:)?RecordIdentity.*/>$', usageXmlString, re.MULTILINE)
+                if match:
+                    DebugPrint(0, match.group(0))
+                    responseString += "\n", match.group(0)
+                match = re.search(r'^<(?:[^:]*:)?GlobalJobId.*/>$', usageXmlString, re.MULTILINE)
+                if match:
+                    DebugPrint(0, match.group(0))
+                    responseString += "\n", match.group(0)
+                responseString += "\n" + usageXmlString
+            else:
+                DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
+
+        if (connectionProblem) and (response.get_code() == 0):
+            # Reprocess failed records before attempting more new ones
+            SearchOutstandingRecord()
+            Reprocess()
+
         DebugPrint(0, responseString)
         DebugPrint(0, "***********************************************************")
         return responseString
-    DebugPrint(4, "DEBUG: Checking XML content: OK")
-
-    # Generate the XML
-    DebugPrint(4, "DEBUG: Generating data to send")
-    record.XmlData = safeEncodeXML(xmlDoc).splitlines(True)
-    DebugPrint(4, "DEBUG: Generating data to send: OK")
-
-    # Close and clean up the document2
-    xmlDoc.unlink()
-
-    dirIndex = 0
-    success = False
-    ind = 0
-    f = 0
-
-    DebugPrint(4, "DEBUG: Back up record to send")
-    while not success:
-        (f,dirIndex) = OpenNewRecordFile(dirIndex)
-        DebugPrint(1,"Will save in the record in:",f.name)
-        DebugPrint(3,"DirIndex=",dirIndex)
-        if f.name != "<stdout>":
-            try:
-                for line in record.XmlData:
-                    f.write(line)
-                f.flush()
-                if f.tell() > 0:
-                    success = True
-                    DebugPrint(0, 'Saved record to ' + f.name)
-                else:
-                    DebugPrint(0,"failed to fill: ",f.name)
-                    if f.name != "<stdout>": os.remove(f.name)
-                f.close()
-            except:
-                DebugPrint(0,"failed to fill with exception: ",f.name,"--",
-                           sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
-
-    DebugPrint(4, "DEBUG: Backing up record to send: OK")
-
-    # Currently, the recordXml is in a list format, with each item being a line of xml.  
-    # the collector web service requires the xml to be sent as a string.  
-    # This logic here turns the xml list into a single xml string.
-    usageXmlString = ""
-    for line in record.XmlData:
-        usageXmlString = usageXmlString + line
-    DebugPrint(3, 'UsageXml:  ' + usageXmlString)
-
-    connectionProblem = (__connectionRetries > 0) or (__connectionError)
-
-    # Attempt to send the record to the collector
-    response = __sendUsageXML(Config.get_MeterName(), usageXmlString)
-    responseString = response.get_message()
-
-    DebugPrint(0, 'Response code:  ' + str(response.get_code()))
-    DebugPrint(0, 'Response message:  ' + response.get_message())
-
-    # Determine if the call was successful based on the response
-    # code.  Currently, 0 = success
-    if response.get_code() == 0:
-        DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
-        successfulSendCount += 1
-        os.remove(f.name)
-    else:
-        failedSendCount += 1
-        if (f.name == "<stdout>"):
-            DebugPrint(0, 'Record send failed and no backup made: record lost!')
-            responseString += "\nFatal: failed record lost!"
-            match = re.search(r'^<(?:[^:]*:)?RecordIdentity.*/>$', usageXmlString, re.MULTILINE)
-            if match:
-                DebugPrint(0, match.group(0))
-                responseString += "\n", match.group(0)
-            match = re.search(r'^<(?:[^:]*:)?GlobalJobId.*/>$', usageXmlString, re.MULTILINE)
-            if match:
-                DebugPrint(0, match.group(0))
-                responseString += "\n", match.group(0)
-            responseString += "\n" + usageXmlString
-        else:
-            DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
-
-    if (connectionProblem) and (response.get_code() == 0):
-        # Reprocess failed records before attempting more new ones
-        SearchOutstandingRecord()
-        Reprocess()
-
-    DebugPrint(0, responseString)
-    DebugPrint(0, "***********************************************************")
-    return responseString
+    except Exception, e:
+        DebugPrint (0, "ERROR: " + e + "exception caught while processing record " + record)
+        DebugPrint (0, "       This record has been LOST")
+        return "ERROR: record lost due to internal error!"
 
 # This sends the file contents of the given directory as raw XML. The
 # writer of the XML files is responsible for making sure that it is
@@ -2115,15 +2124,21 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
 
     DebugPrint(4, "DEBUG: Calling verifyFromCertInfo")
     vo_info = verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix)
+    DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: DONE")
 
-    if not vo_info: # Priority from certinfo, else existing data
-        DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: No data")
+    if not vo_info or \
+           (not vo_info['VOName'] and \
+            not vo_info['ReportableVOName']):
+        # Priority from certinfo, else existing data
+        DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: No VOName data")
         VOName = VONameNodes[0].firstChild.data
         ReportableVOName = ReportableVONameNodes[0].firstChild.data
         DebugPrint(4, "DEBUG: Calling VOfromUser")
         vo_info = VOfromUser(LocalUserId)
 
     if vo_info:
+        if vo_info['VOName'] == None: vo_info['VOName'] = ''
+        if vo_info['ReportableVOName'] == None: vo_info['ReportableVOName'] = ''
         if not (VOName and ReportableVOName) or VOName == "Unknown":
             DebugPrint(4, "DEBUG: Updating VO info: (" + vo_info['VOName'] +
                        ", " + vo_info['ReportableVOName'] + ")")
@@ -2308,7 +2323,7 @@ def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
 
     # Return VO information for insertion in a common place.
     return { 'VOName': certInfo['FQAN'],
-             'ReportableVOName': certInfo['VO'] }
+             'ReportableVOName': certInfo['VO']}
 
 def readCertInfo(localJobId, probeName):
     " Look for and read contents of cert info file if present"
@@ -2344,7 +2359,7 @@ def readCertInfo(localJobId, probeName):
                      (ProbeType == "pbs-lsf" and \
                       (JobManager == "pbs" or \
                        JobManager == "lsf")):
-                cert_info = f
+                certinfo = f
                 break
 
         if certinfo == None: # Problem: multiple possibilities but no match.
@@ -2361,13 +2376,15 @@ def readCertInfo(localJobId, probeName):
     # Next, find the correct information and send it back.
     certinfo_nodes = certinfo_doc.getElementsByTagName('GratiaCertInfo')
     if certinfo_nodes.length == 1:
+        os.remove(certinfo) # Clean up.
         return {
             "DN": GetNodeData(certinfo_nodes[0].getElementsByTagName('DN'), 0),
             "VO": GetNodeData(certinfo_nodes[0].getElementsByTagName('VO'), 0),
             "FQAN": GetNodeData(certinfo_nodes[0].getElementsByTagName('FQAN'), 0)
             }
     else:
-        DebugPrint(0, 'ERROR: certinfo file ' + certinfo + ' does not contain one valid GratiaCertInfo node')
+        DebugPrint(0, 'ERROR: certinfo file ' + certinfo +
+                   ' does not contain one valid GratiaCertInfo node')
         return
 
 def GetNode(nodeList, nodeIndex = 0):
