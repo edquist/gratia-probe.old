@@ -1,4 +1,4 @@
-#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.10 2007-10-19 21:20:15 pcanal Exp $
+#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.11 2008-02-22 17:25:44 pcanal Exp $
 
 ## Updated by Arvind Gopu, Indiana University (http://peart.ucs.indiana.edu)
 ## More Updates by Arvind Gopu 2007-10-19
@@ -89,9 +89,9 @@ class MetricRecord(Gratia.Record):
         " Detailed information about results of this metric if performance metric"
         self.RecordData = self.AddToList(self.RecordData, "PerformanceData", "", value)
 
-    def VOName(self,value):
+    def VoName(self,value):
         " The VO the proxy is authorized to run under "
-        self.RecordData = self.AddToList(self.RecordData, "VOName", "", value)
+        self.RecordData = self.AddToList(self.RecordData, "VoName", "", value)
         
     def SamUploadFlag(self,value):
         " Integer flag indicating upload status to SAM and other external resources: NULL=New_Record; 0=Sent; 1=In_Transit; 2=Permanent_Send_Error "
