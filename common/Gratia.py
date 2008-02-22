@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.71 2008-02-20 23:34:08 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.72 2008-02-22 00:24:43 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -353,7 +353,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.71 $
+    # $Revision: 1.72 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1042,7 +1042,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.71 $")
+        rev = ExtractCvsRevision("$Revision: 1.72 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1106,7 +1106,7 @@ class UsageRecord(Record):
         # See the function ResourceType for details on the 
         # parameter
         super(self.__class__,self).__init__()
-        DebugPrint(0,"Creating a usage Record "+TimeToString())
+        DebugPrint(0,"Creating a UsageRecord "+TimeToString())
         self.JobId = []
         self.UserId = []
         self.Username = "none"
@@ -1160,7 +1160,7 @@ class UsageRecord(Record):
     def LocalUserId(self,value):
         self.UserId = self.AddToList(self.UserId,"LocalUserId","",value)
 
-    def UserKeyInfo(self,value):
+    def UserKeyInfo(self,value): # NB This is deprecated in favor of DN, below.
         " Example: \
             <ds:KeyInfo xmlns:ds=""http://www.w3.org/2000/09/xmldsig#""> \
         <ds:X509Data> \
@@ -1169,6 +1169,9 @@ class UsageRecord(Record):
           </ds:KeyInfo>"
         complete = "\n\t\t<ds:X509Data>\n\t\t<ds:X509SubjectName>"+escapeXML(value)+"</ds:X509SubjectName>\n\t\t</ds:X509Data>\n\t"
         self.UserId = self.VerbatimAddToList(self.UserId,"ds:KeyInfo","xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\" ",complete)
+
+    def DN(self,value):
+        self.UserId = self.AddToList(self.UserId,"DN","",value)
 
     def VOName(self,value):
         self.UserId = self.AddToList(self.UserId,"VOName","",value)
@@ -1452,12 +1455,20 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
     "Fill in missing field in the xml document if needed"
     "If external is true, also check for ResourceType and Grid"
 
+    DebugPrint(4, "DEBUG: In UsageCheckXmldoc")
+    DebugPrint(4, "DEBUG: Checking xmlDoc integrity")
     if not xmlDoc.documentElement: return 0 # Major problem
-
+    DebugPrint(4, "DEBUG: Checking xmlDoc integrity: OK")
+    DebugPrint(4, "DEBUG: XML record to send: \n" +
+               xmlDoc.toxml())
+    
     # Local namespace
     namespace = xmlDoc.documentElement.namespaceURI
     # Loop over (posibly multiple) jobUsageRecords
+    DebugPrint(4, "DEBUG: About to examine individual UsageRecords")
     for usageRecord in getUsageRecords(xmlDoc):
+        DebugPrint(4, "DEBUG: Examining UsageRecord")
+        DebugPrint(4, "DEBUG: Looking for prefix")
         # Local namespace and prefix, if any
         prefix = ""
         for child in usageRecord.childNodes:
@@ -1466,23 +1477,37 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
                 prefix = child.prefix + ":"
                 break
 
+        DebugPrint(4, "DEBUG: Looking for prefix: " + prefix)
         [VOName, ReportableVOName] = [None, None]
 
+        DebugPrint(4, "DEBUG: Finding UserIdentityNodes")
         UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
+        DebugPrint(4, "DEBUG: Finding UserIdentityNodes (processing)")
         if not UserIdentityNodes:
+            DebugPrint(4, "DEBUG: Finding UserIdentityNodes: 0")
             [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
             DebugPrint(0, "Warning: no UserIdentity block in " + jobIdType + " " +
                        jobId)
         else:
-            if UserIdentityNodes.length > 1:
-                [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-                DebugPrint(0, "Warning: too many UserIdentity blocks  in " +  jobIdType + " " +
-                           jobId)
-            [VOName, ReportableVOName] = \
-                     CheckAndExtendUserIdentity(xmlDoc,
-                                                UserIdentityNodes[0],
-                                                namespace,
-                                                prefix)
+            try:
+                DebugPrint(4, "DEBUG: Finding UserIdentityNodes (processing 2)")
+                DebugPrint(4, "DEBUG: Finding UserIdentityNodes: " + str(UserIdentityNodes.length))
+                if UserIdentityNodes.length > 1:
+                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                    DebugPrint(0, "Warning: too many UserIdentity blocks  in " +  jobIdType + " " +
+                               jobId)
+
+                DebugPrint(4, "DEBUG: Call CheckAndExtendUserIdentity")
+                [VOName, ReportableVOName] = \
+                         CheckAndExtendUserIdentity(xmlDoc,
+                                                    UserIdentityNodes[0],
+                                                    namespace,
+                                                    prefix)
+                DebugPrint(4, "DEBUG: Call CheckAndExtendUserIdentity: OK")
+            except Exception, e:
+                DebugPrint(0, "DEBUG: Caught exception: ", e)
+                raise
+
 
         # If we are trying to handle only GRID jobs, suppress records
         # with a null or unknown VOName
@@ -1584,6 +1609,7 @@ def Reprocess():
 
 def CheckXmlDoc(xmlDoc,external,resourceType = None):
     content = 0
+    DebugPrint(4, "DEBUG: In CheckXmlDoc")
     for checker in XmlRecordCheckers:
         DebugPrint(1,"Running : " +str(checker)+str(xmlDoc)+str(external) + str(resourceType))
         content = content + checker(xmlDoc,external,resourceType)
@@ -1676,7 +1702,10 @@ def Send(record):
     global successfulSendCount
 
     DebugPrint(0, "***********************************************************")
+    DebugPrint(4, "DEBUG: In Send(record)")
+    DebugPrint(4, "DEBUG: Printing record to send")
     record.Print()
+    DebugPrint(4, "DEBUG: Printing record to send: OK")
     if (failedSendCount + len(OutstandingRecord)) >= Config.get_MaxPendingFiles():
         responseString = "Fatal Error: too many pending files"
         DebugPrint(0, responseString)
@@ -1684,10 +1713,14 @@ def Send(record):
         return responseString
 
     # Assemble the record into xml
+    DebugPrint(4, "DEBUG: Creating XML")
     record.XmlCreate()
+    DebugPrint(4, "DEBUG: Creating XML: OK")
 
     # Parse it into nodes, etc (transitional: this will eventually be native format)
+    DebugPrint(4, "DEBUG: parsing XML")
     xmlDoc = safeParseXML(string.join(record.XmlData,""))
+    DebugPrint(4, "DEBUG: parsing XML: OK")
 
     if not xmlDoc:
         responseString = "Internal Error: cannot parse internally generated XML record"
@@ -1695,18 +1728,25 @@ def Send(record):
         DebugPrint(0, "***********************************************************")
         return responseString
     
+    DebugPrint(4, "DEBUG: Normalizing XML document")
     xmlDoc.normalize()
-    
+    DebugPrint(4, "DEBUG: Normalizing XML document: OK")
+
+    DebugPrint(4, "DEBUG: Checking XML content")
     if not CheckXmlDoc(xmlDoc,False):
+        DebugPrint(4, "DEBUG: Checking XML content: BAD")
         xmlDoc.unlink()
         responseString = "No unsuppressed usage records in this packet: not sending"
         suppressedCount += 1
         DebugPrint(0, responseString)
         DebugPrint(0, "***********************************************************")
         return responseString
+    DebugPrint(4, "DEBUG: Checking XML content: OK")
 
     # Generate the XML
+    DebugPrint(4, "DEBUG: Generating data to send")
     record.XmlData = safeEncodeXML(xmlDoc).splitlines(True)
+    DebugPrint(4, "DEBUG: Generating data to send: OK")
 
     # Close and clean up the document2
     xmlDoc.unlink()
@@ -1716,6 +1756,7 @@ def Send(record):
     ind = 0
     f = 0
 
+    DebugPrint(4, "DEBUG: Back up record to send")
     while not success:
         (f,dirIndex) = OpenNewRecordFile(dirIndex)
         DebugPrint(1,"Will save in the record in:",f.name)
@@ -1735,6 +1776,8 @@ def Send(record):
             except:
                 DebugPrint(0,"failed to fill with exception: ",f.name,"--",
                            sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+
+    DebugPrint(4, "DEBUG: Backing up record to send: OK")
 
     # Currently, the recordXml is in a list format, with each item being a line of xml.  
     # the collector web service requires the xml to be sent as a string.  
@@ -2066,15 +2109,24 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
                    "ReportableVOName nodes in " + jobIdType + " " + jobId)
         return [None, None]
 
-    vo_info = verifyFromCertInfo(XmlDoc, userIdentityNode, namespace, prefix)
+    # Initial values
+    VOName = None
+    ReportableVOName = None
+
+    DebugPrint(4, "DEBUG: Calling verifyFromCertInfo")
+    vo_info = verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix)
 
     if not vo_info: # Priority from certinfo, else existing data
+        DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: No data")
         VOName = VONameNodes[0].firstChild.data
         ReportableVOName = ReportableVONameNodes[0].firstChild.data
+        DebugPrint(4, "DEBUG: Calling VOfromUser")
         vo_info = VOfromUser(LocalUserId)
 
     if vo_info:
         if not (VOName and ReportableVOName) or VOName == "Unknown":
+            DebugPrint(4, "DEBUG: Updating VO info: (" + vo_info['VOName'] +
+                       ", " + vo_info['ReportableVOName'] + ")")
             # VO info from reverse mapfile only overrides missing or inadequate data.
             VONameNodes[0].firstChild.data = vo_info['VOName']
             ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
@@ -2212,56 +2264,60 @@ def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
     " Use localJobID and probeName to find cert info file and insert info into XML record"
 
     # Collect data needed by certinfo reader
+    DebugPrint(4, "DEBUG: Get JobIdentity")
     JobIdentityNode = GetNode(xmlDoc.getElementsByTagNameNS(namespace, 'JobIdentity'))
     if JobIdentityNode == None: return
+    DebugPrint(4, "DEBUG: Get JobIdentity: OK")
     localJobId = GetNodeData(JobIdentityNode.getElementsByTagNameNS(namespace, 'LocalJobId'))
+    DebugPrint(4, "DEBUG: Get localJobId: ", localJobId)
     usageRecord = userIdentityNode.parentNode
     probeName = GetNodeData(usageRecord.getElementsByTagNameNS(namespace, 'ProbeName'))
+    DebugPrint(4, "DEBUG: Get probeName: ", probeName)
     # Read certinfo
+    DebugPrint(4, "DEBUG: call readCertinfo")
     certInfo = readCertInfo(localJobId, probeName)
-    if certInfo == None or not certInfo.hasKey('DN') or not certInfo['DN']: return
+    DebugPrint(4, "DEBUG: call readCertinfo: OK")
+    if certInfo == None or not certInfo.has_key('DN') or not certInfo['DN']: return
     # Use certinfo
-    # First, find a KeyInfo node or make one:
+    certInfo['DN'] = FixDN(certInfo['DN']) # "Standard" slash format
+    # First, find a KeyInfo node if it is there
     keyInfoNS = 'http://www.w3.org/2000/09/xmldsig#';
     keyInfoNode = GetNode(userIdentityNode.getElementsByTagNameNS(keyInfoNS, 'KeyInfo'))
-    if not keyInfoNode:
-        keyInfoNode = xmlDoc.createElementNS(keyInfoNS, 'ds:KeyInfo')
-        keyInfoNode.setAttribute('xmlns:ds', keyInfoNS) # Namespace prefix definition
-
-    # Next, find an X509Data node or make one:
-    x509DNodes = keyInfoNode.getElementsByTagNameNS(keyInfoNS, 'X509Data')
-    needDNode = True
-    if x509DNodes:
+    needDNnode = True
+    DNnode = GetNode(userIdentityNode.getElementsByTagNameNS(namespace, 'DN'))
+    if DNnode and DN.firstChild: # Override
+        DN.firstChild.data = certInfo['DN']
+        needDNnode = False
+    elif keyInfoNode:
+        # Next, find an X509Data node
+        x509DNodes = keyInfoNode.getElementsByTagNameNS(keyInfoNS, 'X509Data')
         for x509DNode in x509DNodes:
-            if GetNodeData(x509DNode.getElementsByTagNameNS(keyInfoNS,
-                                                            'X509SubjectName')) \
-                                                            == certInfo['DN']:
-                needDNode = False
+            x509Subject = GetNodeData(x509DNode.getElementsByTagNameNS(keyInfoNS,
+                                                                       'X509SubjectName'))
+            if x509Subject and FixDN(x509Subject) == certInfo['DN']:
+                needDNnode = False
                 break
 
-    if needDNode:
-        x509DNode = xmlDoc.createElementNS(keyInfoNS, 'ds:X509Data')
-        x509SNode = xmlDoc.createElementNS(keyInfoNS, 'ds:X509SubjectName')
-        textNode = xmlDoc.createTextNode(certinfo['DN']) # "Standard" slash format
-        x509SNode.appendChild(textNode)
-        x509DNode.appendChild(x509SNode)
-        keyInfoNode.appendChild(x509DNode)
-
-    if not keyInfoNode.parentNode:
-        userIdentityNode.appendChild(keyInfoNode)
+    if needDNnode:
+        if not DNnode:
+            DNnode = xmlDoc.createElementNS(namespace, 'DN')
+        textNode = xmlDoc.createTextNode(certInfo['DN'])
+        DNnode.appendChild(textNode)
+        if not DNnode.parentNode:
+            userIdentityNode.appendChild(DNnode)
 
     # Return VO information for insertion in a common place.
-    return { 'VOName': certinfo['FQAN'],
-             'ReportableVOName': certinfo['VO'] }
+    return { 'VOName': certInfo['FQAN'],
+             'ReportableVOName': certInfo['VO'] }
 
-def readCertInfo(localJobId, probeName)
+def readCertInfo(localJobId, probeName):
     " Look for and read contents of cert info file if present"
     global Config
 
     if localJobId == None: return # No LocalJobId, so no dice
 
-    matching_files = glob(Config.get_DataFolder() + 'gratia_certinfo_*_' + localJobId + '*')
-    if matching_files == None or len(matching_files == 0): return # No files
+    matching_files = glob.glob(Config.get_DataFolder() + 'gratia_certinfo_*_' + localJobId + '*')
+    if matching_files == None or len(matching_files) == 0: return # No files
     if len(matching_files) == 1:
         certinfo = matching_files[0] # simple
     else:
@@ -2292,14 +2348,14 @@ def readCertInfo(localJobId, probeName)
                 break
 
         if certinfo == None: # Problem: multiple possibilities but no match.
-            DebugInfo(0, 'ERROR: Unable to match ProbeType ' + ProbeType +
+            DebugPrint(0, 'ERROR: Unable to match ProbeType ' + ProbeType +
                       ' to JobManagers: ' + string.join(JobManagers, ', '))
             return
 
     try:
-        certinfo_doc = xml.dom.minimdom.parse(certinfo)
-    except e:
-        DebugInfo(0, 'ERROR: Unable to parse XML file ' + certinfo)
+        certinfo_doc = xml.dom.minidom.parse(certinfo)
+    except Exception, e:
+        DebugPrint(0, 'ERROR: Unable to parse XML file ' + certinfo, ": ", e)
         return
 
     # Next, find the correct information and send it back.
@@ -2311,7 +2367,7 @@ def readCertInfo(localJobId, probeName)
             "FQAN": GetNodeData(certinfo_nodes[0].getElementsByTagName('FQAN'), 0)
             }
     else:
-        DebugInfo(0, 'ERROR: certinfo file ' + certinfo + ' does not contain one valid GratiaCertInfo node')
+        DebugPrint(0, 'ERROR: certinfo file ' + certinfo + ' does not contain one valid GratiaCertInfo node')
         return
 
 def GetNode(nodeList, nodeIndex = 0):
@@ -2320,4 +2376,10 @@ def GetNode(nodeList, nodeIndex = 0):
 
 def GetNodeData(nodeList, nodeIndex = 0):
     if (nodeList == None) or (nodeList.length <= nodeIndex): return None
-    return nodeList.item(0).data
+    return nodeList.item(0).firstChild.data
+
+def FixDN(DN):
+    # Put DN into a known format: /-separated with USERID= instead of UID=
+    fixedDN = string.replace(string.join(string.split(DN, r', '), r'/'), r'/UID=', r'/USERID=')
+    if fixedDN[0] != r'/': fixedDN = r'/' + fixedDN
+    return fixedDN
