@@ -117,9 +117,18 @@ def send_one(el,
     r.Host(host)
     r.LocalUserId(uid2name(el['jobuid'])) # uid number
     if el.has_key("DN"):
-        r.UserKeyInfo(el["DN"])
-    if el.has_key("VO"):
+        # r.UserKeyInfo(el["DN"]) # Obsolete
+        r.DN(el["DN"]) # Preferred
+
+    if el.has_key("FQAN"):
+        # If we have an FQAN, then set both
+        r.VOName(el["FQAN"])
+        if el.has_key("VO"):
+            r.ReportableVOName(el["VO"])
+    elif el.has_key("VO"):
+        # Otherwise, just set one.
         r.VOName(el["VO"])
+
     r.WallDuration(el['end']-el['start'])
     r.CpuDuration(el['usercpu'],'user')
     r.CpuDuration(el['syscpu'],'sys')
