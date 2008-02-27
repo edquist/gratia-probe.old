@@ -1,5 +1,5 @@
---- globus-job-manager-script-real.pl.bak	2007-12-30 11:13:26.000000000 -0600
-+++ globus-job-manager-script-real.pl	2008-01-28 16:24:46.688000000 -0600
+--- globus-job-manager-script.in.bak	2007-12-30 11:13:26.000000000 -0600
++++ globus-job-manager-script.in	2008-01-28 16:24:46.688000000 -0600
 @@ -36,6 +36,9 @@
  use Globus::GRAM::Error;
  use Globus::GRAM::JobDescription;
@@ -10,7 +10,7 @@
  my($manager_name, $argument_file, $command) = (undef, undef, undef);
  
  GetOptions('manager-name|m=s' => \$manager_name,
-@@ -105,6 +111,10 @@
+@@ -105,6 +108,10 @@
  else
  {
      $manager->respond($result);
