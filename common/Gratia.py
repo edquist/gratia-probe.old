@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.73 2008-02-22 20:52:42 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.74 2008-02-27 22:40:54 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -357,7 +357,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.73 $
+    # $Revision: 1.74 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -458,13 +458,30 @@ def __connect():
             DebugPrint(1, "Connected via HTTPS to: " + Config.get_SSLHost())
             #print "Using SSL protocol"
         else:
-            __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
-                                                   cert_file = Config.get_GratiaCertificateFile(),
-                                                   key_file = Config.get_GratiaKeyFile())
-            __connection.connect()
+            DebugPrint(4, "DEBUG: Attempting to connect to HTTPS")
+            try:
+                DebugPrint(4, "DEBUG: Requesting HTTPS connection")
+                __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
+                                                       cert_file = Config.get_GratiaCertificateFile(),
+                                                       key_file = Config.get_GratiaKeyFile())
+                DebugPrint(4, "DEBUG: Requesting HTTPS connection: OK")
+            except Exception, e:
+                DebugPrint(0, "ERROR: could not initialize HTTPS connection")
+                __connectionError = True
+                return __connected
+            try:
+                DebugPrint(4, "DEBUG: Connect")
+                __connection.connect()
+                DebugPrint(4, "DEBUG: Connect: OK")
+            except Exception, e:
+                DebugPrint(4, "DEBUG: Connect: FAILED")
+                DebugPrint(0, "Error: caught exception " + str(e) + "Trying to connect to HTTPS")
+                __connectionError = True
+                return __connected
             DebugPrint(1, "Connected via HTTPS to: " + Config.get_SSLHost())
             #print "Using SSL protocol"
         # Successful
+        DebugPrint(4, "DEBUG: Connection SUCCESS")
         __connected = True
         # Reset connection retry count to 0 and the retry delay to its initial value
         __connectionRetries = 0
@@ -595,11 +612,17 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
             else:
                 response = Response(-1, responseString)
         else: # SSL
+            DebugPrint(4, "DEBUG: Encoding data for SSL transmission")
             queryString = __encodeData(messageType, recordXml)
+            DebugPrint(4, "DEBUG: Encoding data for SSL transmission: OK")
             # Attempt to make sure Collector can actually read the post.
             headers = {"Content-type": "application/x-www-form-urlencoded"}
+            DebugPrint(4, "DEBUG: POST")
             __connection.request("POST",Config.get_SSLCollectorService(), queryString, headers)
+            DebugPrint(4, "DEBUG: POST: OK")
+            DebugPrint(4, "DEBUG: Read response")
             responseString = __connection.getresponse().read()
+            DebugPrint(4, "DEBUG: Read response: OK")
             if __urlencode_records == 1 and \
                    __responseMatcher.search(responseString):
                 # We're talking to an old collector
@@ -1046,7 +1069,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.73 $")
+        rev = ExtractCvsRevision("$Revision: 1.74 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1514,11 +1537,19 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
 
 
         # If we are trying to handle only GRID jobs, suppress records
-        # with a null or unknown VOName
-        if Config.get_SuppressUnknownVORecords() and ((not VOName) or VOName == "Unknown"):
+        # with a null or unknown VOName or missing DN (preferred, but
+        # requires JobManager patch).
+        if Config.get_SuppressNoDNRecords() and not usageRecord.getElementsByTagNameNS(namespace, 'DN'):
             [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
             DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
-                   jobId + "due to unknown or null VOName")
+                       jobId + "due to missing DN")
+            usageRecord.parentNode.removeChild(usageRecord)
+            usageRecord.unlink()
+            continue
+        elif Config.get_SuppressUnknownVORecords() and ((not VOName) or VOName == "Unknown"):
+            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
+                       jobId + "due to unknown or null VOName")
             usageRecord.parentNode.removeChild(usageRecord)
             usageRecord.unlink()
             continue
@@ -2118,37 +2149,55 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
                    "ReportableVOName nodes in " + jobIdType + " " + jobId)
         return [None, None]
 
-    # Initial values
-    VOName = None
-    ReportableVOName = None
+    ####################################################################
+    # Priority goes as follows:
+    #
+    # 1. Existing VOName if FQAN.
+    #
+    # 2. Certinfo.
+    #
+    # 3. Existing VOName if not FQAN.
+    #
+    # 4. VOName from reverse map file.
 
-    DebugPrint(4, "DEBUG: Calling verifyFromCertInfo")
-    vo_info = verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix)
-    DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: DONE")
+    # 1. Initial values
+    VOName = VONameNodes[0].firstChild.data
+    ReportableVOName = ReportableVONameNodes[0].firstChild.data
 
-    if not vo_info or \
-           (not vo_info['VOName'] and \
-            not vo_info['ReportableVOName']):
-        # Priority from certinfo, else existing data
-        DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: No VOName data")
-        VOName = VONameNodes[0].firstChild.data
-        ReportableVOName = ReportableVONameNodes[0].firstChild.data
+    # 2. Certinfo
+    if (not VOName) or VOName[0] != r'/':
+        DebugPrint(4, "DEBUG: Calling verifyFromCertInfo")
+        vo_info = verifyFromCertInfo(xmlDoc, userIdentityNode,
+                                     namespace, prefix)
+        if vo_info and (not vo_info['VOName'] and 
+                        not vo_info['ReportableVOName']):
+            DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: No VOName data")
+            vo_info = None # Reset if no output.
+        else:
+            DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: DONE")
+
+    # 3. & 4.
+    if not vo_info and not VOName:
         DebugPrint(4, "DEBUG: Calling VOfromUser")
         vo_info = VOfromUser(LocalUserId)
 
+    # Resolve.
     if vo_info:
         if vo_info['VOName'] == None: vo_info['VOName'] = ''
         if vo_info['ReportableVOName'] == None: vo_info['ReportableVOName'] = ''
         if not (VOName and ReportableVOName) or VOName == "Unknown":
             DebugPrint(4, "DEBUG: Updating VO info: (" + vo_info['VOName'] +
                        ", " + vo_info['ReportableVOName'] + ")")
-            # VO info from reverse mapfile only overrides missing or inadequate data.
+            # VO info from reverse mapfile only overrides missing or
+            # inadequate data.
             VONameNodes[0].firstChild.data = vo_info['VOName']
             ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
 
     VOName = VONameNodes[0].firstChild.data
     ReportableVOName = ReportableVONameNodes[0].firstChild.data
-
+    ####################################################################
+    
+    # Clean up.
     if not VOName:
         userIdentityNode.removeChild(VONameNodes[0])
         VONameNodes[0].unlink()
@@ -2298,24 +2347,11 @@ def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
     # First, find a KeyInfo node if it is there
     keyInfoNS = 'http://www.w3.org/2000/09/xmldsig#';
     keyInfoNode = GetNode(userIdentityNode.getElementsByTagNameNS(keyInfoNS, 'KeyInfo'))
-    needDNnode = True
     DNnode = GetNode(userIdentityNode.getElementsByTagNameNS(namespace, 'DN'))
     if DNnode and DN.firstChild: # Override
         DN.firstChild.data = certInfo['DN']
-        needDNnode = False
-    elif keyInfoNode:
-        # Next, find an X509Data node
-        x509DNodes = keyInfoNode.getElementsByTagNameNS(keyInfoNS, 'X509Data')
-        for x509DNode in x509DNodes:
-            x509Subject = GetNodeData(x509DNode.getElementsByTagNameNS(keyInfoNS,
-                                                                       'X509SubjectName'))
-            if x509Subject and FixDN(x509Subject) == certInfo['DN']:
-                needDNnode = False
-                break
-
-    if needDNnode:
-        if not DNnode:
-            DNnode = xmlDoc.createElementNS(namespace, 'DN')
+    else:
+        if not DNnode: DNnode = xmlDoc.createElementNS(namespace, 'DN')
         textNode = xmlDoc.createTextNode(certInfo['DN'])
         DNnode.appendChild(textNode)
         if not DNnode.parentNode:
