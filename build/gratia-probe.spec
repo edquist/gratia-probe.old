@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.32a
-Release: 2
+Version: 0.32c
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -64,7 +64,7 @@ BuildRequires: gcc-c++
 
 %define max_pending_files_check() (( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\\"\\{0,1\\}\\([0-9]\\{1,\\}\\)\\"\\{0,1\\}.*$/\\1/p' "${RPM_INSTALL_PREFIX1}/probe/%1/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\\n"; fi
 
-%define configure_probeconfig_pre(p:d:m:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; %{__perl} -wni.orig -e 's&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $meter_name = %{meter_name}; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":"%{osg_collector}"; my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&(MeterName\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
+%define configure_probeconfig_pre(p:d:m:M:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; if [[ -n "%{-M*}" ]] then chmod %{-M*} "$config_file"; fi; %{__perl} -wni.orig -e 's&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $meter_name = %{meter_name}; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":"%{osg_collector}"; my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&(MeterName\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
 
 %define configure_probeconfig_post(g:) my $grid = "%{-g*}" || "%{grid}"; s&(Grid\\s*=\\s*)\\\"[^\\\"]*\\\"&${1}"${grid}"&; m&%{ProbeConfig_template_marker}& or print; ' "$config_file" >/dev/null 2>&1; %{expand: %final_post_message $config_file }; done
 
@@ -185,7 +185,11 @@ probably should wait until the RPM version is available.
 EOF
 print;
 ' "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/README"
-
+%{__rm} -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/README.bak"
+mv -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/README" \
+"${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/README-experts-only.txt"
+mv -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-storage/README" \
+"${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-storage/README-experts-only.txt"
 
   # YUM repository install
   install -d "${RPM_BUILD_ROOT}/etc/yum.repos.d"
@@ -382,7 +386,6 @@ Common files and examples for Gratia OSG accounting system probes.
 
 %files common
 %defattr(-,root,root,-)
-%dir %{default_prefix}/var
 %dir %{default_prefix}/var/logs
 %dir %{default_prefix}/var/data
 %dir %{default_prefix}/var/tmp
@@ -401,6 +404,10 @@ Common files and examples for Gratia OSG accounting system probes.
 %{default_prefix}/probe/common/DebugPrint.py
 %{default_prefix}/probe/common/RegisterProbe.py
 %{default_prefix}/probe/common/test/db-find-job
+%{default_prefix}/probe/common/GRAM/README.txt
+%{default_prefix}/probe/common/GRAM/JobManagerGratia.pm
+%{default_prefix}/probe/common/GRAM/globus-job-manager-script-real.pl.diff.4.0.5
+%{default_prefix}/probe/common/GRAM/globus-job-manager-script.in.diff.4.0.6
 %config(noreplace) /etc/yum.repos.d/gratia.repo
 
 %package extra-libs
@@ -802,7 +809,8 @@ Contributed by Greg Sharp and the dCache project.
 %files dCache-transfer%{?maybe_itb_suffix}
 %defattr(-,root,root,-)
 /etc/rc.d/init.d/gratia-dcache-transfer-probe
-%{default_prefix}/probe/dCache-transfer/README
+%{default_prefix}/probe/dCache-transfer/README-experts-only.txt
+%{default_prefix}/probe/dCache-transfer/README.txt
 %{default_prefix}/probe/dCache-transfer/Alarm.py
 %{default_prefix}/probe/dCache-transfer/Checkpoint.py
 %{default_prefix}/probe/dCache-transfer/CheckpointTest.py
@@ -816,7 +824,8 @@ Contributed by Greg Sharp and the dCache project.
 # /etc -> "${RPM_INSTALL_PREFIX2}"
 
 # Configure ProbeConfig
-%configure_probeconfig_pre -d dCache-transfer -m dcache-transfer
+%configure_probeconfig_pre -d dCache-transfer -m dcache-transfer -M 600
+(m&\bVDTSetupFile\b& or m&\bUserVOMapFile\b&) and next; # Skip, not needed.
 m&^/>& and print <<EOF;
     UpdateFrequency="120"
     DBHostName="localhost"
@@ -888,7 +897,8 @@ Contributed by Greg Sharp and the dCache project.
 
 %files dCache-storage%{?maybe_itb_suffix}
 %defattr(-,root,root,-)
-%{default_prefix}/probe/dCache-storage/README
+%{default_prefix}/probe/dCache-storage/README-experts-only.txt
+%{default_prefix}/probe/dCache-storage/README.txt
 %{default_prefix}/probe/dCache-storage/dcacheStorageMeter.py
 %{default_prefix}/probe/dCache-storage/dCache-storage_meter.cron.sh
 %config(noreplace) %{default_prefix}/probe/dCache-storage/ProbeConfig
@@ -897,7 +907,8 @@ Contributed by Greg Sharp and the dCache project.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
-%configure_probeconfig_pre -d dCache-storage -m dcache-storage
+%configure_probeconfig_pre -d dCache-storage -m dcache-storage -M 600
+(m&\bVDTSetupFile\b& or m&\bUserVOMapFile\b&) and next; # Skip, not needed
 m&^/>& and print <<EOF;
     DBHostName="localhost"
     DBLoginName="srmdcache"
@@ -906,7 +917,7 @@ m&^/>& and print <<EOF;
     AdminSvrLogin="admin"
     AdminSvrPassword="ADMIN_SVR_PASSWORD"
     DCacheServerHost="POSTGRES_HOST"
-    DcacheLogLevel="debug"
+    DcacheLogLevel="warn"
 EOF
 %configure_probeconfig_post
 
@@ -946,6 +957,31 @@ fi
 %endif
 
 %changelog
+* Thu Feb 28 2008 Christopher Green <greenc@fnal.gov> - 0.32c-1
+- Enable suppression of records without DN.
+- Defined order of precendence for different sources of VO information.
+- GLExec probe now saves FQAN.
+- GLExec error output redirected to log.
+- Remove some unneeded entries from ProbeConfig for dCache probe.
+- GRAM patches appropriately named, with README.
+- Fix unpackaged file problems.
+- Improve SGE test file.
+- SGE probe updates.
+
+* Mon Feb 25 2008 Christopher Green <greenc@fnal.gov> - 0.32b-1
+- Incorporate updates to Gratia.py:
+- * Fix problem of upload to collector requiring workaround parsing of
+-   POST arguments.
+- * Probe can now read and upload certinfo files produced by a suitably
+-   modified GRAM.
+- GRAM mods to allow capture of DN / FQAN information.
+- dCache probe fixes requested by Brian B.
+- New README files to specify configuration information for dCache
+  probes as installed by RPM or VDT; rename other README files to avoid
+  confusion.
+- Protect ProbeConfig files that are likely to have sensitive
+  information (eg DB access information).
+
 * Wed Feb 13 2008 Christopher Green <greenc@fnal.gov> - 0.32a-2
 - Improve path setting in dCache-transfer init script.
 
