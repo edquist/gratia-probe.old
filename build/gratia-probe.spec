@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.32c
-Release: 2
+Version: 0.32d
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -957,6 +957,9 @@ fi
 %endif
 
 %changelog
+* Thu Feb 28 2008 Christopher Green <greenc@fnal.gov> - 0.32d-1
+- Mirror glob improvement from transfer init script to storage cron script.
+
 * Thu Feb 28 2008 Christopher Green <greenc@fnal.gov> - 0.32c-2
 - Fix typo in ProbeConfig configure macro.
 

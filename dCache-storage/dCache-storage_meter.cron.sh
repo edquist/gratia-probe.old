@@ -3,7 +3,7 @@
 # dcache-storage_meter.cron.sh - Shell script used with cron to parse dcache-storage
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: dCache-storage_meter.cron.sh,v 1.3 2008-01-17 17:29:37 greenc Exp $
+# $Id: dCache-storage_meter.cron.sh,v 1.4 2008-02-28 21:25:06 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/dCache-storage/dCache-storage_meter.cron.sh,v $
 ###################################################################
 PGM=$(basename $0)
@@ -55,7 +55,7 @@ do
 done
 
 pp_dir=$(cd "$Meter_BinDir/.."; pwd)
-arch_spec_dir=${pp_dir}/lib.*
+arch_spec_dir=`echo "${PROBE_DIR}/../lib."*`
 if test -n "$PYTHONPATH" ; then
   if echo "$PYTHONPATH" | grep -e ':$' >/dev/null 2>&1; then
     PYTHONPATH="${PYTHONPATH}${pp_dir}/common:${arch_spec_dir}:"
@@ -89,6 +89,9 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.3  2008/01/17 17:29:37  greenc
+# Fix for reported PYTHONPATH problem.
+#
 # Revision 1.2  2007/12/14 21:44:42  greenc
 # Supress build output with -q option.
 #
