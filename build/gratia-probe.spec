@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.32c
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -64,7 +64,7 @@ BuildRequires: gcc-c++
 
 %define max_pending_files_check() (( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\\"\\{0,1\\}\\([0-9]\\{1,\\}\\)\\"\\{0,1\\}.*$/\\1/p' "${RPM_INSTALL_PREFIX1}/probe/%1/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\\n"; fi
 
-%define configure_probeconfig_pre(p:d:m:M:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; if [[ -n "%{-M*}" ]] then chmod %{-M*} "$config_file"; fi; %{__perl} -wni.orig -e 's&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $meter_name = %{meter_name}; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":"%{osg_collector}"; my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&(MeterName\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
+%define configure_probeconfig_pre(p:d:m:M:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; if [[ -n "%{-M*}" ]]; then chmod %{-M*} "$config_file"; fi; %{__perl} -wni.orig -e 's&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $meter_name = %{meter_name}; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":"%{osg_collector}"; my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&(MeterName\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
 
 %define configure_probeconfig_post(g:) my $grid = "%{-g*}" || "%{grid}"; s&(Grid\\s*=\\s*)\\\"[^\\\"]*\\\"&${1}"${grid}"&; m&%{ProbeConfig_template_marker}& or print; ' "$config_file" >/dev/null 2>&1; %{expand: %final_post_message $config_file }; done
 
@@ -957,6 +957,9 @@ fi
 %endif
 
 %changelog
+* Thu Feb 28 2008 Christopher Green <greenc@fnal.gov> - 0.32c-2
+- Fix typo in ProbeConfig configure macro.
+
 * Thu Feb 28 2008 Christopher Green <greenc@fnal.gov> - 0.32c-1
 - Enable suppression of records without DN.
 - Defined order of precendence for different sources of VO information.
