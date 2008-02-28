@@ -35,7 +35,7 @@
     LogRotate="31"
     UseSyslog="0"
     SuppressUnknownVORecords="0"
-
+    SuppressNoDNRecords="0"
     EnableProbe="0"
 
 />
