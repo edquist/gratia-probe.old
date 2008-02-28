@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.74 2008-02-27 22:40:54 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.75 2008-02-28 18:06:46 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -260,6 +260,17 @@ class ProbeConfiguration:
         else:
             return None
 
+    def get_SuppressNoDNRecords(self):
+        result = self.__getConfigAttribute('SuppressNoDNRecords')
+        if result:
+            match = re.search(r'^(True|1|t)$', result, re.IGNORECASE);
+            if match:
+                return True
+            else:
+                return False
+        else:
+            return None
+
 class Event:
     _xml = ""
     _id = ""
@@ -357,7 +368,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.74 $
+    # $Revision: 1.75 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1069,7 +1080,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.74 $")
+        rev = ExtractCvsRevision("$Revision: 1.75 $")
 
         self.ReporterLibrary("Gratia",rev);
 
