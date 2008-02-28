@@ -1,7 +1,7 @@
 # Copyright 2007 Cornell University, Ithaca, NY. All rights reserved.
 #
 # Author:  Gregory J. Sharp
-# Version: $Id: DCacheAggregator.py,v 1.2 2008-02-13 22:49:58 greenc Exp $
+# Version: $Id: DCacheAggregator.py,v 1.3 2008-02-28 22:31:51 greenc Exp $
 #
 # This is a first attempt at a python program that reads the dCache billing
 # database, aggregates any new content, and posts it to Gratia.
@@ -20,7 +20,7 @@ from datetime import timedelta
 from Checkpoint import Checkpoint
 from Alarm import Alarm
 
-import pkg_resources
+#import pkg_resources
 #pkg_resources.require( 'sqlalchemy >= 0.3.8' )
 #pkg_resources.require( 'psycopg2   >= 2.0.5.1' )
 
