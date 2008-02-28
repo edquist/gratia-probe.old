@@ -3,7 +3,7 @@
 # glexec_meter.cron.sh - Shell script used with cron to parse glexec
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: glexec_meter.cron.sh,v 1.5 2007-09-10 20:17:14 greenc Exp $
+# $Id: glexec_meter.cron.sh,v 1.6 2008-02-28 20:21:53 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/glexec/glexec_meter.cron.sh,v $
 ###################################################################
 PGM=$(basename $0)
@@ -62,12 +62,12 @@ export PYTHONPATH
 
 enabled=`${pp_dir}/GetProbeConfigAttribute.py EnableProbe`
 if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
-  ${pp_dir}/DebugPrint.py -l 0 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
+  ${pp_dir}/DebugPrint.py -l -1 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
 	exit 1
 fi
 
 #--- run the probes ----
-./glexec_meter.py
+./glexec_meter.py --nodaemon 2>&1 | ${pp_dir}/DebugPrint.py -l 1
 
 ExitCode=$?
 
@@ -82,6 +82,11 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.5  2007/09/10 20:17:14  greenc
+# Update SPEC file.
+#
+# Improve redirection of non-managed output.
+#
 # Revision 1.4  2007/05/25 23:34:56  greenc
 # New utilities GetProbeConfigAttribute.py and DebugPrint.py.
 #
