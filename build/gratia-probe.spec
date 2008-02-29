@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.32d
+Version: 0.32e
 Release: 1
 License: GPL
 Group: Applications/System
@@ -957,6 +957,9 @@ fi
 %endif
 
 %changelog
+* Fri Feb 29 2008 Christopher Green <greenc@fnal.gov> - 0.32e-1
+- Disable DN/FQAN special upload until collector improvements complete.
+
 * Thu Feb 28 2008 Christopher Green <greenc@fnal.gov> - 0.32d-1
 - Mirror glob improvement from transfer init script to storage cron script.
 

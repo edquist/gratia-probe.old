@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.75 2008-02-28 18:06:46 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.76 2008-02-29 19:58:47 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -12,6 +12,8 @@ quiet = 0
 __urlencode_records = 1
 __responseMatcher = re.compile(r'Unknown Command: URL', re.IGNORECASE)
 
+# Disable DN/FQAN interpretation and upload for now (collector not ready).
+DN_FQAN_DISABLED = True
 
 def disconnect_at_exit():
     __disconnect()
@@ -368,7 +370,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.75 $
+    # $Revision: 1.76 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1080,7 +1082,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.75 $")
+        rev = ExtractCvsRevision("$Revision: 1.76 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -2424,11 +2426,14 @@ def readCertInfo(localJobId, probeName):
     certinfo_nodes = certinfo_doc.getElementsByTagName('GratiaCertInfo')
     if certinfo_nodes.length == 1:
         os.remove(certinfo) # Clean up.
-        return {
-            "DN": GetNodeData(certinfo_nodes[0].getElementsByTagName('DN'), 0),
-            "VO": GetNodeData(certinfo_nodes[0].getElementsByTagName('VO'), 0),
-            "FQAN": GetNodeData(certinfo_nodes[0].getElementsByTagName('FQAN'), 0)
-            }
+        if (DN_FQAN_DISABLED): # Interim version.
+            return None
+        else:
+            return {
+                "DN": GetNodeData(certinfo_nodes[0].getElementsByTagName('DN'), 0),
+                "VO": GetNodeData(certinfo_nodes[0].getElementsByTagName('VO'), 0),
+                "FQAN": GetNodeData(certinfo_nodes[0].getElementsByTagName('FQAN'), 0)
+                }
     else:
         DebugPrint(0, 'ERROR: certinfo file ' + certinfo +
                    ' does not contain one valid GratiaCertInfo node')
