@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.76 2008-02-29 19:58:47 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.77 2008-03-04 17:07:54 pcanal Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -370,7 +370,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.76 $
+    # $Revision: 1.77 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1082,9 +1082,13 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.76 $")
+        rev = ExtractCvsRevision("$Revision: 1.77 $")
 
         self.ReporterLibrary("Gratia",rev);
+
+        for data in HandshakeReg:
+            self.ProbeDetails = self.AppendToList( self.ProbeDetails, data[0], data[1], data[2])
+        
 
     def ReporterLibrary(self,name,version):
         self.ProbeDetails = self.AppendToList(self.ProbeDetails,"ReporterLibrary","version=\""+version+"\"",name)
@@ -1104,9 +1108,6 @@ class ProbeDetails(Record):
         global RecordId
         global HandshakeReg
 
-        for data in HandshakeReg:
-            self.ProbeDetails = self.AppendToList( self.ProbeDetails, data[0], data[1], data[2])
-        
         self.XmlAddMembers()
 
         self.XmlData = []
