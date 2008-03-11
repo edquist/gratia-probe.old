@@ -4,7 +4,7 @@
 #
 
 import os,sys,stat
-import time,string
+import time,calendar,string
 
 # returns a dictionary
 # where keys are (monitor_pid,glexec_uid)
@@ -170,15 +170,56 @@ class ReadBackFile:
                 self.readbuf(req_size) # even if larger,better maintaing same granularity
         return
             
-def parse_line(line):
+def parse_line_v1(line):
     # looking for [<date>#<monitor_id> <glexec_id>] Msg\n
     if line[0]!='[':
         raise RuntimeError,"Not starting with [ (%s)"%line
-    header,message=string.split(line[1:],']',1)
+    header,message=string.split(line[1:],'] ',1)
     date,idstr=string.split(header,'#',1)
     mon_str,gl_str=string.split(idstr)
 
-    return (long(date),(int(mon_str),int(gl_str)),message[1:])
+    return (long(date),(int(mon_str),int(gl_str)),message)
+
+def parseISO8601_UTC(datestr):
+    ts=time.strptime(datestr,"%Y-%m-%dT%H:%M:%SZ")
+    t=calendar.timegm(ts)
+    return t
+
+def parseISO8601_Local(datestr):
+    # first get the base time
+    ts=time.strptime(datestr[:-6],"%Y-%m-%dT%H:%M:%S")
+    t=calendar.timegm(ts)
+    # then get the timezone
+    tdstr=datestr[-6:]
+    tdelta=(int(tdstr[1:3])*60+int(tdstr[4:6]))*60
+    tdeltaWsign=tdelta*([-1,1][tdstr[0]=='-'])
+    # put them together
+    gmt=t+tdeltaWsign
+    return gmt
+
+def parseISO8601(datestr):
+    if datestr[-1]=='Z':
+      return parseISO8601_UTC(datestr)
+    else:
+      return parseISO8601_Local(datestr)
+
+def parse_line_v2(line):
+    #looking for glemon[<monitor_id>#<glexec_id>]: <date> Msg\n
+    if line[:7]!='glemon[':
+       raise RuntimeError,"Not starting with glemon[ (%s)"%line  
+    header,messageWdate=line[7:].split(']: ',1)
+    mon_str,gl_str=header.split('#',1)
+    datestr,message=messageWdate.split(' ',1)
+
+    date=parseISO8601(datestr)
+
+    return (long(date),(int(mon_str),int(gl_str)),message)
+
+def parse_line(line):
+    if line[0]=='[':
+      return parse_line_v1(line)
+    else:
+      return parse_line_v2(line)
 
 def update_element(el,date,msg):
     #print date,msg
