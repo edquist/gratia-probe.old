@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.77 2008-03-04 17:07:54 pcanal Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.78 2008-03-11 15:09:07 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -21,7 +21,7 @@ def disconnect_at_exit():
         try:
             RemoveOldLogs(Config.get_LogRotate())
         except Exception, e:
-            DebugPrint(0, "Exception: " + e)
+            DebugPrint(0, "Exception: " + str(e))
     DebugPrint(0, "End of execution summary: new records sent successfully: " + str(successfulSendCount))
     DebugPrint(0, "                          new records suppressed: " + str(suppressedCount))
     DebugPrint(0, "                          new records failed: " + str(failedSendCount))
@@ -370,7 +370,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.77 $
+    # $Revision: 1.78 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1082,7 +1082,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.77 $")
+        rev = ExtractCvsRevision("$Revision: 1.78 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1878,7 +1878,7 @@ def Send(record):
         DebugPrint(0, "***********************************************************")
         return responseString
     except Exception, e:
-        DebugPrint (0, "ERROR: " + e + "exception caught while processing record " + record)
+        DebugPrint (0, "ERROR: " + str(e) + "exception caught while processing record ")
         DebugPrint (0, "       This record has been LOST")
         return "ERROR: record lost due to internal error!"
 
@@ -2177,6 +2177,7 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     # 1. Initial values
     VOName = VONameNodes[0].firstChild.data
     ReportableVOName = ReportableVONameNodes[0].firstChild.data
+    vo_info = None
 
     # 2. Certinfo
     if (not VOName) or VOName[0] != r'/':
@@ -2428,7 +2429,7 @@ def readCertInfo(localJobId, probeName):
     if certinfo_nodes.length == 1:
         os.remove(certinfo) # Clean up.
         if (DN_FQAN_DISABLED): # Interim version.
-            return None
+            return
         else:
             return {
                 "DN": GetNodeData(certinfo_nodes[0].getElementsByTagName('DN'), 0),
