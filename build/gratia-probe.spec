@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.32e
-Release: 1
+Version: 0.32g
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -58,7 +58,8 @@ BuildRequires: gcc-c++
 
 %{!?meter_name: %global meter_name `hostname -f`}
 
-%define scrub_root_crontab tmpfile=`mktemp /tmp/gratia-cleanup.XXXXXXXXXX`; crontab -l 2>/dev/null | %{__grep} -v -e 'gratia/probe/' > "$tmpfile" 2>/dev/null; crontab "$tmpfile" 2>/dev/null 2>&1; %{__rm} -f "$tmpfile"
+%define scrub_root_crontab() tmpfile=`mktemp /tmp/gratia-cleanup.XXXXXXXXXX`; crontab -l 2>/dev/null | %{__grep} -v -e 'gratia/probe/%1' > "$tmpfile" 2>/dev/null; crontab "$tmpfile" 2>/dev/null 2>&1; %{__rm} -f "$tmpfile"; if %{__grep} -re '%1_meter.cron\.sh' ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
+echo "WARNING: non-standard installation of %1 probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*. Please check and remove to avoid clashes with root's crontab" 1>&2; fi
 
 %define final_post_message() [[ "%1" == *ProbeConfig* ]] && echo "IMPORTANT: please check %1 and remember to set EnableProbe = \"1\" to start operation." 1>&2
 
@@ -349,16 +350,7 @@ done
 %max_pending_files_check pbs-lsf
 
 # Configure crontab entry
-%scrub_root_crontab
-if %{__grep} -re 'pbs-lsf_meter.cron\.sh' \
-        ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
-%{__cat} <<EOF 1>&2
-
-WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*
-         Please check and remove to avoid clashes with root's crontab
-
-EOF
-fi
+%scrub_root_crontab pbs-lsf
 
 (( min = $RANDOM % 15 ))
 %{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-pbs-lsf.cron <<EOF
@@ -380,6 +372,7 @@ Group: Applications/System
 %if %{?python:0}%{!?python:1}
 Requires: python >= 2.2
 %endif
+AutoReqProv: no
 
 %description common
 Common files and examples for Gratia OSG accounting system probes.
@@ -476,17 +469,7 @@ m&^\s*VDTSetupFile\s*=& and next;
 %max_pending_files_check psacct
 
 # Configure crontab entry
-%scrub_root_crontab
-if %{__grep} -re 'psacct_probe.cron\.sh' -e 'PSACCTProbe\.py' \
-        ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
-%{__cat} 1>&2 <<EOF
-
-
-WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*
-         Please check and remove to avoid clashes with root's crontab
-
-EOF
-fi
+%scrub_root_crontab psacct
 
 %{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-psacct.cron <<EOF
 $(( $RANDOM % 60 )) $(( $RANDOM % 24 )) * * * root \
@@ -605,16 +588,7 @@ done
 %max_pending_files_check condor
 
 # Configure crontab entry
-%scrub_root_crontab
-if %{__grep} -re 'condor_meter.cron\.sh' -e 'condor_meter\.pl' \
-        ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
-%{__cat} <<EOF 1>&2
-
-WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*
-         Please check and remove to avoid clashes with root's crontab
-
-EOF
-fi
+%scrub_root_crontab condor
 
 (( min = $RANDOM % 15 ))
 %{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-condor.cron <<EOF
@@ -663,16 +637,7 @@ EOF
 %max_pending_files_check sge
 
 # Configure crontab entry
-%scrub_root_crontab
-if %{__grep} -re 'sge_meter.cron\.sh' -e 'sge\.py' \
-        ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
-%{__cat} <<EOF 1>&2
-
-WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*
-         Please check and remove to avoid clashes with root's crontab
-
-EOF
-fi
+%scrub_root_crontab sge
 
 (( min = $RANDOM % 15 ))
 %{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-sge.cron <<EOF
@@ -724,16 +689,7 @@ EOF
 %max_pending_files_check glexec
 
 # Configure crontab entry
-%scrub_root_crontab
-if %{__grep} -re 'glexec_meter.cron\.sh' \
-        ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
-%{__cat} <<EOF 1>&2
-
-WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*
-         Please check and remove to avoid clashes with root's crontab
-
-EOF
-fi
+%scrub_root_crontab glexec
 
 (( min = $RANDOM % 15 ))
 %{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-glexec.cron <<EOF
@@ -927,16 +883,7 @@ perl -wapi.bak -e 's&^python &%{pexec} &g' \
 %max_pending_files_check dCache-storage
 
 # Configure crontab entry
-%scrub_root_crontab
-if %{__grep} -re '_meter.cron\.sh' \
-        ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then
-%{__cat} <<EOF 1>&2
-
-WARNING: non-standard installation of probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*
-         Please check and remove to avoid clashes with root's crontab
-
-EOF
-fi
+%scrub_root_crontab dCache-storage
 
 (( min = $RANDOM % 60 ))
 %{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-dcache-storage.cron <<EOF
@@ -957,6 +904,18 @@ fi
 %endif
 
 %changelog
+* Wed Mar 12 2008 Christopher Green <greenc@fnal.gov> - 0.32g-2
+- Fix over-zealous scrubbing of crontab.
+
+* Fri Mar  7 2008 Christopher Green <greenc@fnal.gov> - 0.32g-1
+- Collector not yet ready for DN attribute.
+
+* Thu Mar  6 2008 Christopher Green <greenc@fnal.gov> - 0.32f-2
+- Fix uninitialized var problem for a particular code path in Gratia.py.
+
+* Wed Mar  5 2008 Christopher Green <greenc@fnal.gov> - 0.32e-2
+- Remove automatic requirement generation for the common package.
+
 * Fri Feb 29 2008 Christopher Green <greenc@fnal.gov> - 0.32e-1
 - Disable DN/FQAN special upload until collector improvements complete.
 
