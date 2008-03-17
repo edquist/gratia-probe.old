@@ -43,6 +43,6 @@ if [[ ! -w "$rpmbuild_top/SOURCES" ]]; then
   usage
 fi
 
-cp -pv "$dCache_dir/"*.{tar.gz,egg} "$urCollector_dir/"* "$@" "$rpmbuild_top/SOURCES" 2>/dev/null
+cp -pv "$dCache_dir/"*.{tar.gz,tar.bz2,egg} "$urCollector_dir/"* "$@" "$rpmbuild_top/SOURCES" 2>/dev/null
 
 exit 0
