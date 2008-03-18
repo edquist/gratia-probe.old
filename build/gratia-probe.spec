@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.32.2
+Version: 0.32.2b
 Release: 1
 License: GPL
 Group: Applications/System
@@ -18,10 +18,10 @@ BuildRequires: gcc-c++
 %global sqlalchemy_version 0.4.1
 %global psycopg2_version 2.0.6
 %global setuptools_source setuptools-0.6c3-py2.3.egg
-%global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_probe_version}.tar.bz2
+%global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
-%global dcache_probe_version v0-1pre
-%global dcache_storage_probe_version v0-1pre
+%global dcache_transfer_probe_version v0-1pre3
+%global dcache_storage_probe_version v0-1pre2
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
 %define _unpackaged_files_terminate_build 0
@@ -69,7 +69,7 @@ BuildRequires: gcc-c++
 
 %define configure_probeconfig_pre(p:d:m:M:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; if [[ -n "%{-M*}" ]]; then chmod %{-M*} "$config_file"; fi; %{__perl} -wni.orig -e 's&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $meter_name = %{meter_name}; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":"%{osg_collector}"; my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&(MeterName\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
 
-%define configure_probeconfig_post(g:) my $grid = "%{-g*}" || "%{grid}"; s&(Grid\\s*=\\s*)\\\"[^\\\"]*\\\"&${1}"${grid}"&; m&%{ProbeConfig_template_marker}& or print; ' "$config_file" >/dev/null 2>&1; %{expand: %final_post_message $config_file }; done
+%define configure_probeconfig_post(g:) my $grid = "%{-g*}" || "%{grid}"; s&(Grid\\s*=\\s*)\\\"[^\\\"]*\\\"&${1}"${grid}"&; m&%{ProbeConfig_template_marker}& or print; ' "$config_file" >/dev/null 2>&1; %{expand: %final_post_message $config_file }; %{__rm} -f "$config_file.orig"; done
 
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
@@ -769,6 +769,7 @@ m&^/>& and print <<EOF;
     EmailFromAddress="dCacheProbe@localhost"
     EmailToList=""
     AggrLogLevel="warn"
+    OnlySendInterSiteTransfers="true"
 EOF
 %configure_probeconfig_post
 
@@ -793,7 +794,8 @@ EOF
 s&gratia-d?cache-probe&gratia-dcache-transfer-probe&g;
 s&python &%{pexec} &g;
 print;
-' "${RPM_INSTALL_PREFIX2}/rc.d/init.d/gratia-dcache-transfer"
+' "${RPM_INSTALL_PREFIX2}/rc.d/init.d/gratia-dcache-transfer" && \
+%{__rm} -f "${RPM_INSTALL_PREFIX2}/rc.d/init.d/gratia-dcache-transfer.bak"
 
 # Activate init script
 /sbin/chkconfig --add gratia-dcache-transfer
@@ -853,7 +855,8 @@ EOF
 %configure_probeconfig_post
 
 perl -wapi.bak -e 's&^python &%{pexec} &g' \
-"${RPM_INSTALL_PREFIX1}"/probe/dCache-storage/dCache-storage_meter.cron.sh
+"${RPM_INSTALL_PREFIX1}"/probe/dCache-storage/dCache-storage_meter.cron.sh && \
+%{__rm} -f "${RPM_INSTALL_PREFIX1}/probe/dCache-storage/dCache-storage_meter.cron.sh.bak"
 
 %max_pending_files_check dCache-storage
 
@@ -879,6 +882,21 @@ fi
 %endif
 
 %changelog
+* Tue Mar 18 2008 Christopher Green <greenc@fnal.gov> - 0.32.2b-1
+- dcache_transfer_probe_version -> v0-1pre3 (README includes info about
+- OnlySendInterSiteTransfers).
+
+* Tue Mar 18 2008 Christopher Green <greenc@fnal.gov> - 0.32.2a-2
+- Add OnlySendInterSiteTransfers to transfer ProbeConfig
+
+* Tue Mar 18 2008 Christopher Green <greenc@fnal.gov> - 0.32.2a-1
+- dcache_storage_probe_version -> v0-1pre2 (fix old python script
+- references in cron script).
+- dcache_probe_version -> dcache_transfer_probe_version (default value
+- of OnlySendInterSiteTransfers should be true).
+- dcache_transfer_probe_version -> v0-1pre2.
+- Remove .orig and .bak files from post by request.
+
 * Mon Mar 17 2008 Christopher Green <greenc@fnal.gov> - 0.32.2-1
 - Transfer all dCache files (including READMEs) to dCache repository and
 - go back to the tarball paradigm.
