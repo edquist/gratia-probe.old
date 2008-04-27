@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.78 2008-03-11 15:09:07 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.79 2008-04-27 15:19:00 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -12,8 +12,8 @@ quiet = 0
 __urlencode_records = 1
 __responseMatcher = re.compile(r'Unknown Command: URL', re.IGNORECASE)
 
-# Disable DN/FQAN interpretation and upload for now (collector not ready).
-DN_FQAN_DISABLED = True
+# FQAN now in production: switch should remain for now however.
+DN_FQAN_DISABLED = False
 
 def disconnect_at_exit():
     __disconnect()
@@ -370,7 +370,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.78 $
+    # $Revision: 1.79 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1082,7 +1082,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.78 $")
+        rev = ExtractCvsRevision("$Revision: 1.79 $")
 
         self.ReporterLibrary("Gratia",rev);
 

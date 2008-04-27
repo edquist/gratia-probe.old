@@ -117,8 +117,8 @@ def send_one(el,
     r.Host(host)
     r.LocalUserId(uid2name(el['jobuid'])) # uid number
     if el.has_key("DN"):
-        r.UserKeyInfo(el["DN"]) # Obsolete
-        # r.DN(el["DN"]) # Preferred
+        # r.UserKeyInfo(el["DN"]) # Obsolete
+        r.DN(el["DN"]) # Preferred
 
     if el.has_key("FQAN"):
         # If we have an FQAN, then set both
