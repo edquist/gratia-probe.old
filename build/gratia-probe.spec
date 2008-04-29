@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.32.2b
+Version: 0.32.3
 Release: 1
 License: GPL
 Group: Applications/System
@@ -12,7 +12,9 @@ Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 BuildRequires: python >= 2.3
 BuildRequires: python-devel >= 2.3
 %endif
+%if %{?no_dcache:0}%{!?no_dcache:1}
 BuildRequires: postgresql-devel
+%endif
 BuildRequires: gcc-c++
 
 %global sqlalchemy_version 0.4.1
@@ -20,8 +22,8 @@ BuildRequires: gcc-c++
 %global setuptools_source setuptools-0.6c3-py2.3.egg
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
-%global dcache_transfer_probe_version v0-1pre3
-%global dcache_storage_probe_version v0-1pre2
+%global dcache_transfer_probe_version v0-1pre7
+%global dcache_storage_probe_version v0-1pre5
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
 %define _unpackaged_files_terminate_build 0
@@ -30,23 +32,26 @@ BuildRequires: gcc-c++
 %global pbs_lsf_template_marker # Temporary RPM-generated template marker
 %global urCollector_version 2006-06-13
 
-%global osg_collector gratia.opensciencegrid.org
-%global fnal_collector gratia-fermi.fnal.gov
-
 %{?config_itb: %global maybe_itb_suffix -itb }
 %{?config_itb: %global itb 1}
 %{!?config_itb: %global itb 0}
 %{?python: %global pexec %{python}}
 %{!?python: %global pexec python }
 
+%global osg_collector gratia.opensciencegrid.org
+%global fnal_collector gratia-fermi.fnal.gov
+%global metric_collector metric.opensciencegrid.org
+%global dcache_collector dcache-transfer.opensciencegrid.org
+%global dcache_port 8886
+
 %if %{itb}
   %global collector_port 8881
-  %global metric_collector metric.opensciencegrid.org
   %global metric_port 8881
   %global grid OSG-ITB
+  %global dcache_collector %{osg_collector}
 %else
+  %global dcache_collector gratia-transfer.opensciencegrid.org
   %global collector_port 8880
-  %global metric_collector metric.opensciencegrid.org
   %global metric_port 8880
   %global grid OSG
 %endif
@@ -67,7 +72,7 @@ BuildRequires: gcc-c++
 
 %define max_pending_files_check() (( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\\"\\{0,1\\}\\([0-9]\\{1,\\}\\)\\"\\{0,1\\}.*$/\\1/p' "${RPM_INSTALL_PREFIX1}/probe/%1/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\\n"; fi
 
-%define configure_probeconfig_pre(p:d:m:M:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; if [[ -n "%{-M*}" ]]; then chmod %{-M*} "$config_file"; fi; %{__perl} -wni.orig -e 's&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $meter_name = %{meter_name}; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":"%{osg_collector}"; my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&(MeterName\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
+%define configure_probeconfig_pre(p:d:m:M:h:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; if [[ -n "%{-M*}" ]]; then chmod %{-M*} "$config_file"; fi; %{__perl} -wni.orig -e 's&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $meter_name = %{meter_name}; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":("%{-h*}" || "%{osg_collector}"); my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&(MeterName\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
 
 %define configure_probeconfig_post(g:) my $grid = "%{-g*}" || "%{grid}"; s&(Grid\\s*=\\s*)\\\"[^\\\"]*\\\"&${1}"${grid}"&; m&%{ProbeConfig_template_marker}& or print; ' "$config_file" >/dev/null 2>&1; %{expand: %final_post_message $config_file }; %{__rm} -f "$config_file.orig"; done
 
@@ -132,9 +137,11 @@ cd urCollector-%{urCollector_version}
 cd urCollector-%{urCollector_version}
 %{__make} clean
 %{__make}
+%if %{?no_dcache:0}%{!?no_dcache:1}
 cd -
 cd psycopg2-%{psycopg2_version}
 %{pexec} setup.py build
+%endif # dCache
 %else
 cd SQLAlchemy-%{sqlalchemy_version}
 %{pexec} setup.py build
@@ -209,10 +216,11 @@ cd SQLAlchemy-%{sqlalchemy_version}
   "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector"
   cd - >/dev/null
 
+%if %{?no_dcache:0}%{!?no_dcache:1}
   # Get already-built psycopg2 software
   %{__cp} -R psycopg2-%{psycopg2_version}/build/lib.* \
   "${RPM_BUILD_ROOT}%{default_prefix}/probe/"
-
+%endif
 %endif
 
 cd "${RPM_BUILD_ROOT}%{default_prefix}"
@@ -237,6 +245,7 @@ cd "${RPM_BUILD_ROOT}%{default_prefix}"
 Probes for the Gratia OSG accounting system
 
 %ifnarch noarch
+%if %{?no_dcache:0}%{!?no_dcache:1}
 %package extra-libs-arch-spec
 Summary: Architecture-specific third-party libraries required by some Gratia probes.
 Group: Application/System
@@ -255,6 +264,7 @@ see http://www.initd.org/pub/software/psycopg/ for details.
 %files extra-libs-arch-spec
 %defattr(-,root,root,-)
 %{default_prefix}/probe/lib.*
+%endif # dCache
 
 %package pbs-lsf%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for PBS and LSF batch systems.
@@ -722,6 +732,7 @@ EOF
 # End of metric post
 # End of metric section
 
+%if %{?no_dcache:0}%{!?no_dcache:1}
 %package dCache-transfer%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for dCache billing.
 Group: Application/System
@@ -756,7 +767,7 @@ Contributed by Greg Sharp and the dCache project.
 # /etc -> "${RPM_INSTALL_PREFIX2}"
 
 # Configure ProbeConfig
-%configure_probeconfig_pre -d dCache-transfer -m dcache-transfer -M 600
+%configure_probeconfig_pre -d dCache-transfer -m dcache-transfer -M 600 -h %{dcache_collector} -p %{dcache_port}
 (m&\bVDTSetupFile\b& or m&\bUserVOMapFile\b&) and next; # Skip, not needed.
 m&^/>& and print <<EOF;
     UpdateFrequency="120"
@@ -840,7 +851,7 @@ Contributed by Greg Sharp and the dCache project.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
-%configure_probeconfig_pre -d dCache-storage -m dcache-storage -M 600
+%configure_probeconfig_pre -d dCache-storage -m dcache-storage -M 600 -h %{dcache_collector} -p %{dcache_port}
 (m&\bVDTSetupFile\b& or m&\bUserVOMapFile\b&) and next; # Skip, not needed
 m&^/>& and print <<EOF;
     DBHostName="localhost"
@@ -879,19 +890,44 @@ fi
 #   End of dCache-storage preun
 # End of dCache-storage section
 
-%endif
+%endif # dCache
+
+%endif # noarch
 
 %changelog
+* Mon Apr 28 2008 Christopher Green <greenc@fnal.gov> - 0.32.3-1
+- Merge ability to turn off dCache probe building from branch.
+- dCache probes get sent to different host / port.
+- dcache_transfer_probe_version to v0-1pre7.
+- dcache_storage_probe_version to v0-1pre5.
+- Gratia.py and glexec_meter.py now take advantage of new DN/FQAN
+-  ability.
+
+* Thu Mar 20 2008 Christopher Green <greenc@fnal.gov> - 0.32.2e-1
+- dcache_transfer_probe_version -> v0-1pre6:
+-   Add HOME to environment of init script if missing to allow python
+-   logging to work (sheesh).
+
+* Thu Mar 20 2008 Christopher Green <greenc@fnal.gov> - 0.32.2d-1
+- dcache_transfer_probe_version -> v0-1pre5:
+-   Fix import pkg_resource in DCacheAggregator.py.
+- dcache_storage_probe_version -> v0-1pre3:
+-   Fix PYTHONPATH in dCache-storage_meter.cron.sh.
+
+* Thu Mar 20 2008 Christopher Green <greenc@fnal.gov> - 0.32.2c-1
+- dcache_transfer_probe_version -> v0-1pre4:
+-   Fix transfer probe import of string.
+
 * Tue Mar 18 2008 Christopher Green <greenc@fnal.gov> - 0.32.2b-1
-- dcache_transfer_probe_version -> v0-1pre3 (README includes info about
-- OnlySendInterSiteTransfers).
+- dcache_transfer_probe_version -> v0-1pre3
+-   README includes info about OnlySendInterSiteTransfers.
 
 * Tue Mar 18 2008 Christopher Green <greenc@fnal.gov> - 0.32.2a-2
 - Add OnlySendInterSiteTransfers to transfer ProbeConfig
 
 * Tue Mar 18 2008 Christopher Green <greenc@fnal.gov> - 0.32.2a-1
-- dcache_storage_probe_version -> v0-1pre2 (fix old python script
-- references in cron script).
+- dcache_storage_probe_version -> v0-1pre2
+-   Fix old python script references in cron script).
 - dcache_probe_version -> dcache_transfer_probe_version (default value
 - of OnlySendInterSiteTransfers should be true).
 - dcache_transfer_probe_version -> v0-1pre2.
