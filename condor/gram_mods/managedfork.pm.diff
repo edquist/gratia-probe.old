@@ -1,13 +1,22 @@
---- managedfork.pm.orig	2006-11-10 13:28:03.000000000 -0600
-+++ managedfork.pm	2006-11-10 13:31:13.000000000 -0600
-@@ -490,15 +490,22 @@
-                 if $description->stdout() ne '';
+--- managedfork.pm.orig	2008-05-01 07:59:27.325000000 -0500
++++ managedfork.pm	2008-05-01 08:02:54.621000000 -0500
+@@ -301,6 +301,9 @@
+     print SCRIPT_FILE "Input = " . $description->stdin() . "\n";
+     print SCRIPT_FILE "Log = " . $self->{condor_logfile} . "\n";
+     print SCRIPT_FILE "log_xml = True\n";
++# Patched by the VDT
++    print SCRIPT_FILE "+GratiaJobOrigin=GRAM\n";
++# End VDT patch
+     if ( $is_grid_monitor ) {
+ 	print SCRIPT_FILE "+GridMonitorJob = True\n";
+     }
+@@ -499,9 +502,14 @@
              $self->nfssync( $description->stderr(), 0 )
                  if $description->stderr() ne '';
--            if ( ${self}->{individual_condor_log} ) {
--                unlink($self->{condor_logfile});
--            }
-+
+ 
+-              if ( ${self}->{individual_condor_log} ) {
+-                  unlink($self->{condor_logfile});
+-              }
 +            # Should we really delete a file that we have not
 +            # been able to read.  This leaves room for a race 
 +            # condition So the following code is commented out:
@@ -19,14 +28,7 @@
              return { JOB_STATE => Globus::GRAM::JobState::DONE };
          }
  
-         if($num_abort > 0)
-         {
-             if ( ${self}->{individual_condor_log} ) {
-+                $self->log_to_gratia();
-                 unlink($self->{condor_logfile});
-             }
-             $state = Globus::GRAM::JobState::FAILED;
-@@ -511,6 +518,7 @@
+@@ -518,6 +526,7 @@
                  if $description->stderr() ne '';
  
              if ( ${self}->{individual_condor_log} ) {
@@ -34,7 +36,7 @@
                  unlink($self->{condor_logfile});
              }
              $state = Globus::GRAM::JobState::DONE;
-@@ -561,4 +569,49 @@
+@@ -568,6 +577,50 @@
      }
  }
  
@@ -47,7 +49,7 @@
 +        $condor_version_number = 
 +        join("",
 +             map { m&^(\d+)&?sprintf("%03d", $1):"000" }
-+             ($condor_version_string =~ m!^\$CondorVersion: ([^\.]+)\.([^\.]+)\.([^\.]+)!s)) + 0;
++             ($condor_version_string =~ m!^\$CondorVersion: ([^\.]+)\.([^\.]+)\.([^\.]+)!s));
 +        return 1 unless ($condor_version_number < 6009000);
 +    }
 +    my $self = shift;
@@ -70,7 +72,6 @@
 +         $self->log("Logging for accounting purpose the file $log_filename into $log_dir");
 +         @args = ("cp", "$log_filename" , "$log_dir" );
 +         system(@args) == 0 or $self->log("Error: system @args failed: $?");
-+	 system("echo succesfull copy >> /var/tmp/gratia.log");
 +      } else {
 +         if ( ! -e $log_filename ) {
 +            $self->log("Logging for accounting purpose failed: $log_filename does not exist");
@@ -83,4 +84,14 @@
 +    return 1; # Should return a proper Globus success code
 +}
 +
- 1;
+ sub cache_cleanup
+ {
+     my $self = shift;
+@@ -575,6 +628,7 @@
+ 
+     if ( ${self}->{individual_condor_log} ) {
+         $self->log("Deleting Condor user log");
++        $self->log_to_gratia();
+         unlink($self->{condor_logfile});
+     }
+ 
