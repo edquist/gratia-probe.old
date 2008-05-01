@@ -5,7 +5,7 @@
      print SCRIPT_FILE "Log = " . $self->{condor_logfile} . "\n";
      print SCRIPT_FILE "log_xml = True\n";
 +# Patched by the VDT
-+    print SCRIPT_FILE "+GratiaJobOrigin=GRAM\n";
++    print SCRIPT_FILE "+GratiaJobOrigin=\"GRAM\"\n";
 +# End VDT patch
      print SCRIPT_FILE "#Extra attributes specified by client\n";
      print SCRIPT_FILE "$submit_attrs_string\n";

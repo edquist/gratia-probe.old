@@ -5,7 +5,7 @@
     print SCRIPT_FILE "Log = " . $self->{condor_logfile} . "\n";
     print SCRIPT_FILE "log_xml = True\n";
 +# Patched by the VDT
-+    print SCRIPT_FILE "+GratiaJobOrigin=GRAM\n";
++    print SCRIPT_FILE "+GratiaJobOrigin=\"GRAM\"\n";
 +# End VDT patch
     if ( $is_grid_monitor ) {
 	print SCRIPT_FILE "+GridMonitorJob = True\n";
