@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.16 2008-05-01 13:10:32 greenc Exp $
+# $Id: condor_meter.pl,v 1.17 2008-05-01 13:13:59 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.16 $ ';   # CVS Version number
+my $prog_revision = '$Revision: 1.17 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -836,21 +836,23 @@ chomp $condor_hist_file;
 #------------------------------------------------------------------
 # Build a list of file names.  Add individual files given as command
 # line arguments or select names from a directory specified.
-my @logfiles = @processed_logfiles = ();
+my @logfiles = @processed_logfiles = ();  $logs_found=0;
 foreach $name_arg (@ARGV) {
   if ( -f $name_arg && -s _ ) {
     # This argument is a non-empty plain file
-    push(@logfiles, $name_arg);
+    push(@logfiles, $name_arg); $logs_found++;
   } elsif ( -d $name_arg ) {
     # This argument is a directory name
     opendir(DIR, $name_arg)
       or die "Could not open the directory $name_arg.";
-    while ($file = readdir(DIR) and -f "$name_arg/$file" -s _) {
-      if ($file =~ /^gram_condor_log\./ or # One of our log stubs
-          $file =~ /^history\.\d+\.\d+/ or # A ClassAd
-          $file =~ /^gratia_certinfo_condor/ # A certinfo file
-         ) {
-        push(@logfiles, "$name_arg/$file");
+    while (defined($file = readdir(DIR))) {
+      if ($file =~ /gram_condor_log\./ && -f "$name_arg/$file" && -s _ ) {
+        # This plain, non-empty file looks like one of our log files
+        push(@logfiles, "$name_arg/$file"); $logs_found++;
+      }
+      if ($file =~ /history\.\d+\.\d+/ && -f "$name_arg/$file" && -s _ ) {
+        # This plain, non-empty file looks like a ClassAd
+        push(@logfiles, "$name_arg/$file"); $logs_found++;
       }
     }
     closedir(DIR);
@@ -875,7 +877,6 @@ $count_submit = 0;
 print $py "import Gratia\n";
 print $py "Gratia.Initialize()\n";
 
-$logs_found = scalar @logfiles;
 if ($logs_found == 0) {
   exit 0;
 } else {
@@ -895,11 +896,6 @@ if ( $reprocess_flag ) {
   exit 0;
 }
 
-# Order logfiles by type:
-@logfiles = ( grep(/^history\.\d+\.\d+/, @logfiles),
-              grep(/^gratia_certinfo_condor/, @logfiles),
-              grep(/^gram_condor_log\./, @logfiles) );
-
 #------------------------------------------------------------------
 # Get source file name(s)
 
@@ -907,9 +903,10 @@ my $count_orig = $count_orig_004 = $count_orig_005 = $count_orig_009 = 0;
 my $count_xml = $count_xml_004 = $count_xml_005 = $count_xml_009 = 0;
 my $ctag_depth = 0;
 
-my %seenLocalJobIds = ();
-
 foreach $logfile (@logfiles) {
+
+  open(LOGF, $logfile)
+    or die "Unable to open logfile: $logfile\n";
 
   if ($verbose) {
     print "Processing file: $logfile\n";
@@ -918,47 +915,32 @@ foreach $logfile (@logfiles) {
   $logfile_errors = 0;
 
   # See if the file is a per-job history file (a ClassAd)
-  if ($logfile =~ /history.(\d+)\.(\d+)/) {
-    my $clusterId = $1;
+  if ($logfile =~ /history.(\d+).(\d+)/) {
+
     # get the class ad from the file
     unless (%condor_data_hash = Read_ClassAd($logfile)) {
-      ++$logfile_errors;
+      $logfile_errors++;
     }
+
     # add-in UniqGlobalJobId
     if ($condor_hist_data{'GlobalJobId'}) {
       $condor_hist_data{'UniqGlobalJobId'} =
         'condor.' . $condor_hist_data{'GlobalJobId'};
     }
+
     # hand data off to gratia
     Feed_Gratia(%condor_data_hash);
-    # Make sure we don't reprocess any duplicate information in other forms (globus stub, etc)
-    $seenLocalJobIds{$clusterId} = 1;
-  } elsif ($logfile =~/^gratia_certinfo_condor_(\d+)/) {
-    my $clusterId = $1;
-    # File is a certinfo stub.
-    next if ($seenLocalJobIds{$clusterId}); # Seen (eg) the history file already.
-    my %condor_data_hash = Query_Condor_History($clusterId);
-    # Job may not be complete yet (no history)
-    if ($condor_data_hash{'GlobalJobId'}) {
-      Feed_Gratia(%condor_data_hash);
-      $seenLocalJobIds{$condor_data_hash{'ClusterId'}} = 1;
-    }
-    next; # Never remove these files as they are needed later
-  } else {
-    my $clusterId;
-    # Otherwise, get the first record to test format of the file
-    open(LOGF, $logfile)
-      or die "Unable to open logfile: $logfile\n";
+  }
 
-    $record_in = <LOGF>;
-
+  # Otherwise, get the first record to test format of the file
+  elsif (defined ( $record_in = <LOGF> )) {
     # Clear the variables for each new event processed
     %condor_data_hash = ();
     #%logfile_hash = ();  @logfile_clusterids = ();
 
     if ($record_in =~ /\<c\>/) {
       #if ($debug_mode) { print "Processing as an XML format logfile.\n" }
-      ++$count_xml;             # This is counting XML log files (not records)
+      $count_xml++;             # This is counting XML log files (not records)
       my $last_was_c = 0;       # To work around a bug in the condor xml generation
 
       $event_hash = {};  $ctag_depth=1;
@@ -976,11 +958,11 @@ foreach $logfile (@logfiles) {
           # xml format error).
 
           if ($last_was_c != 1) {
-            ++$ctag_depth;
+            $ctag_depth++;
           }
           if ($ctag_depth > 1) {
             warn "$logfile: Improperly formatted XML records, missing \<c/\>\n";
-            ++$logfile_errors;  # An error means we won't delete this log file
+            $logfile_errors++;  # An error means we won't delete this log file
           }
           $event_hash = {};
           $last_was_c = 1;
@@ -1006,7 +988,6 @@ foreach $logfile (@logfiles) {
           }
         } elsif (/<\/c>/) {     # Close tag --------------------
           if ($event_hash{'ClusterId'}) {
-            $clusterId = $event_hash{'ClusterId'};
             # I now "fix" this when setting this attribute (above)
             #$event_hash{'ClusterId'} = $event_hash{'Cluster'};
 
@@ -1027,23 +1008,23 @@ foreach $logfile (@logfiles) {
             } elsif ($event_hash{'EventTypeNumber'} == 1) { # Job began exectuting
               # ExecuteEvent: has Std and an ExecuteHost IP
             } elsif ($event_hash{'EventTypeNumber'} == 4) { # Job was Evicted
-              ++$count_xml_004;
+              $count_xml_004++;
               if (%condor_data_hash = 
                   Query_Condor_History($event_hash{'ClusterId'})) {
                 if (! defined (Feed_Gratia(%condor_data_hash))) {
                   warn "Failed to feed XML 004 event to Gratia\n";
-                  ++$logfile_errors; # An error means we won't delete this log file
+                  $logfile_errors++; # An error means we won't delete this log file
                 }
               } else {
               }
             } elsif ($event_hash{'EventTypeNumber'} == 5) { # Job finished
               # JobTerminatedEvent: has Std and several others
-              ++$count_xml_005;
+              $count_xml_005++;
               if (%condor_data_hash = 
                   Query_Condor_History($event_hash{'ClusterId'})) {
                 if (! defined (Feed_Gratia(%condor_data_hash))) {
                   warn "Failed to feed XML 005 event to Gratia\n";
-                  ++$logfile_errors; # An error means we won't delete this log file
+                  $logfile_errors++; # An error means we won't delete this log file
                 }
               } else {
                 warn "No Condor History found (XML-5) - Logfile: " . 
@@ -1053,13 +1034,13 @@ foreach $logfile (@logfiles) {
               # JobImageSizeEvent: has Std and a Size
             } elsif ($event_hash{'EventTypeNumber'} == 9) { # Job Aborted
               # JobAbortedEvent: has Std and Reason (string)
-              ++$count_xml_009;
+              $count_xml_009++;
               # I think it is helpful to count these,
               # but there is no data in them worth reporting to Gratia
             }
           } else {
             warn "I have an XML event record with no Cluster Id.\n";
-            ++$logfile_errors;  # An error means we won't delete this log file
+            $logfile_errors++;  # An error means we won't delete this log file
           }
           $ctag_depth--;
         }                       # End of close tag
@@ -1067,7 +1048,7 @@ foreach $logfile (@logfiles) {
     } else {                    # Non-XML format
       #if ($debug_mode) {print "Processing as a non-XML format logfile.\n"} 
       #This is the original condor log file format
-      ++$count_orig;            # This is counting 005 files
+      $count_orig++;            # This is counting 005 files
       @event_records = ();
       push @event_records, $record_in;
 
@@ -1088,7 +1069,7 @@ foreach $logfile (@logfiles) {
             }
           } elsif ($event_records[0] =~ /^004 /) {
             # Is this a '004 Job was Evicted' event?
-            ++$count_orig_004;
+            $count_orig_004++;
             if (%condor_data_hash =
                 Process_004($logfile, @event_records)) {
               if ($verbose) {
@@ -1098,12 +1079,12 @@ foreach $logfile (@logfiles) {
               if ($verbose) {
                 warn "No Condor History found (Orig-004) - Logfile: " .
                   basename($logfile) . "\n";
-                ++$logfile_errors; # An error means we won't delete this log file
+                $logfile_errors++; # An error means we won't delete this log file
               }
             }
           } elsif ($event_records[0] =~ /^005 /) {
             # Is this a '005 Job Terminated' event?
-            ++$count_orig_005;
+            $count_orig_005++;
             if (%condor_data_hash =
                 Process_005($logfile, @event_records)) {
               if ($verbose) {
@@ -1113,11 +1094,11 @@ foreach $logfile (@logfiles) {
               if ($verbose) {
                 warn "No Condor History found (Orig-005) - Logfile: " .
                   basename($logfile) . "\n";
-                ++$logfile_errors; # An error means we won't delete this log file
+                $logfile_errors++; # An error means we won't delete this log file
               }
             }
           } elsif ($event_records[0] =~ /^009 /) {
-            ++$count_orig_009;
+            $count_orig_009++;
             # While I think it is helpful to count these,
             # but there is no data in them worth reporting to Gratia
           }
@@ -1126,8 +1107,8 @@ foreach $logfile (@logfiles) {
         }
       }
     }
-    close(LOGF);
   }
+  close(LOGF);
 
   if ($delete_flag) {
     if ($logfile_errors == 0) {
@@ -1135,8 +1116,8 @@ foreach $logfile (@logfiles) {
     } else {
       warn "Logfile ($logfile) was not removed due to errors ($logfile_errors)\n";
     }
-  }
-}                             # End of the 'foreach $logfile' loop.
+  }                             # End of the 'foreach $logfile' loop.
+}
 
 # Close Python pipe to Gratia.py
 $py->close;
