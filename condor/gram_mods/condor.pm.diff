@@ -1,6 +1,6 @@
---- condor.pm.orig	2008-05-01 07:53:11.834000000 -0500
-+++ condor.pm	2008-05-01 07:53:58.909000000 -0500
-@@ -346,6 +346,9 @@
+--- condor.pm.bak	2008-04-30 16:43:40.660000000 -0500
++++ condor.pm	2008-05-01 09:10:36.421000000 -0500
+@@ -347,6 +347,9 @@
      print SCRIPT_FILE "Input = " . $description->stdin() . "\n";
      print SCRIPT_FILE "Log = " . $self->{condor_logfile} . "\n";
      print SCRIPT_FILE "log_xml = True\n";
@@ -10,79 +10,55 @@
      print SCRIPT_FILE "#Extra attributes specified by client\n";
      print SCRIPT_FILE "$submit_attrs_string\n";
  
-@@ -539,9 +542,14 @@
-             $self->nfssync( $description->stderr(), 0 )
-                 if $description->stderr() ne '';
+@@ -553,8 +556,11 @@
  
--             if ( ${self}->{individual_condor_log} ) {
--                 unlink($self->{condor_logfile});
--             }
-+            # Should we really delete a file that we have not
-+            # been able to read.  This leaves room for a race 
-+            # condition So the following code is commented out:
-+
-+            #if ( ${self}->{individual_condor_log} ) {
-+            #    $self->log_to_gratia();
-+            #    unlink($self->{condor_logfile});
-+            #}
-             return { JOB_STATE => Globus::GRAM::JobState::DONE };
-         }
- 
-@@ -558,6 +566,7 @@
-                 if $description->stderr() ne '';
- 
-             if ( ${self}->{individual_condor_log} ) {
+         if($num_abort > 0)
+         {
+-            # Don't delete the condor log when not reporting DONE
+-            return Globus::GRAM::Error::SYSTEM_CANCELLED();
++            if ( ${self}->{individual_condor_log} ) {
 +                $self->log_to_gratia();
-                 unlink($self->{condor_logfile});
-             }
-             $state = Globus::GRAM::JobState::DONE;
-@@ -612,6 +621,41 @@
-     }
++                unlink($self->{condor_logfile});
++            }
++            $state = Globus::GRAM::JobState::FAILED;
+         }
+         elsif($num_done == $description->count())
+         {
+@@ -620,17 +626,8 @@
  }
  
-+# Patched by the VDT
-+sub log_to_gratia
-+{
-+    my $self = shift;
-+    my $log_filename = $self->{condor_logfile};
-+
-+    # Select the gratia location
-+    my $env = "$ENV{VDT_LOCATION}";
-+    if ( "x$env" eq "x" ) {
-+      $env = "$ENV{GLOBUS_LOCATION}/..";
-+    }
-+    if ( "x$env" eq "x" ) {
-+       $env = "/var/tmp";
-+    }
-+    my $log_dir = "$env/gratia/var/data/";
-+    
-+    if ( -d $log_dir ) {
-+      # For now assume that the existence of the directory means that
-+      # accounting is enabled.
-+      if ( -r $log_filename ) {
-+         $self->log("Logging for accounting purpose the file $log_filename into $log_dir");
-+         @args = ("cp", "$log_filename" , "$log_dir" );
-+         system(@args) == 0 or $self->log("Error: system @args failed: $?");
-+      } else {
-+         if ( ! -e $log_filename ) {
-+            $self->log("Logging for accounting purpose failed: $log_filename does not exist");
-+         } else {
-+            $self->log("Logging for accounting purpose failed: can not read the file $log_filename");
-+         }
-+         return 0; # should return a proper Globus failure code.
-+      }
-+    }
-+    return 1; # Should return a proper Globus success code
-+}
-+
- sub cache_cleanup
+ # Patched by the VDT
+-my $condor_version_number = 0;
+ sub log_to_gratia
  {
+-    unless ($condor_version_number) {
+-        my $condor_version_string = `condor_version 2>/dev/null`;
+-        $condor_version_number = 
+-        join("",
+-             map { m&^(\d+)&?sprintf("%03d", $1):"000" }
+-             ($condor_version_string =~ m!^\$CondorVersion: ([^\.]+)\.([^\.]+)\.([^\.]+)!s));
+-        return 1 unless ($condor_version_number < 6009000);
+-    }
      my $self = shift;
-@@ -619,6 +663,7 @@
+     my $log_filename = $self->{condor_logfile};
  
-     if ( ${self}->{individual_condor_log} ) {
-         $self->log("Deleting Condor user log");
-+        $self->log_to_gratia();
-         unlink($self->{condor_logfile});
-     }
+@@ -663,19 +660,4 @@
+     return 1; # Should return a proper Globus success code
+ }
  
+-sub cache_cleanup
+-{
+-    my $self = shift;
+-    my $description = $self->{JobDescription};
+-
+-    if ( ${self}->{individual_condor_log} ) {
+-        $self->log("Deleting Condor user log");
+-        $self->log_to_gratia();
+-        unlink($self->{condor_logfile});
+-    }
+-
+-    return $self->SUPER::cache_cleanup($self);
+-}
+-
+-
+ 1;
