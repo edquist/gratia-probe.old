@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.32.3
+Version: 0.32.4
 Release: 1
 License: GPL
 Group: Applications/System
@@ -22,8 +22,8 @@ BuildRequires: gcc-c++
 %global setuptools_source setuptools-0.6c3-py2.3.egg
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
-%global dcache_transfer_probe_version v0-1pre7
-%global dcache_storage_probe_version v0-1pre5
+%global dcache_transfer_probe_version v0-1
+%global dcache_storage_probe_version v0-1
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
 %define _unpackaged_files_terminate_build 0
@@ -42,18 +42,19 @@ BuildRequires: gcc-c++
 %global fnal_collector gratia-fermi.fnal.gov
 %global metric_collector metric.opensciencegrid.org
 %global dcache_collector dcache-transfer.opensciencegrid.org
-%global dcache_port 8886
 
 %if %{itb}
   %global collector_port 8881
   %global metric_port 8881
   %global grid OSG-ITB
   %global dcache_collector %{osg_collector}
+  %global dcache_port %{collector_port}
 %else
   %global dcache_collector gratia-transfer.opensciencegrid.org
   %global collector_port 8880
   %global metric_port 8880
   %global grid OSG
+  %global dcache_port 8886
 %endif
 
 %{?vdt_loc: %global vdt_loc_set 1}
@@ -895,6 +896,14 @@ fi
 %endif # noarch
 
 %changelog
+* Mon May  5 2008 Christopher Green <greenc@fnal.gov> - 0.32.4-1
+- dcache_transfer_probe_version to v0-1:
+-   Fix transfer README.
+- dcache_storage_probe_version to v0-1 (no change).
+
+* Tue Apr 29 2008 Christopher Green <greenc@fnal.gov> - 0.32.3-2
+- Correct configuration for ITB.
+
 * Mon Apr 28 2008 Christopher Green <greenc@fnal.gov> - 0.32.3-1
 - Merge ability to turn off dCache probe building from branch.
 - dCache probes get sent to different host / port.
