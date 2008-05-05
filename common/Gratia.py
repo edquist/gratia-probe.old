@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.79 2008-04-27 15:19:00 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.80 2008-05-05 19:18:01 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -112,13 +112,12 @@ class ProbeConfiguration:
 
     def get_Grid(self):
         if (self.__Grid == None):
-            return self.__getConfigAttribute('Grid')
+            val = self.__getConfigAttribute('Grid')
             if val == None or val == "":
-                self.__Grid =  "OSG"
+                self.__Grid = "OSG"
             else:
                 self.__Grid = val
-        else:
-            return self.__Grid
+        return self.__Grid
             
     def setSiteName(self,name):
         self.__SiteName = name
@@ -370,7 +369,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.79 $
+    # $Revision: 1.80 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1082,7 +1081,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.79 $")
+        rev = ExtractCvsRevision("$Revision: 1.80 $")
 
         self.ReporterLibrary("Gratia",rev);
 
