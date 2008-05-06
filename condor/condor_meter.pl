@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.17 2008-05-01 13:13:59 greenc Exp $
+# $Id: condor_meter.pl,v 1.18 2008-05-06 21:53:04 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.17 $ ';   # CVS Version number
+my $prog_revision = '$Revision: 1.18 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -66,16 +66,42 @@ sub NumSeconds {
 }                               # End of subroutine NumSeconds
 
 #------------------------------------------------------------------
+# Subroutine Check_Constraint
+#   This routine takes a hash of Condor ClassAd data and checks
+# whether the contraint given on the command line (if one was
+# given at all) applies to this ad. Returns 1 if the given hash
+# should be processed, 0 if not.
+# -----------------------------------------------------------------
+sub Check_Constraint {
+	my %hash = @_;
+	if (defined($constraint_attr) &&	
+	    ($hash{$constraint_attr} ne $constraint_value))
+	{
+		if ($verbose) {
+			my $id = $hash{'ClusterId'};
+			if (!defined($id)) {
+				$id = "<unknown>";
+			}
+			print "ClassAd with cluster $id " .
+			          "skipped due to constraint\n";
+		}
+		return 0;
+	}
+	return 1;
+}
+
+#------------------------------------------------------------------
 # Subroutine Feed_Gratia ($hash_ref)
 #   This routine will take a hash of condor log data and push that
-# data out to Gratia.
+# data out to Gratia. Returns 1 if a record was successfully sent,
+# 0 if not.
 #------------------------------------------------------------------
 sub Feed_Gratia {
   my %hash = @_ ;
 
   if (! defined ($hash{'ClusterId'})) {
     warn "Feed_Gratia has no data to process.\n";
-    return ();
+    return 0;
   } else {
     if ($verbose) {
       print "Feed_Gratia was passed Cluster_id of $hash{'ClusterId'}\n";
@@ -334,6 +360,8 @@ sub Feed_Gratia {
   print $py "#\n";
   $count_submit++;
 
+  return 1;
+
   # Moved to outer block
   # $py->close;
 }                               # End of subroutine Feed_Gratia
@@ -382,7 +410,7 @@ sub Read_ClassAd {
 #------------------------------------------------------------------
 # Subroutine Query_Condor_History
 #   This routine will call 'condor_history' to gather additional
-# data needed to report this job's accounting data
+# data needed to report this job's accounting data.
 #------------------------------------------------------------------
 sub Query_Condor_History {
   my $cluster_id = $_[0];
@@ -494,7 +522,8 @@ sub create_unique_id(\%) {
 
 #------------------------------------------------------------------
 # Subroutine Process_004
-#   This routine will process a type 004 eviction record
+#   This routine will process a type 004 eviction record. A hash
+#   of data describing the job is returned.
 #
 # Sample '004 Job was evicted' event record
 # 004 (16110.000.000) 10/31 11:46:13 Job was evicted.
@@ -584,16 +613,13 @@ sub Process_004 {
       $condor_history{'GlobalJobId'} . "\n";
   }
 
-  if (defined (Feed_Gratia(%condor_history))) {
-    return %condor_history;
-  } else {
-    return ();
-  }
+  return %condor_history;
 }                               # End of Subroutine Process_004 --------------------
 
 #------------------------------------------------------------------
 # Subroutine Process_005
-#   This routine will process a type 005 termination record
+#   This routine will process a type 005 termination record. A hash
+#   of data describing the job is returned.
 #
 # Sample '005 Job terminated' event record
 # 005 (10078.000.000) 10/18 17:47:49 Job terminated.
@@ -721,11 +747,7 @@ sub Process_005 {
   $condor_history{'RemCpuSecsTotal'} = $rem_cpusecs_total;
   $condor_history{'JobCpuSecsTotal'} = $rem_cpusecs_total + $lcl_cpusecs_total;
 
-  if (defined (Feed_Gratia(%condor_history))) {
-    return %condor_history;
-  } else {
-    return ();
-  }
+  return %condor_history;
 }                               # End of Subroutine Process_005 --------------------
 
 #------------------------------------------------------------------
@@ -734,12 +756,20 @@ sub Process_005 {
 #------------------------------------------------------------------
 sub Usage_message {
   print "$progname version $prog_version ($prog_revision)\n\n";
-  print "USAGE: $0 [-dlrvx] <directoryname|filename> [ filename . . .]\a\n";
-  print "       where -d enable delete of processed log files\n";
-  print "         and -l outputs a listing of what was done\n";
-  print "         and -r forces reprocessing of pending transmissions\n";
-  print "         and -v causes verbose output\n";
-  print "         and -x enters debug mode\n\n";
+  print "USAGE: $0 \\\n";
+  print "          [-c <constraint>] \\\n";
+  print "          [-f <filename>] \\\n";
+  print "          [-dlrvx] \\\n";
+  print "          <directoryname | filename> ...\n";
+  print "\n";
+  print "where -c gives a constraint (<attr>=<value>) " .
+            "for which ads to process\n";
+  print "      -d enables deletion of processed log files\n";
+  print "      -f specifies a Gratia configuration file to use\n";
+  print "      -l outputs a listing of what was done\n";
+  print "      -r forces reprocessing of pending transmissions\n";
+  print "      -v causes verbose output\n";
+  print "      -x enters debug mode\n\n";
 
   return;
 }                               # End of Subroutine Usage_message  --------------------
@@ -756,12 +786,21 @@ use Getopt::Std;
 $opt_d = $opt_l = $opt_r = $opt_v = $opt_x = 0;
 
 # Get command line arguments
-unless (getopts('dlrvx')) {
+unless (getopts('c:df:lrvx')) {
   Usage_message;
   exit 1;
 }
 
+$constraint_attr = $constraint_value = undef;
+if (defined($opt_c)) {
+	($constraint_attr, $constraint_value) = split("=", $opt_c);
+	unless (defined($constraint_value)) {
+		die "ERROR: constraint must be of form <attr>=<value>";
+	}
+}
+
 $delete_flag = ($opt_d == 1);
+$gratia_config = $opt_f;
 $report_results = ($opt_l == 1);
 $reprocess_flag = ($opt_r == 1);
 $verbose = ($opt_v == 1);
@@ -875,7 +914,13 @@ autoflush $py 1;
 $count_submit = 0;
 
 print $py "import Gratia\n";
-print $py "Gratia.Initialize()\n";
+
+if (defined($gratia_config)) {
+	print $py "Gratia.Initialize(\"$gratia_config\")\n";
+}
+else {
+	print $py "Gratia.Initialize()\n";
+}
 
 if ($logs_found == 0) {
   exit 0;
@@ -913,23 +958,34 @@ foreach $logfile (@logfiles) {
   }
 
   $logfile_errors = 0;
+  $logfile_constrained = 0;
 
   # See if the file is a per-job history file (a ClassAd)
   if ($logfile =~ /history.(\d+).(\d+)/) {
 
     # get the class ad from the file
-    unless (%condor_data_hash = Read_ClassAd($logfile)) {
+    %condor_data_hash = Read_ClassAd($logfile);
+
+    # check to see we got something
+    if (! %condor_data_hash) {
       $logfile_errors++;
     }
+    else {
 
-    # add-in UniqGlobalJobId
-    if ($condor_hist_data{'GlobalJobId'}) {
-      $condor_hist_data{'UniqGlobalJobId'} =
-        'condor.' . $condor_hist_data{'GlobalJobId'};
+      # add-in UniqGlobalJobId
+      if ($condor_hist_data{'GlobalJobId'}) {
+        $condor_hist_data{'UniqGlobalJobId'} =
+          'condor.' . $condor_hist_data{'GlobalJobId'};
+      }
+
+      # check constraint then hand off data to gratia
+      if (!Check_Constraint(%condor_data_hash)) {
+        $logfile_constrained = 1;
+      }
+      elsif (!Feed_Gratia(%condor_data_hash)) {
+        $logfile_errors++;
+      }
     }
-
-    # hand data off to gratia
-    Feed_Gratia(%condor_data_hash);
   }
 
   # Otherwise, get the first record to test format of the file
@@ -1011,7 +1067,10 @@ foreach $logfile (@logfiles) {
               $count_xml_004++;
               if (%condor_data_hash = 
                   Query_Condor_History($event_hash{'ClusterId'})) {
-                if (! defined (Feed_Gratia(%condor_data_hash))) {
+                if (!Check_Constraint(%condor_data_hash)) {
+                  $logfile_constrained = 1;
+                }
+                elsif (!Feed_Gratia(%condor_data_hash)) {
                   warn "Failed to feed XML 004 event to Gratia\n";
                   $logfile_errors++; # An error means we won't delete this log file
                 }
@@ -1022,7 +1081,10 @@ foreach $logfile (@logfiles) {
               $count_xml_005++;
               if (%condor_data_hash = 
                   Query_Condor_History($event_hash{'ClusterId'})) {
-                if (! defined (Feed_Gratia(%condor_data_hash))) {
+                if (!Check_Constraint(%condor_data_hash)) {
+                  $logfile_constrained = 1;
+                }
+                elsif (!Feed_Gratia(%condor_data_hash)) {
                   warn "Failed to feed XML 005 event to Gratia\n";
                   $logfile_errors++; # An error means we won't delete this log file
                 }
@@ -1075,6 +1137,12 @@ foreach $logfile (@logfiles) {
               if ($verbose) {
                 print "Process_004 returned Cluster_id of $condor_data_hash{'ClusterId'}\n";
               }
+              if (!Check_Constraint(%condor_data_hash)) {
+                $logfile_constrained = 1;
+              }
+              elsif (!Feed_Gratia(%condor_data_hash)) {
+                $logfile_errors++;
+              }
             } else {
               if ($verbose) {
                 warn "No Condor History found (Orig-004) - Logfile: " .
@@ -1089,6 +1157,12 @@ foreach $logfile (@logfiles) {
                 Process_005($logfile, @event_records)) {
               if ($verbose) {
                 print "Process_005 returned Cluster_id of $condor_data_hash{'ClusterId'}\n";
+              }
+              if (!Check_Constraint(%condor_data_hash)) {
+                $logfile_constrained = 1;
+              }
+              elsif (!Feed_Gratia(%condor_data_hash)) {
+                $logfile_errors++;
               }
             } else {
               if ($verbose) {
@@ -1111,10 +1185,13 @@ foreach $logfile (@logfiles) {
   close(LOGF);
 
   if ($delete_flag) {
-    if ($logfile_errors == 0) {
-      push @processed_logfiles, $logfile;
-    } else {
+    if ($logfile_errors != 0) {
       warn "Logfile ($logfile) was not removed due to errors ($logfile_errors)\n";
+    } elsif ($logfile_constrained) {
+      warn "Logfile ($logfile) was not removed due to unprocessed data (from -c)\n";
+    }
+    else {
+      push @processed_logfiles, $logfile;
     }
   }                             # End of the 'foreach $logfile' loop.
 }
@@ -1126,7 +1203,14 @@ $py->close;
 #    were just processed.
 if ($delete_flag) {
   foreach $plog (@processed_logfiles) {
-    unlink ($plog) or warn "Unable to remove logfile ($plog)\n"
+    if (unlink ($plog)) {
+      if ($verbose) {
+        print "Removed logfile ($plog)\n";
+      }
+    }
+    else {
+      warn "Unable to remove logfile ($plog)\n"
+    }
   }
 }
 
@@ -1161,6 +1245,9 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.17  2008/05/01 13:13:59  greenc
+# Retract erroneously committed (incomplete) changes to condor_meter.pl.
+#
 # Revision 1.15  2007/10/10 18:02:13  greenc
 # Correct handling of ClassAd records.
 #
