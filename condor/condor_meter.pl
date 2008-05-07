@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.18 2008-05-06 21:53:04 greenc Exp $
+# $Id: condor_meter.pl,v 1.19 2008-05-07 19:57:24 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.18 $ ';   # CVS Version number
+my $prog_revision = '$Revision: 1.19 $ ';   # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -793,7 +793,7 @@ unless (getopts('c:df:lrvx')) {
 
 $constraint_attr = $constraint_value = undef;
 if (defined($opt_c)) {
-	($constraint_attr, $constraint_value) = split("=", $opt_c);
+	($constraint_attr, $constraint_value) = split("=", $opt_c, 2);
 	unless (defined($constraint_value)) {
 		die "ERROR: constraint must be of form <attr>=<value>";
 	}
@@ -1245,6 +1245,9 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.18  2008/05/06 21:53:04  greenc
+# Apply Greg Quinn's contributed patch for constraint application.
+#
 # Revision 1.17  2008/05/01 13:13:59  greenc
 # Retract erroneously committed (incomplete) changes to condor_meter.pl.
 #
