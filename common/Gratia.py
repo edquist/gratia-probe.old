@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.80 2008-05-05 19:18:01 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.81 2008-05-10 00:17:13 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -10,7 +10,8 @@ import xml.sax.saxutils
 
 quiet = 0
 __urlencode_records = 1
-__responseMatcher = re.compile(r'Unknown Command: URL', re.IGNORECASE)
+__responseMatcherURLCheck = re.compile(r'Unknown Command: URL', re.IGNORECASE)
+__responseMatcherErrorCheck = re.compile(r'Error report</title', re.IGNORECASE)
 
 # FQAN now in production: switch should remain for now however.
 DN_FQAN_DISABLED = False
@@ -369,7 +370,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.80 $
+    # $Revision: 1.81 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -613,7 +614,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
             __connection.request("POST", Config.get_CollectorService(), queryString, headers)
             responseString = __connection.getresponse().read()
             if __urlencode_records == 1 and \
-                   __responseMatcher.search(responseString):
+                   __responseMatcherURLCheck.search(responseString):
                 # We're talking to an old collector
                 DebugPrint(0, "Unable to send new record to old collector -- engaging backwards-compatible mode for remainder of connection")
                 __urlencode_records = 0;
@@ -636,7 +637,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
             responseString = __connection.getresponse().read()
             DebugPrint(4, "DEBUG: Read response: OK")
             if __urlencode_records == 1 and \
-                   __responseMatcher.search(responseString):
+                   __responseMatcherURLCheck.search(responseString):
                 # We're talking to an old collector
                 DebugPrint(0, "Unable to send new record to old collector -- engaging backwards-compatible mode for remainder of connection")
                 __urlencode_records = 0;
@@ -646,6 +647,11 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
                 response = __sendUsageXML(meterId, recordXml)
             else:
                 response = Response(-1, responseString)
+        if responseString != None and \
+           __responseMatcherErrorCheck.search(responseString):
+            # Server threw an error - 503, maybe?
+            response = Response(-1, r'Server unable to receive data: save for reprocessing');
+
     except SystemExit:
         raise
     except:
@@ -1081,7 +1087,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.80 $")
+        rev = ExtractCvsRevision("$Revision: 1.81 $")
 
         self.ReporterLibrary("Gratia",rev);
 
