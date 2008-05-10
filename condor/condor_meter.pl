@@ -1,8 +1,8 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.19 2008-05-07 19:57:24 greenc Exp $
+# $Id: condor_meter.pl,v 1.20 2008-05-10 00:28:59 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -17,7 +17,7 @@
 # Globl Variable definitions
 #==================================================================
 
-use English;   # For readability
+use English;                    # For readability
 use strict 'refs', 'subs';
 use FileHandle;
 use File::Basename;
@@ -29,9 +29,594 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.19 $ ';   # CVS Version number
+my $prog_revision = '$Revision: 1.20 $ '; # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
+
+#==================================================================
+#  condor_meter.pl - Main program block
+#==================================================================
+autoflush STDERR 1; autoflush STDOUT 1;
+
+# Initialization and Setup.
+use Getopt::Std;
+
+$opt_d = $opt_l = $opt_r = $opt_v = $opt_x = 0;
+
+# Get command line arguments
+unless (getopts('c:df:lrs:vx')) {
+  Usage_message();
+  exit 1;
+}
+
+$constraint_attr = $constraint_value = undef;
+if (defined($opt_c)) {
+  ($constraint_attr, $constraint_value) = split("=", $opt_c, 2);
+  unless (defined($constraint_value)) {
+    die "ERROR: constraint must be of form <attr>=<value>";
+  }
+}
+
+if (defined($opt_s)) {          # State file
+  $gram_log_state_file = $opt_s;
+}
+
+$delete_flag = ($opt_d == 1);
+$gratia_config = $opt_f;
+$report_results = ($opt_l == 1);
+$reprocess_flag = ($opt_r == 1);
+$verbose = ($opt_v == 1);
+$debug_mode = ($opt_x == 1);
+
+# After we have stripped off switches, there needs to be at least one
+# directory or file name passed as an argument
+if (! defined @ARGV) {
+  print STDERR "No directories or filenames supplied.\n\n";
+  Usage_message();
+  exit 1;
+}
+
+if ($verbose) {
+  print "$progname version $prog_version ($prog_revision)\n";
+  if ($debug_mode) {
+    print "Running in verbose mode with debugging enabled.\n";
+  } else {
+    print "Running in verbose mode.\n";
+  }
+} elsif ($debug_mode) {
+  #print "$progname version $prog_version ($prog_revision)\n";
+  print "Running in debugging  mode.\n";
+}
+
+# Directory to which to write stubs is first writable directory in arg
+# list.
+my ($stub_dir) = (grep { -d $_ and -w $_ } @ARGV);
+
+#------------------------------------------------------------------
+# Locate and verify the path to the condor_history executable
+use Env qw(CONDOR_LOCATION PATH GLOBUS_LOCATION); #Import only the Env variables we need
+@path = split(/:/, $PATH);
+push(@path, "/usr/local/bin");
+$condor_history = '';
+$condor_hist_cmd = '';
+
+if (( $CONDOR_LOCATION ) && ( -x "$CONDOR_LOCATION/bin/condor_history" )) {
+  # This is the most obvious place to look
+  $condor_history = "$CONDOR_LOCATION/bin/condor_history";
+} else {
+  foreach $path_dir (@path) {
+    unless ( $condor_history ) {
+      if (-x "$path_dir/condor_history") {
+        $condor_history = "$path_dir/condor_history";
+      }
+    }
+  }
+}
+
+unless ( -x $condor_history ) {
+  warn "The 'condor_history' program was not found.\n";
+  exit 2;
+}
+
+if ($verbose) {
+  print "Condor_history at $condor_history\n";
+}
+
+$condor_hist_cmd = $condor_history;
+
+open(CONDOR_HISTORY_HELP, "$condor_hist_cmd -help|")
+  or die "Unable to open condor_history pipe\n";
+my @condor_history_help_text = <CONDOR_HISTORY_HELP>;
+close CONDOR_HISTORY_HELP;
+chomp @condor_history_help_text;
+grep /-backwards\b/, @condor_history_help_text and
+  $condor_hist_cmd = "$condor_hist_cmd -backwards";
+grep /-match\b/, @condor_history_help_text and
+  $condor_hist_cmd = "$condor_hist_cmd -match 1";
+
+$condor_config_val_cmd = sprintf("%s/condor_config_val", dirname($condor_history));
+$condor_hist_file = `$condor_config_val_cmd HISTORY`;
+chomp $condor_hist_file;
+
+my $global_gram_log =
+  `grep -e '^log_path' "$ENV{GLOBUS_LOCATION}/etc/globus-condor.conf"`;
+chomp $global_gram_log;
+$global_gram_log =~ s&^log_path=&&;
+
+if ($global_gram_log and -r $global_gram_log) {
+  if ($verbose) {
+    print "Global GRAM log found at $global_gram_log\n";
+    print "Generating gram stub files for terminated WS-GRAM jobs\n";
+  }
+  generate_ws_stubs($global_gram_log);
+} else {
+  warn "Unable to find global GRAM log via globus-condor.conf: some WS jobs may not be accounted.";
+}
+
+my $condor_pm_file = "$ENV{GLOBUS_LOCATION}/lib/perl/Globus/GRAM/JobManager/condor.pm";
+my $managedfork_pm_file = "$ENV{GLOBUS_LOCATION}/lib/perl/Globus/GRAM/JobManager/managedfork.pm";
+my $have_GratiaJobOrigin_in_JobManager =
+  (system("grep -e 'GratiaJobOrigin' \"$condor_pm_file\" >/dev/null 2>&1") == 0);
+if (not $have_GratiaJobOrigin_in_JobManager) {
+  warn sprintf("%s%s",
+               "Condor JobManager ($condor_pm_file) does not have expected addition of GratiaJobOrigin ClassAd.\n",
+               "Identification of local jobs disabled.");
+} else {                        # Have GratiaJobOrigin in condor.pm; do we also have it in managedfork?
+  if (-e $managedfork_pm_file and
+      (system("grep -e 'GratiaJobOrigin' \"$managedfork_pm_file\" >/dev/null 2>&1") != 0)) {
+    warn sprintf("%s%s",
+                 "Managedfork JobManager ($managedfork_pm_file) does not have expected addition of GratiaJobOrigin ClassAd.\n",
+                 "Identification of local jobs disabled.");
+    $have_GratiaJobOrigin_in_JobManager = 0;
+  }
+}
+
+#------------------------------------------------------------------
+# Build a list of file names.  Add individual files given as command
+# line arguments or select names from a directory specified.
+my @logfiles = @processed_logfiles = ();
+foreach $name_arg (@ARGV) {
+  if ( -f $name_arg && -s _ ) {
+    # This argument is a non-empty plain file
+    push(@logfiles, $name_arg);
+  } elsif ( -d $name_arg ) {
+    # This argument is a directory name
+    opendir(DIR, $name_arg)
+      or die "Could not open the directory $name_arg.";
+    while ($file = readdir(DIR)) {
+      next unless (-f "$name_arg/$file" and -s "$name_arg/$file");
+      if ($file =~ /^(?:gram|gratia)_condor_log\./ or # One of our or GRAM's log stubs
+          $file =~ /^history\.\d+\.\d+/ # A ClassAd
+# Deactivate certinfo files as expensive -- we should get
+# a history or globus log file now for everything (even WS events).
+#          $file =~ /^gratia_certinfo_(?:condor|managedfork)/ # A certinfo file
+         ) {
+        if ($verbose) {
+          print "Adding $name_arg/$file to list of files to examine\n";
+        }
+        push(@logfiles, "$name_arg/$file");
+      }
+    }
+    closedir(DIR);
+  }
+}
+
+# Remove old temporary files (if still there) used for debugging
+foreach $tmp_file ( "/tmp/py.in", "/tmp/py.out" ) {
+  if ( -e $tmp_file ) {
+    unlink $tmp_file
+      or warn "Unable to delete old file: $tmp_file\n";
+  }
+}
+
+#------------------------------------------------------------------
+# Open the pipe to the Gratia meter library process
+$py = new FileHandle;
+$py->open("| tee /tmp/py.in | python -u >/tmp/py.out 2>&1");
+autoflush $py 1;
+$count_submit = 0;
+
+print $py "import Gratia\n";
+
+if (defined($gratia_config)) {
+  print $py "Gratia.Initialize(\"$gratia_config\")\n";
+} else {
+  print $py "Gratia.Initialize()\n";
+}
+
+$logs_found = scalar @logfiles;
+if ($logs_found == 0) {
+  exit 0;
+} else {
+  if ($verbose) {
+    print "Number of log files found: $logs_found\n";
+  }
+}
+
+if ( $reprocess_flag ) {
+  # I should probably add a test here to see if there are files waiting
+  print $py "Gratia.Reprocess()\n";
+
+  # If someone uses the '-r' option to reprocess working files, should
+  #   the program end here?  If one is sending new data, the '-r' is 
+  #   redundant as we will reprocess any left over files when we start
+  #   sending this data.
+  exit 0;
+}
+
+my @logfiles_sorted = ();
+# Order logfiles by type:
+foreach my $file_regex ('m&^history\.\d+\.\d+&',
+                        'm&^(?:gram|gratia)_condor_log\.&',
+                        'm&^gratia_certinfo_(?:condor|managedfork)&') {
+  my @tmp_array = grep { my $basename = basename $_; eval "\$basename =~ $file_regex" } @logfiles;
+  push @logfiles_sorted, @tmp_array;
+}
+
+@logfiles = @logfiles_sorted;
+
+#------------------------------------------------------------------
+# Get source file name(s)
+
+my $count_orig = $count_orig_004 = $count_orig_005 = $count_orig_009 = 0;
+my $count_xml = $count_xml_004 = $count_xml_005 = $count_xml_009 = 0;
+my $ctag_depth = 0;
+
+foreach $logfile (@logfiles) {
+
+  if ($verbose) {
+    print "Processing file: $logfile\n";
+  }
+
+  $logfile_errors = 0;
+  $logfile_constrained = 0;
+
+  my $basename = basename($logfile);
+
+  # See if the file is a per-job history file (a ClassAd)
+  if ($basename =~ /^history.(\d+)\.(\d+)/) {
+    my $clusterId = $1;
+    my $procId = $2;
+    print "Processing condor history file $logfile for $clusterId.$procId\n" if ($verbose);
+    # get the class ad from the file
+    %condor_data_hash = Read_ClassAd($logfile);
+    # check to see we got something
+    if (! %condor_data_hash) {
+      ++$logfile_errors;
+    } else {
+      # add-in UniqGlobalJobId
+      if ($condor_hist_data{'GlobalJobId'}) {
+        $condor_hist_data{'UniqGlobalJobId'} =
+          'condor.' . $condor_hist_data{'GlobalJobId'};
+      }
+      # check constraint then hand off data to gratia
+      if (!Check_Constraint(%condor_data_hash)) {
+        $logfile_constrained = 1;
+      } elsif (!Feed_Gratia(%condor_data_hash)) {
+        ++$logfile_errors;
+      }
+      # Make sure we don't reprocess any duplicate information in other
+      # forms (globus stub, etc)
+      setSeenLocalJobId($clusterId, $condor_data_hash{ProcId});
+    }
+  } elsif ($basename =~/^gratia_certinfo_(?:condor|managedfork)_(\d+)(?:\.(\d+))?/) {
+    my ($clusterId, $procId) = ($1, ($2 || 0));
+    # File is a certinfo stub.
+    if (checkSeenLocalJobId($clusterId, $procId)) {
+      # Seen (eg) the history file already.
+      print "Ignoring certinfo file $logfile for $clusterId.$procId\n" if ($verbose);
+      next;
+    } else {
+      print "Processing certinfo file $logfile for $clusterId.$procId\n" if ($verbose);
+    }
+
+    my %condor_data_hash = Query_Condor_History($clusterId, $procId);
+    # Job may not be complete yet (no history)
+    if ($condor_data_hash{'GlobalJobId'}) {
+      # add-in UniqGlobalJobId
+      if ($condor_hist_data{'GlobalJobId'}) {
+        $condor_hist_data{'UniqGlobalJobId'} =
+          'condor.' . $condor_hist_data{'GlobalJobId'};
+      }
+      # check constraint then hand off data to gratia
+      if (!Check_Constraint(%condor_data_hash)) {
+        $logfile_constrained = 1;
+      } elsif (!Feed_Gratia(%condor_data_hash)) {
+        ++$logfile_errors;
+      }
+      # Make sure we don't reprocess any duplicate information in other
+      # forms (globus stub, etc)
+      setSeenLocalJobId($clusterId, $procId);
+    }
+    next;                       # Never remove these files as they are needed later
+  } else {
+    my $clusterId;
+    # Otherwise, get the first record to test format of the file
+    print "Processing condor event log file $logfile\n" if $verbose;
+    open(LOGF, $logfile)
+      or die "Unable to open logfile: $logfile\n";
+
+    $record_in = <LOGF>;
+
+    # Clear the variables for each new event processed
+    %condor_data_hash = ();
+    #%logfile_hash = ();  @logfile_clusterids = ();
+
+    if ($record_in =~ /\<c\>/) {
+      print "Processing $logfile as an XML format logfile.\n" if $verbose;
+      ++$count_xml;             # This is counting XML log files (not records)
+      my $last_was_c = 0;       # To work around a bug in the condor xml generation
+
+      $event_hash = {};  $ctag_depth=1;
+      # Parse the XML log file
+      while (<LOGF>) {
+        # See fngp-osg:/export/osg/grid/globus/lib/perl/Globus/GRAM
+        # And the JobManger/condor.pm module - under sub poll()
+
+        # I adapted the code the Globus condor JobManager uses. While
+        # it lacks some error handling, it will work as well or
+        # better than the GRAM job manager.
+
+        if (/<c>/) {            # Open tag --------------------
+          # allow for more than one open tag in a row (known condor
+          # xml format error).
+
+          if ($last_was_c != 1) {
+            ++$ctag_depth;
+          }
+          if ($ctag_depth > 1) {
+            warn "$logfile: Improperly formatted XML records, missing \<c/\>\n";
+            ++$logfile_errors;  # An error means we won't delete this log file
+          }
+          $event_hash = {};
+          $last_was_c = 1;
+        } else {
+          $last_was_c = 0;
+        }
+        if (/<a n="([^"]+)">/) { # Attribute line --------------------
+          my $attr = $1;
+
+          # In the XML version of log files, the Cluster ID was
+          # labeled just 'Cluster' rather than ClusterId' as it is in
+          # the original format and in Condor_History
+          $attr = 'ClusterId' if ($attr =~ /^Cluster$/);
+          $attr = 'ProcId' if ($attr =~ /^Proc$/);
+
+          if (/<s>([^<]+)<\/s>/) {
+            $event_hash{$attr} = $1;
+          } elsif (/<i>([^<]+)<\/i>/) {
+            $event_hash{$attr} = int($1);
+          } elsif (/<b v="([tf])"\/>/) {
+            $event_hash{$attr} = ($1 eq 't');
+          } elsif (/<r>([^<]+)<\/r>/) {
+            $event_hash{$attr} = $1;
+          }
+        } elsif (/<\/c>/) {     # Close tag --------------------
+          if ($event_hash{'ClusterId'}) {
+            $clusterId = $event_hash{'ClusterId'};
+            $procId = $event_hash{'ProcId'} || 0;
+            # I now "fix" this when setting this attribute (above)
+            #$event_hash{'ClusterId'} = $event_hash{'Cluster'};
+
+            # All events have an these "standard" elements: MyType,
+            #    EventTypeNumber, EventTime, Cluster, Proc, and Subproc
+            # Process the events that report CPU usage
+            if ($event_hash{'EventTypeNumber'} == 0) { # Job submitted
+              # SubmitEvent: has Std and a SubmitHost IP
+              #if (%condor_data_hash = 
+              #       Query_Condor_History($event_hash{'ClusterId'})) {
+              # push @logfile_clusterids, $event_hash{'ClusterId'};
+              #} else {
+              # warn "No Condor History found - Logfile: " . 
+              #   basename($logfile) . " ClusterId: $event_hash{'Cluster'}\n";
+              # #Not sure if this case should be considered "fatal"
+              # ++$logfile_errors; # An error means we won't delete this log file
+              #}
+            } elsif ($event_hash{'EventTypeNumber'} == 1) { # Job began exectuting
+              # ExecuteEvent: has Std and an ExecuteHost IP
+            } elsif ($event_hash{'EventTypeNumber'} == 4) { # Job was Evicted
+              print "Identified event type 4 in $logfile\n" if $verbose;
+              if (not checkSeenLocalJobId($clusterId, $procId)) {
+                ++$count_xml_004;
+                if (%condor_data_hash = Query_Condor_History($clusterId, $procId)) {
+                  if (!Check_Constraint(%condor_data_hash)) {
+                    $logfile_constrained = 1;
+                  } elsif (!Feed_Gratia(%condor_data_hash)) {
+                    warn "Failed to feed XML 004 event to Gratia\n";
+                    ++$logfile_errors; # An error means we won't delete this log file
+                  }
+                  # Make sure we don't reprocess any duplicate information
+                  # in other forms (globus stub, etc)
+                  setSeenLocalJobId($clusterId, $procId);
+                } else {
+                  warn "No Condor History found (XML-5) - Logfile: " .
+                    basename($logfile) . " ClusterId: $event_hash{'ClusterId'}\n";
+                }
+              } else {
+                print "Ignoring event type 4 for $clusterId.$procId: already seen\n" if $verbose;
+              }
+            } elsif ($event_hash{'EventTypeNumber'} == 5) { # Job finished
+              print "Identified event type 5 in $logfile\n" if $verbose;
+              if (not checkSeenLocalJobId($clusterId, $procId)) {
+                # JobTerminatedEvent: has Std and several others
+                ++$count_xml_005;
+                if (%condor_data_hash = Query_Condor_History($clusterId, $procId)) {
+                  if (!Check_Constraint(%condor_data_hash)) {
+                    $logfile_constrained = 1;
+                  } elsif (!Feed_Gratia(%condor_data_hash)) {
+                    warn "Failed to feed XML 005 event to Gratia\n";
+                    ++$logfile_errors; # An error means we won't delete this log file
+                  }
+                  # Make sure we don't reprocess any duplicate information
+                  # in other forms (globus stub, etc
+                  setSeenLocalJobId($clusterId, $procId);
+                } else {
+                  warn "No Condor History found (XML-5) - Logfile: " .
+                    basename($logfile) . " ClusterId: $event_hash{'ClusterId'}\n";
+                }
+              } else {
+                print "Ignoring event type 5 for $clusterId.$procId: already seen\n" if $verbose;
+              }
+            } elsif ($event_hash{'EventTypeNumber'} == 6) { # Image Size
+              # JobImageSizeEvent: has Std and a Size
+            } elsif ($event_hash{'EventTypeNumber'} == 9) { # Job Aborted
+              # JobAbortedEvent: has Std and Reason (string)
+              ++$count_xml_009;
+              # I think it is helpful to count these,
+              # but there is no data in them worth reporting to Gratia
+            }
+          } else {
+            warn "I have an XML event record with no Cluster Id.\n";
+            ++$logfile_errors;  # An error means we won't delete this log file
+          }
+          $ctag_depth--;
+        }                       # End of close tag
+      }
+    } else {                    # Non-XML format
+      print "Processing $logfile as a non-XML format logfile.\n" if $verbose;
+      #This is the original condor log file format
+      ++$count_orig;            # This is counting 005 files
+      @event_records = ();
+      push @event_records, $record_in;
+
+      while ($record_in = <LOGF>) {
+        if ($verbose && $debug_mode) {
+          print "Next input record: " . $record_in . "\n";
+        }
+        push @event_records, $record_in;
+
+        if ($record_in =~ /^\.\.\./) { # Terminates this event
+          if ($event_records[0] =~ /^000 /) {
+            if ($verbose) {
+              print "Original format 000 record\n";
+            }
+          } elsif ($event_records[0] =~ /^001 /) {
+            if ($verbose) {
+              print "Original format 001 record\n";
+            }
+          } elsif ($event_records[0] =~ /^004 /) {
+            # Is this a '004 Job was Evicted' event?
+            print "Identified event type 4 in $logfile\n" if $verbose;
+            ++$count_orig_004;
+            if (%condor_data_hash = Process_004($logfile, @event_records)) {
+              if ($verbose) {
+                print "Process_004 returned Cluster_id of $condor_data_hash{'ClusterId'}\n";
+              }
+              if (!checkSeenLocalJobId($condor_data_hash{'ClusterId'},
+                                       $condor_data_hash{'ProcId'})) {
+                if (!Check_Constraint(%condor_data_hash)) {
+                  $logfile_constrained = 1;
+                } elsif (!Feed_Gratia(%condor_data_hash)) {
+                  ++$logfile_errors;
+                }
+                # Make sure we don't reprocess any duplicate information
+                # in other forms (globus stub, etc)
+                setSeenLocalJobId($condor_data_hash{'ClusterId'},
+                                  $condor_data_hash{'ProcId'});
+              } else {
+                print "Ignoring event type 4 for $clusterId.$procId: already seen\n" if $verbose;
+              }
+            } else {
+              if ($verbose) {
+                warn "No Condor History found (Orig-004) - Logfile: " .
+                  basename($logfile) . "\n";
+                ++$logfile_errors; # An error means we won't delete this log file
+              }
+            }
+          } elsif ($event_records[0] =~ /^005 /) {
+            # Is this a '005 Job Terminated' event?
+            print "Identified event type 5 in $logfile\n" if $verbose;
+            ++$count_orig_005;
+            if (%condor_data_hash = Process_005($logfile, @event_records)) {
+              if ($verbose) {
+                print "Process_005 returned Cluster_id of $condor_data_hash{'ClusterId'}\n";
+              }
+              if (!checkSeenLocalJobId($condor_data_hash{'ClusterId'},
+                                       $condor_data_hash{'ProcId'})) {
+                if (!Check_Constraint(%condor_data_hash)) {
+                  $logfile_constrained = 1;
+                } elsif (!Feed_Gratia(%condor_data_hash)) {
+                  ++$logfile_errors;
+                }
+                # Make sure we don't reprocess any duplicate information
+                # in other forms (globus stub, etc)
+                setSeenLocalJobId($condor_data_hash{'ClusterId'},
+                                  $condor_data_hash{'ProcId'});
+              } else {
+                print "Ignoring event type 5 for $clusterId.$procId: already seen\n" if $verbose;
+              }
+            } else {
+              if ($verbose) {
+                warn "No Condor History found (Orig-005) - Logfile: " .
+                  basename($logfile) . "\n";
+                ++$logfile_errors; # An error means we won't delete this log file
+              }
+            }
+          } elsif ($event_records[0] =~ /^009 /) {
+            ++$count_orig_009;
+            # While I think it is helpful to count these,
+            # but there is no data in them worth reporting to Gratia
+          }
+          # Reset array to capture next event
+          @event_records = ();
+        }
+      }
+    }
+    close(LOGF);
+  }
+
+  if ($delete_flag) {
+    if ($logfile_errors != 0) {
+      warn "Logfile ($logfile) was not removed due to errors ($logfile_errors)\n";
+    } elsif ($logfile_constrained) {
+      warn "Logfile ($logfile) was not removed due to unprocessed data (from -c)\n";
+    } else {
+      print "Scheduling $logfile for removal\n" if $verbose;
+      push @processed_logfiles, $logfile;
+    }
+  }
+}                               # End of the 'foreach $logfile' loop.
+
+# Close Python pipe to Gratia.py
+$py->close;
+
+# Now we have closed the Python pipe, I can delete the log files that
+#    were just processed.
+if ($delete_flag) {
+  foreach $plog (@processed_logfiles) {
+    if (unlink ($plog)) {
+      if ($verbose) {
+        print "Removed logfile ($plog)\n";
+      }
+    } else {
+      warn "Unable to remove logfile ($plog)\n"
+    }
+  }
+}
+
+#------------------------------------------------------------------
+# Wrap up and report results
+
+$count_total = $count_orig + $count_xml;
+if (($count_total > 1) && ($verbose || $report_results)) {
+  print "Condor probe is done processing log files.\n";
+  print "  Number of original format files: $count_orig\n"  if ($count_orig);
+  print "         # of original 004 events: $count_orig_004\n"  if ($count_orig_004);
+  print "         # of original 005 events: $count_orig_005\n"  if ($count_orig_005);
+  print "         # of original 009 events: $count_orig_009\n"  if ($count_orig_009);
+  print "       Number of XML format files: $count_xml\n"   if ($count_xml);
+  print "              # of XML 004 events: $count_xml_004\n"  if ($count_xml_004);
+  print "              # of XML 005 events: $count_xml_005\n"  if ($count_xml_005);
+  print "              # of XML 009 events: $count_xml_009\n"  if ($count_xml_009);
+  print "        Total number of log files: $count_total\n\n";
+  print " # of records submitted to Gratia: $count_submit\n" if ($count_submit);
+}
+
+if ($verbose) {
+  print "\nEnd of program: $progname\n";
+}
+
+1;
 
 #==================================================================
 # Subroutine Definitions
@@ -73,21 +658,20 @@ sub NumSeconds {
 # should be processed, 0 if not.
 # -----------------------------------------------------------------
 sub Check_Constraint {
-	my %hash = @_;
-	if (defined($constraint_attr) &&	
-	    ($hash{$constraint_attr} ne $constraint_value))
-	{
-		if ($verbose) {
-			my $id = $hash{'ClusterId'};
-			if (!defined($id)) {
-				$id = "<unknown>";
-			}
-			print "ClassAd with cluster $id " .
-			          "skipped due to constraint\n";
-		}
-		return 0;
-	}
-	return 1;
+  my %hash = @_;
+  if (defined($constraint_attr) &&	
+      ($hash{$constraint_attr} ne $constraint_value)) {
+    if ($verbose) {
+      my $id = $hash{'ClusterId'};
+      if (!defined($id)) {
+        $id = "<unknown>";
+      }
+      print "ClassAd with cluster $id " .
+        "skipped due to constraint\n";
+    }
+    return 0;
+  }
+  return 1;
 }
 
 #------------------------------------------------------------------
@@ -353,6 +937,14 @@ sub Feed_Gratia {
     print $py qq/r.AdditionalInfo(\"condor.JobStatus\", \"/
       . $hash{'JobStatus'} . qq/\")\n/;
   }
+  if ($have_GratiaJobOrigin_in_JobManager and
+      $hash{'GratiaJobOrigin'} and
+      $hash{'GratiaJobOrigin'} eq 'GRAM') {
+    # If this exists, we have a real grid record
+    print $py q/r.Grid("OSG", "GratiaJobOrigin = GRAM")/, "\n";
+  } else {                      # Non-GRAM job
+    print $py q/r.Grid("Local", "GratiaJobOrigin not GRAM")/, "\n";
+  }
   #print $py qq/r.AdditionalInfo(\"\", \"/ . $hash{''} . qq/\")\n/;
   # Sample: 
 
@@ -413,7 +1005,8 @@ sub Read_ClassAd {
 # data needed to report this job's accounting data.
 #------------------------------------------------------------------
 sub Query_Condor_History {
-  my $cluster_id = $_[0];
+  my $cluster_id = shift;
+  my $proc_id = shift || 0;
   my $record_in;
   my %condor_hist_data = ();
   my $fh = new FileHandle;
@@ -425,7 +1018,7 @@ sub Query_Condor_History {
  HISTORY_SEARCH:
   {
     if ($cluster_id) {
-      $fh->open("$current_condor_hist_cmd -l $cluster_id |")
+      $fh->open("$current_condor_hist_cmd -l $cluster_id.$proc_id |")
         or die "Unable to open condor_history pipe\n";
     } else {
       warn "Tried to call condor_history with no cluster_id data.\n";
@@ -555,8 +1148,9 @@ sub Process_004 {
 
   if ($job_id =~ /\((\d+)\.(\d+)\.(\d+)\)/) {
     $cluster_id = $1;           # $cluster_field2 = $2; $cluster_field3 = $3;
+    $proc_id = $2 || 0;
     if ($verbose) {
-      print "(Process_004) From $job_id: I got ClusterId $cluster_id\n";
+      print "(Process_004) From $job_id: I got ClusterId $cluster_id, ProcId $proc_id\n";
     }
   } else {
     warn "(Process_004) Error parsing the 'Job id' field: $job_id";
@@ -603,11 +1197,19 @@ sub Process_004 {
     die "Somehow we got here without getting a cluster id"
   }
 
-  unless ( (%condor_history = Query_Condor_History($cluster_id)) &&
+  if (checkSeenLocalJobId($cluster_id, $proc_id)) {
+    print "Process_004 ignoring already-seen job $cluster_id.$proc_id\n"
+      if $verbose;
+    return ( ClusterId => $cluster_id,
+             ProcId => $proc_id );
+  }
+
+  unless ( (%condor_history = Query_Condor_History($cluster_id, $proc_id)) &&
            (defined ($condor_history{'GlobalJobId'})) ) {
     warn "This job ($cluster_id) had no record in Condor History.\n";
     return ();                  # Failure - return an empty hash
   }
+
   if ($verbose) {
     print "Query_Condor_History returned GlobalJobId of " .
       $condor_history{'GlobalJobId'} . "\n";
@@ -655,8 +1257,9 @@ sub Process_005 {
 
   if ($job_id =~ /\((\d+)\.(\d+)\.(\d+)\)/) {
     $cluster_id = $1;           # $cluster_field2 = $2; $cluster_field3 = $3;
+    $proc_id = $2 || 0;
     if ($verbose) {
-      print "(Process_005) From $job_id: I got ClusterId $cluster_id\n";
+      print "(Process_005) From $job_id: I got ClusterId $cluster_id, ProcId $proc_id\n";
     }
   } else {
     warn "(Process_005) Error parsing the 'Job id' field: $job_id";
@@ -734,6 +1337,14 @@ sub Process_005 {
   unless ($cluster_id) {
     die "Somehow we got here without getting a cluster id"
   }
+
+  if (checkSeenLocalJobId($cluster_id, $proc_id)) {
+    print "Process_005 ignoring already-seen job $cluster_id.$proc_id\n"
+      if $verbose;
+    return ( ClusterId => $cluster_id,
+             ProcId => $proc_id );
+  }
+
   unless ((%condor_history = Query_Condor_History($cluster_id)) &&
           (defined ($condor_history{'GlobalJobId'})) ) {
     warn "This job ($cluster_id) had no record in Condor History.\n";
@@ -759,485 +1370,140 @@ sub Usage_message {
   print "USAGE: $0 \\\n";
   print "          [-c <constraint>] \\\n";
   print "          [-f <filename>] \\\n";
+  print "          [-s <filename>] \\\n";
   print "          [-dlrvx] \\\n";
   print "          <directoryname | filename> ...\n";
   print "\n";
   print "where -c gives a constraint (<attr>=<value>) " .
-            "for which ads to process\n";
+    "for which ads to process\n";
   print "      -d enables deletion of processed log files\n";
   print "      -f specifies a Gratia configuration file to use\n";
   print "      -l outputs a listing of what was done\n";
   print "      -r forces reprocessing of pending transmissions\n";
+  print "      -s gives a state file in which to save the last job processed\n";
+  print "          from the globus-condor.log file\n";
   print "      -v causes verbose output\n";
   print "      -x enters debug mode\n\n";
 
   return;
 }                               # End of Subroutine Usage_message  --------------------
 
+#------------------------------------------------------------------
+# Subroutine generate_ws_stubs
+#   This routine generates GRAM log files for previously unprocessed
+#   jobs.
+#------------------------------------------------------------------
+sub generate_ws_stubs {
+  my $gram_log = shift; # Log file
+  return unless ($gram_log_state_file and $stub_dir and (-d $stub_dir));
+  # Check state file
+  my $gram_state = `grep -m 1 -e "^$gram_log"'	' "$gram_log_state_file" 2>/dev/null`;
+  chomp $gram_state;
+  $gram_state =~ s&^$gram_log\t&&;
+  my ($last_clusterId, $last_proc, $last_subproc, $last_event_type) = split /\t/, $gram_state;
+  my ($latest_clusterId, $latest_proc, $latest_subproc, $latest_event_type);
+  # Read log backwards
+  open(GRAM_LOG, "tac $gram_log|") or do {
+    warn "WARNING: unable to open $gram_log_state_file";
+    return;
+  };
+  my %event_hash = ();
+  my $in_proc;
+  while (<GRAM_LOG>) {
+    chomp;
+    if (m&^</c>$&) {            # Begin record (reading backwards, remember)
+      %event_hash = ();
+      $in_proc = 1;
+      $record_buffer = "";
+      next;
+    }
+    if (m&^\s*<a\s+n="([^"]+)">&) { # Attribute line
+      my $attr = $1;
+      $attr = 'ClusterId' if ($attr =~ /^Cluster$/);
+      if (/<s>([^<]+)<\/s>/) {
+        $event_hash{$attr} = $1;
+      } elsif (/<i>([^<]+)<\/i>/) {
+        $event_hash{$attr} = int($1);
+      } elsif (/<b v="([tf])"\/>/) {
+        $event_hash{$attr} = ($1 eq 't');
+      } elsif (/<r>([^<]+)<\/r>/) {
+        $event_hash{$attr} = $1;
+      }
+      next;
+    }
+    if (m&^<c>$&) {             # End record (reading backwards)
+      next unless $in_proc;     # Never saw the open
+      undef $in_proc;
+      unless (defined $latest_clusterId) { # For next entry into state file
+        $latest_clusterId = $event_hash{'ClusterId'};
+        $latest_proc = $event_hash{'Proc'};
+        $latest_subproc = $event_hash{'Subproc'};
+        $latest_event_type = $event_hash{'EventTypeNumber'};
+      }
+      last if                   # Check if we're done.
+        $last_clusterId == $event_hash{'ClusterId'} and
+          $last_proc == $event_hash{'Proc'} and
+            $last_subproc == $event_hash{'Subproc'} and
+              $last_event_type == $event_hash{'EventTypeNumber'};
+      # If we have a real terminate event, write the stub file.
+      if ($event_hash{'EventTypeNumber'} == 4 or
+          $event_hash{'EventTypeNumber'} == 5) {
+        print "Writing stub for ", $event_hash{'ClusterId'}, ".", $event_hash{'Proc'},
+          " event type ", $event_hash{'EventTypeNumber'}, "\n" if $verbose;
+        my $stub_file = "gratia_condor_log.$event_hash{'ClusterId'}.$event_hash{'Proc'}.log";
+        open(GRAM_STUB, ">$stub_dir/$stub_file") or die
+          "Unable to open $stub_dir/$stub_file for write!";
+        print GRAM_STUB "$_\n$record_buffer"; # Don't forget the record opener
+        close GRAM_STUB;
+      }
+      next;
+    }
+  } continue {
+    $record_buffer = "$_\n${record_buffer}"; # Needs to be forward
+  }
+  close GRAM_LOG;
+  my $gram_state_line =
+    "$gram_log\t$latest_clusterId\t$latest_proc\t$latest_subproc\t$latest_event_type\n";
+  if (-e $gram_log_state_file) {
+    # Remove our line quickly. Yes, I know.
+    system("perl -wni.bak -e 'm&^\Q$gram_log\E\\t& or print;' \"$gram_log_state_file\"");
+  }
+  # Write our new state line to the end of the file.
+  open (GRAM_STATE, ">>$gram_log_state_file") or
+    die "Unable to open $gram_log_state_file for write";
+  print GRAM_STATE $gram_state_line;
+  close GRAM_STATE;
+}
+
+sub job_identifier {
+  my @identifiers = @_;
+  if (@identifiers == 1) {      # Only ClusterId (maybe)
+    @identifiers = split /\./, @identifiers;
+  }
+  @identifiers = @identifiers[0 .. 2];
+  for (my $loop = 0; $loop < 2; ++$loop) {
+    $identifiers[$loop] = 0 unless $identifiers[$loop];
+  }
+  my $job_id = join(".", map { sprintf "%d", $_; } @identifiers );
+  print "job_identifier returning $job_id\n" if $verbose;
+  return $job_id;
+}
+
+my %seenLocalJobIds = ();
+sub setSeenLocalJobId {
+  my $job_id = job_identifier(@_);
+  $seenLocalJobIds{$job_id} = 1;
+  print "setSeenLocalJobId recording job ", $job_id, "\n" if $verbose;
+}
+
+sub checkSeenLocalJobId {
+  my $job_id = job_identifier(@_);
+  my $result = (exists $seenLocalJobIds{$job_id} and $seenLocalJobIds{$job_id});
+  print "checkSeenLocalJobId returning ", $result,
+    " for job ", $job_id, "\n" if $verbose;
+}
+
 #==================================================================
-#==================================================================
-#  condor_meter.pl - Main program block
-#==================================================================
-autoflush STDERR 1; autoflush STDOUT 1;
-
-# Initialization and Setup.
-use Getopt::Std;
-
-$opt_d = $opt_l = $opt_r = $opt_v = $opt_x = 0;
-
-# Get command line arguments
-unless (getopts('c:df:lrvx')) {
-  Usage_message;
-  exit 1;
-}
-
-$constraint_attr = $constraint_value = undef;
-if (defined($opt_c)) {
-	($constraint_attr, $constraint_value) = split("=", $opt_c, 2);
-	unless (defined($constraint_value)) {
-		die "ERROR: constraint must be of form <attr>=<value>";
-	}
-}
-
-$delete_flag = ($opt_d == 1);
-$gratia_config = $opt_f;
-$report_results = ($opt_l == 1);
-$reprocess_flag = ($opt_r == 1);
-$verbose = ($opt_v == 1);
-$debug_mode = ($opt_x == 1);
-
-# After we have stripped off switches, there needs to be at least one 
-#   directory or file name passed as an argument
-if (! defined @ARGV) {
-  print STDERR "No directories or filenames supplied.\n\n";
-  Usage_message;
-  exit 1;
-}
-
-if ($verbose) {
-  print "$progname version $prog_version ($prog_revision)\n";
-  if ($debug_mode) {
-    print "Running in verbose mode with debugging enabled.\n";
-  } else {
-    print "Running in verbose mode.\n";
-  }
-} elsif ($debug_mode) {
-  #print "$progname version $prog_version ($prog_revision)\n";
-  print "Running in debugging  mode.\n";
-}
-
-#------------------------------------------------------------------
-# Locate and verify the path to the condor_history executable
-use Env qw(CONDOR_LOCATION PATH); #Import only the Env variables we need
-@path = split(/:/, $PATH);
-push(@path, "/usr/local/bin");
-$condor_history = '';
-$condor_hist_cmd = '';
-
-if (( $CONDOR_LOCATION ) && ( -x "$CONDOR_LOCATION/bin/condor_history" )) {
-  # This is the most obvious place to look
-  $condor_history = "$CONDOR_LOCATION/bin/condor_history";
-} else {
-  foreach $path_dir (@path) {
-    unless ( $condor_history ) {
-      if (-x "$path_dir/condor_history") {
-        $condor_history = "$path_dir/condor_history";
-      }
-    }
-  }
-}
-
-unless ( -x $condor_history ) {
-  warn "The 'condor_history' program was not found.\n";
-  exit 2;
-}
-
-if ($verbose) {
-  print "Condor_history at $condor_history\n";
-}
-
-$condor_hist_cmd = $condor_history;
-
-open(CONDOR_HISTORY_HELP, "$condor_hist_cmd -help|")
-  or die "Unable to open condor_history pipe\n";
-my @condor_history_help_text = <CONDOR_HISTORY_HELP>;
-close CONDOR_HISTORY_HELP;
-chomp @condor_history_help_text;
-grep /-backwards\b/, @condor_history_help_text and
-  $condor_hist_cmd = "$condor_hist_cmd -backwards";
-grep /-match\b/, @condor_history_help_text and
-  $condor_hist_cmd = "$condor_hist_cmd -match 1";
-
-$condor_config_val_cmd = sprintf("%s/condor_config_val", dirname($condor_history));
-$condor_hist_file = `$condor_config_val_cmd HISTORY`;
-chomp $condor_hist_file;
-
-#------------------------------------------------------------------
-# Build a list of file names.  Add individual files given as command
-# line arguments or select names from a directory specified.
-my @logfiles = @processed_logfiles = ();  $logs_found=0;
-foreach $name_arg (@ARGV) {
-  if ( -f $name_arg && -s _ ) {
-    # This argument is a non-empty plain file
-    push(@logfiles, $name_arg); $logs_found++;
-  } elsif ( -d $name_arg ) {
-    # This argument is a directory name
-    opendir(DIR, $name_arg)
-      or die "Could not open the directory $name_arg.";
-    while (defined($file = readdir(DIR))) {
-      if ($file =~ /gram_condor_log\./ && -f "$name_arg/$file" && -s _ ) {
-        # This plain, non-empty file looks like one of our log files
-        push(@logfiles, "$name_arg/$file"); $logs_found++;
-      }
-      if ($file =~ /history\.\d+\.\d+/ && -f "$name_arg/$file" && -s _ ) {
-        # This plain, non-empty file looks like a ClassAd
-        push(@logfiles, "$name_arg/$file"); $logs_found++;
-      }
-    }
-    closedir(DIR);
-  }
-}
-
-# Remove old temporary files (if still there) used for debugging
-foreach $tmp_file ( "/tmp/py.in", "/tmp/py.out" ) {
-  if ( -e $tmp_file ) {
-    unlink $tmp_file
-      or warn "Unable to delete old file: $tmp_file\n";
-  }
-}
-
-#------------------------------------------------------------------
-# Open the pipe to the Gratia meter library process
-$py = new FileHandle;
-$py->open("| tee /tmp/py.in | python -u >/tmp/py.out 2>&1");
-autoflush $py 1;
-$count_submit = 0;
-
-print $py "import Gratia\n";
-
-if (defined($gratia_config)) {
-	print $py "Gratia.Initialize(\"$gratia_config\")\n";
-}
-else {
-	print $py "Gratia.Initialize()\n";
-}
-
-if ($logs_found == 0) {
-  exit 0;
-} else {
-  if ($verbose) {
-    print "Number of log files found: $logs_found\n";
-  }
-}
-
-if ( $reprocess_flag ) {
-  # I should probably add a test here to see if there are files waiting
-  print $py "Gratia.Reprocess()\n";
-
-  # If someone uses the '-r' option to reprocess working files, should
-  #   the program end here?  If one is sending new data, the '-r' is 
-  #   redundant as we will reprocess any left over files when we start
-  #   sending this data.
-  exit 0;
-}
-
-#------------------------------------------------------------------
-# Get source file name(s)
-
-my $count_orig = $count_orig_004 = $count_orig_005 = $count_orig_009 = 0;
-my $count_xml = $count_xml_004 = $count_xml_005 = $count_xml_009 = 0;
-my $ctag_depth = 0;
-
-foreach $logfile (@logfiles) {
-
-  open(LOGF, $logfile)
-    or die "Unable to open logfile: $logfile\n";
-
-  if ($verbose) {
-    print "Processing file: $logfile\n";
-  }
-
-  $logfile_errors = 0;
-  $logfile_constrained = 0;
-
-  # See if the file is a per-job history file (a ClassAd)
-  if ($logfile =~ /history.(\d+).(\d+)/) {
-
-    # get the class ad from the file
-    %condor_data_hash = Read_ClassAd($logfile);
-
-    # check to see we got something
-    if (! %condor_data_hash) {
-      $logfile_errors++;
-    }
-    else {
-
-      # add-in UniqGlobalJobId
-      if ($condor_hist_data{'GlobalJobId'}) {
-        $condor_hist_data{'UniqGlobalJobId'} =
-          'condor.' . $condor_hist_data{'GlobalJobId'};
-      }
-
-      # check constraint then hand off data to gratia
-      if (!Check_Constraint(%condor_data_hash)) {
-        $logfile_constrained = 1;
-      }
-      elsif (!Feed_Gratia(%condor_data_hash)) {
-        $logfile_errors++;
-      }
-    }
-  }
-
-  # Otherwise, get the first record to test format of the file
-  elsif (defined ( $record_in = <LOGF> )) {
-    # Clear the variables for each new event processed
-    %condor_data_hash = ();
-    #%logfile_hash = ();  @logfile_clusterids = ();
-
-    if ($record_in =~ /\<c\>/) {
-      #if ($debug_mode) { print "Processing as an XML format logfile.\n" }
-      $count_xml++;             # This is counting XML log files (not records)
-      my $last_was_c = 0;       # To work around a bug in the condor xml generation
-
-      $event_hash = {};  $ctag_depth=1;
-      # Parse the XML log file
-      while (<LOGF>) {
-        # See fngp-osg:/export/osg/grid/globus/lib/perl/Globus/GRAM
-        # And the JobManger/condor.pm module - under sub poll()
-  
-        # I adapted the code the Globus condor JobManager uses. While
-        # it lacks some error handling, it will work as well or
-        # better than the GRAM job manager.
-
-        if (/<c>/) {            # Open tag --------------------
-          # allow for more than one open tag in a row (known condor
-          # xml format error).
-
-          if ($last_was_c != 1) {
-            $ctag_depth++;
-          }
-          if ($ctag_depth > 1) {
-            warn "$logfile: Improperly formatted XML records, missing \<c/\>\n";
-            $logfile_errors++;  # An error means we won't delete this log file
-          }
-          $event_hash = {};
-          $last_was_c = 1;
-        } else {
-          $last_was_c = 0;
-        }
-        if (/<a n="([^"]+)">/) { # Attribute line --------------------
-          my $attr = $1;
-
-          # In the XML version of log files, the Cluster ID was
-          # labeled just 'Cluster' rather than ClusterId' as it is in
-          # the original format and in Condor_History
-          $attr = 'ClusterId' if ($attr =~ /^Cluster$/);
-
-          if (/<s>([^<]+)<\/s>/) {
-            $event_hash{$attr} = $1;
-          } elsif (/<i>([^<]+)<\/i>/) {
-            $event_hash{$attr} = int($1);
-          } elsif (/<b v="([tf])"\/>/) {
-            $event_hash{$attr} = ($1 eq 't');
-          } elsif (/<r>([^<]+)<\/r>/) {
-            $event_hash{$attr} = $1;
-          }
-        } elsif (/<\/c>/) {     # Close tag --------------------
-          if ($event_hash{'ClusterId'}) {
-            # I now "fix" this when setting this attribute (above)
-            #$event_hash{'ClusterId'} = $event_hash{'Cluster'};
-
-            # All events have an these "standard" elements: MyType,
-            #    EventTypeNumber, EventTime, Cluster, Proc, and Subproc
-            # Process the events that report CPU usage
-            if ($event_hash{'EventTypeNumber'} == 0) { # Job submitted
-              # SubmitEvent: has Std and a SubmitHost IP
-              #if (%condor_data_hash = 
-              #       Query_Condor_History($event_hash{'ClusterId'})) {
-              # push @logfile_clusterids, $event_hash{'ClusterId'};
-              #} else {
-              # warn "No Condor History found - Logfile: " . 
-              #   basename($logfile) . " ClusterId: $event_hash{'Cluster'}\n";
-              # #Not sure if this case should be considered "fatal"
-              # $logfile_errors++; # An error means we won't delete this log file
-              #}
-            } elsif ($event_hash{'EventTypeNumber'} == 1) { # Job began exectuting
-              # ExecuteEvent: has Std and an ExecuteHost IP
-            } elsif ($event_hash{'EventTypeNumber'} == 4) { # Job was Evicted
-              $count_xml_004++;
-              if (%condor_data_hash = 
-                  Query_Condor_History($event_hash{'ClusterId'})) {
-                if (!Check_Constraint(%condor_data_hash)) {
-                  $logfile_constrained = 1;
-                }
-                elsif (!Feed_Gratia(%condor_data_hash)) {
-                  warn "Failed to feed XML 004 event to Gratia\n";
-                  $logfile_errors++; # An error means we won't delete this log file
-                }
-              } else {
-              }
-            } elsif ($event_hash{'EventTypeNumber'} == 5) { # Job finished
-              # JobTerminatedEvent: has Std and several others
-              $count_xml_005++;
-              if (%condor_data_hash = 
-                  Query_Condor_History($event_hash{'ClusterId'})) {
-                if (!Check_Constraint(%condor_data_hash)) {
-                  $logfile_constrained = 1;
-                }
-                elsif (!Feed_Gratia(%condor_data_hash)) {
-                  warn "Failed to feed XML 005 event to Gratia\n";
-                  $logfile_errors++; # An error means we won't delete this log file
-                }
-              } else {
-                warn "No Condor History found (XML-5) - Logfile: " . 
-                  basename($logfile) . " ClusterId: $event_hash{'ClusterId'}\n";
-              }
-            } elsif ($event_hash{'EventTypeNumber'} == 6) { # Image Size
-              # JobImageSizeEvent: has Std and a Size
-            } elsif ($event_hash{'EventTypeNumber'} == 9) { # Job Aborted
-              # JobAbortedEvent: has Std and Reason (string)
-              $count_xml_009++;
-              # I think it is helpful to count these,
-              # but there is no data in them worth reporting to Gratia
-            }
-          } else {
-            warn "I have an XML event record with no Cluster Id.\n";
-            $logfile_errors++;  # An error means we won't delete this log file
-          }
-          $ctag_depth--;
-        }                       # End of close tag
-      }
-    } else {                    # Non-XML format
-      #if ($debug_mode) {print "Processing as a non-XML format logfile.\n"} 
-      #This is the original condor log file format
-      $count_orig++;            # This is counting 005 files
-      @event_records = ();
-      push @event_records, $record_in;
-
-      while ($record_in = <LOGF>) {
-        if ($verbose && $debug_mode) {
-          print "Next input record: " . $record_in . "\n";
-        }
-        push @event_records, $record_in;
-  
-        if ($record_in =~ /^\.\.\./) { # Terminates this event
-          if ($event_records[0] =~ /^000 /) {
-            if ($verbose) {
-              print "Original format 000 record\n";
-            }
-          } elsif ($event_records[0] =~ /^001 /) {
-            if ($verbose) {
-              print "Original format 001 record\n";
-            }
-          } elsif ($event_records[0] =~ /^004 /) {
-            # Is this a '004 Job was Evicted' event?
-            $count_orig_004++;
-            if (%condor_data_hash =
-                Process_004($logfile, @event_records)) {
-              if ($verbose) {
-                print "Process_004 returned Cluster_id of $condor_data_hash{'ClusterId'}\n";
-              }
-              if (!Check_Constraint(%condor_data_hash)) {
-                $logfile_constrained = 1;
-              }
-              elsif (!Feed_Gratia(%condor_data_hash)) {
-                $logfile_errors++;
-              }
-            } else {
-              if ($verbose) {
-                warn "No Condor History found (Orig-004) - Logfile: " .
-                  basename($logfile) . "\n";
-                $logfile_errors++; # An error means we won't delete this log file
-              }
-            }
-          } elsif ($event_records[0] =~ /^005 /) {
-            # Is this a '005 Job Terminated' event?
-            $count_orig_005++;
-            if (%condor_data_hash =
-                Process_005($logfile, @event_records)) {
-              if ($verbose) {
-                print "Process_005 returned Cluster_id of $condor_data_hash{'ClusterId'}\n";
-              }
-              if (!Check_Constraint(%condor_data_hash)) {
-                $logfile_constrained = 1;
-              }
-              elsif (!Feed_Gratia(%condor_data_hash)) {
-                $logfile_errors++;
-              }
-            } else {
-              if ($verbose) {
-                warn "No Condor History found (Orig-005) - Logfile: " .
-                  basename($logfile) . "\n";
-                $logfile_errors++; # An error means we won't delete this log file
-              }
-            }
-          } elsif ($event_records[0] =~ /^009 /) {
-            $count_orig_009++;
-            # While I think it is helpful to count these,
-            # but there is no data in them worth reporting to Gratia
-          }
-          # Reset array to capture next event
-          @event_records = ();
-        }
-      }
-    }
-  }
-  close(LOGF);
-
-  if ($delete_flag) {
-    if ($logfile_errors != 0) {
-      warn "Logfile ($logfile) was not removed due to errors ($logfile_errors)\n";
-    } elsif ($logfile_constrained) {
-      warn "Logfile ($logfile) was not removed due to unprocessed data (from -c)\n";
-    }
-    else {
-      push @processed_logfiles, $logfile;
-    }
-  }                             # End of the 'foreach $logfile' loop.
-}
-
-# Close Python pipe to Gratia.py
-$py->close;
-
-# Now we have closed the Python pipe, I can delete the log files that
-#    were just processed.
-if ($delete_flag) {
-  foreach $plog (@processed_logfiles) {
-    if (unlink ($plog)) {
-      if ($verbose) {
-        print "Removed logfile ($plog)\n";
-      }
-    }
-    else {
-      warn "Unable to remove logfile ($plog)\n"
-    }
-  }
-}
-
-#------------------------------------------------------------------
-# Wrap up and report results
-
-$count_total = $count_orig + $count_xml;
-if (($count_total > 1) && ($verbose || $report_results)) {
-  print "Condor probe is done processing log files.\n";
-  print "  Number of original format files: $count_orig\n"  if ($count_orig);
-  print "         # of original 004 events: $count_orig_004\n"  if ($count_orig_004);
-  print "         # of original 005 events: $count_orig_005\n"  if ($count_orig_005);
-  print "         # of original 009 events: $count_orig_009\n"  if ($count_orig_009);
-  print "       Number of XML format files: $count_xml\n"   if ($count_xml);
-  print "              # of XML 004 events: $count_xml_004\n"  if ($count_xml_004);
-  print "              # of XML 005 events: $count_xml_005\n"  if ($count_xml_005);
-  print "              # of XML 009 events: $count_xml_009\n"  if ($count_xml_009);
-  print "        Total number of log files: $count_total\n\n";
-  print " # of records submitted to Gratia: $count_submit\n" if ($count_submit);
-}
-
-if ($verbose) {
-  print "\nEnd of program: $progname\n";
-}
-
-exit 0;
-
 #==================================================================
 # End of Program - condor_meter-pl
 #==================================================================
@@ -1245,9 +1511,6 @@ exit 0;
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
-# Revision 1.18  2008/05/06 21:53:04  greenc
-# Apply Greg Quinn's contributed patch for constraint application.
-#
 # Revision 1.17  2008/05/01 13:13:59  greenc
 # Retract erroneously committed (incomplete) changes to condor_meter.pl.
 #
