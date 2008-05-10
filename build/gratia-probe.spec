@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.32.4
+Version: 0.34
 Release: 1
 License: GPL
 Group: Applications/System
@@ -896,6 +896,12 @@ fi
 %endif # noarch
 
 %changelog
+* Fri May  9 2008 Christopher Green <greenc@fnal.gov> - 0.34-1
+- Probe release for VDT:
+-   Condor probe seriously updated to get data from anywhere it can.
+-   Record upload failures due to (eg) 503 don't print the HTML error
+-    source to the log file, just a short message.
+
 * Mon May  5 2008 Christopher Green <greenc@fnal.gov> - 0.32.4-1
 - dcache_transfer_probe_version to v0-1:
 -   Fix transfer README.
