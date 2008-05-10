@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.34
+Version: 0.34a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -896,6 +896,10 @@ fi
 %endif # noarch
 
 %changelog
+* Fri May  9 2008 Christopher Green <greenc@fnal.gov> - 0.34a-1
+- Updates to Gratia.py to handle cases where certinfo is present
+-  but has nothing useful (WS).
+
 * Fri May  9 2008 Christopher Green <greenc@fnal.gov> - 0.34-1
 - Probe release for VDT:
 -   Condor probe seriously updated to get data from anywhere it can.
