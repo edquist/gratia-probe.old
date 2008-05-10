@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.81 2008-05-10 00:17:13 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.82 2008-05-10 04:26:14 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -370,7 +370,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.81 $
+    # $Revision: 1.82 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1087,7 +1087,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.81 $")
+        rev = ExtractCvsRevision("$Revision: 1.82 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1883,7 +1883,7 @@ def Send(record):
         DebugPrint(0, "***********************************************************")
         return responseString
     except Exception, e:
-        DebugPrint (0, "ERROR: " + str(e) + "exception caught while processing record ")
+        DebugPrint (0, "ERROR: " + str(e) + " exception caught while processing record ")
         DebugPrint (0, "       This record has been LOST")
         return "ERROR: record lost due to internal error!"
 
@@ -2142,10 +2142,12 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     # VOName
     VONameNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'VOName')
     if not VONameNodes:
+        DebugPrint(4, "DEBUG: Creating VONameNodes elements")
         VONameNodes.append(xmlDoc.createElementNS(namespace, prefix + 'VOName'))
         textNode = xmlDoc.createTextNode(r'');
         VONameNodes[0].appendChild(textNode);
         userIdentityNode.appendChild(VONameNodes[0])
+        DebugPrint(4, "DEBUG: Creating VONameNodes elements DONE")
     elif VONameNodes.length > 1:
         [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
         DebugPrint(0,
@@ -2156,12 +2158,14 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     # ReportableVOName
     ReportableVONameNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'ReportableVOName')
     if not ReportableVONameNodes:
+        DebugPrint(4, "DEBUG: Creating ReortableVONameNodes elements")
         ReportableVONameNodes.append(xmlDoc.createElementNS(namespace,
                                                             prefix +
                                                             'ReportableVOName'))
         textNode = xmlDoc.createTextNode(r'');
         ReportableVONameNodes[0].appendChild(textNode);
         userIdentityNode.appendChild(ReportableVONameNodes[0])
+        DebugPrint(4, "DEBUG: Creating ReortableVONameNodes elements DONE")
     elif len(ReportableVONameNodes) > 1:
         [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
         DebugPrint(0, "Warning: UserIdentity block has multiple ",
@@ -2180,8 +2184,16 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     # 4. VOName from reverse map file.
 
     # 1. Initial values
+    DebugPrint(4, "DEBUG: reading initial VOName")
     VOName = VONameNodes[0].firstChild.data
+    DebugPrint(4, "DEBUG: current VOName = " +
+               VONameNodes[0].firstChild.data) 
+
+    DebugPrint(4, "DEBUG: reading initial ReportableVOName")
     ReportableVOName = ReportableVONameNodes[0].firstChild.data
+    DebugPrint(4, "DEBUG: current ReportableVOName = " +
+               ReportableVONameNodes[0].firstChild.data)
+    
     vo_info = None
 
     # 2. Certinfo
@@ -2189,12 +2201,17 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
         DebugPrint(4, "DEBUG: Calling verifyFromCertInfo")
         vo_info = verifyFromCertInfo(xmlDoc, userIdentityNode,
                                      namespace, prefix)
-        if vo_info and (not vo_info['VOName'] and 
-                        not vo_info['ReportableVOName']):
+        if (vo_info == None) or \
+               (vo_info and (not vo_info['VOName'] and 
+                             not vo_info['ReportableVOName'])):
             DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: No VOName data")
             vo_info = None # Reset if no output.
         else:
+            DebugPrint(4, "DEBUG: Received values " + vo_info['VOName'] +
+                       " and " + vo_info['ReportableVOName'])
             DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: DONE")
+            VONameNodes[0].firstChild.data = vo_info['VOName']
+            ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
 
     # 3. & 4.
     if not vo_info and not VOName:
@@ -2215,6 +2232,12 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
 
     VOName = VONameNodes[0].firstChild.data
     ReportableVOName = ReportableVONameNodes[0].firstChild.data
+
+    DebugPrint(4, "DEBUG: final VOName = " +
+               VONameNodes[0].firstChild.data)
+    DebugPrint(4, "DEBUG: final ReportableVOName = " +
+               ReportableVONameNodes[0].firstChild.data)
+
     ####################################################################
     
     # Clean up.
@@ -2361,23 +2384,34 @@ def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
     DebugPrint(4, "DEBUG: call readCertinfo")
     certInfo = readCertInfo(localJobId, probeName)
     DebugPrint(4, "DEBUG: call readCertinfo: OK")
-    if certInfo == None or not certInfo.has_key('DN') or not certInfo['DN']: return
+    DebugPrint(4, "DEBUG: certInfo: " + str(certInfo))
+    if certInfo == None or (not certInfo.has_key('DN')) or (not certInfo['DN']):
+        DebugPrint(4, "Returning without processing certInfo")
+        return
     # Use certinfo
+    DebugPrint(4, "DEBUG: fixing DN")
     certInfo['DN'] = FixDN(certInfo['DN']) # "Standard" slash format
     # First, find a KeyInfo node if it is there
+    DebugPrint(4, "DEBUG: looking for KeyInfo node")
     keyInfoNS = 'http://www.w3.org/2000/09/xmldsig#';
     keyInfoNode = GetNode(userIdentityNode.getElementsByTagNameNS(keyInfoNS, 'KeyInfo'))
     DNnode = GetNode(userIdentityNode.getElementsByTagNameNS(namespace, 'DN'))
     if DNnode and DN.firstChild: # Override
+        DebugPrint(4, "DEBUG: overriding DN from certInfo")
         DN.firstChild.data = certInfo['DN']
     else:
+        DebugPrint(4, "DEBUG: creating fresh DN node")
         if not DNnode: DNnode = xmlDoc.createElementNS(namespace, 'DN')
         textNode = xmlDoc.createTextNode(certInfo['DN'])
         DNnode.appendChild(textNode)
         if not DNnode.parentNode:
             userIdentityNode.appendChild(DNnode)
+        DebugPrint(4, "DEBUG: creating fresh DN node: OK")
 
     # Return VO information for insertion in a common place.
+    DebugPrint(4, "DEBUG: returning VOName " +
+               certInfo['FQAN'] + " and ReportableVOName " +
+               certInfo['VO'])
     return { 'VOName': certInfo['FQAN'],
              'ReportableVOName': certInfo['VO']}
 
