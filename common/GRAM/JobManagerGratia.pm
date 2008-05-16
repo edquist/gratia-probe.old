@@ -45,7 +45,7 @@ sub gratia_save_cert_info {
                         "gratia/var/data/");
   my $gratia_filename = sprintf("gratia_certinfo_%s_%s",
                                 $batchmanager_name,
-                                $job_id);
+                                job_identifier($job_id));
   open(GRATIA_CERTINFO, ">$log_dir$gratia_filename") or return;
   binmode(GRATIA_CERTINFO, ':utf8');
   print GRATIA_CERTINFO '<?xml version="1.0" encoding="UTF-8"?>', "\n";
@@ -86,4 +86,17 @@ sub gratia_save_cert_info {
       $xmls->escape_value($fqan) if $fqan;
   print GRATIA_CERTINFO "</GratiaCertInfo>\n";
   close(GRATIA_CERTINFO);
+}
+
+sub job_identifier {
+  my @identifiers = @_;
+  if (@identifiers == 1) {      # Only ClusterId (maybe)
+    @identifiers = split /\./, join(".", @identifiers);
+  }
+  @identifiers = @identifiers[0 .. 2];
+  for (my $loop = 0; $loop < 2; ++$loop) {
+    $identifiers[$loop] = 0 unless $identifiers[$loop];
+  }
+  my $job_id = join(".", map { sprintf "%d", ($_ || 0); } @identifiers );
+  return $job_id;
 }
