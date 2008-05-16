@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.83 2008-05-16 16:38:29 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.84 2008-05-16 16:47:46 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -121,7 +121,7 @@ class ProbeConfiguration:
             else:
                 self.__Grid = val
         return self.__Grid
-            
+
     def setSiteName(self,name):
         self.__SiteName = name
 
@@ -190,7 +190,7 @@ class ProbeConfiguration:
         return self.__getConfigAttribute('CertificateFile')
 
     def get_KeyFile(self):
-        return self.__getConfigAttribute('KeyFile') 
+        return self.__getConfigAttribute('KeyFile')
 
     def get_MaxPendingFiles(self):
         return self.__getConfigAttribute('MaxPendingFiles')
@@ -222,10 +222,10 @@ class ProbeConfiguration:
         if val and re.search("MAGIC\_VDT_LOCATION", val):
             vdttop = self.__findVDTTop()
             if vdttop != None:
-               val = re.sub("MAGIC\_VDT_LOCATION",
-                            vdttop,
-                            val)
-               if os.path.isfile(val): self.__UserVOMapFile = val
+                val = re.sub("MAGIC\_VDT_LOCATION",
+                             vdttop,
+                             val)
+                if os.path.isfile(val): self.__UserVOMapFile = val
         elif val and os.path.isfile(val):
             self.__UserVOMapFile = val
         else: # Invalid or missing config entry
@@ -242,14 +242,14 @@ class ProbeConfiguration:
                     pass
             else: # Last ditch guess
                 vdttop = self.__findVDTTop()
-                if vdttop != None: 
-                   self.__UserVOMapFile = self.__findVDTTop() + \
-                                     '/monitoring/osg-user-vo-map.txt'
-                   if not os.path.isfile(self.__UserVOMapFile):
-                       self.__UserVOMapFile = self.__findVDTTop() + \
-                                     '/monitoring/grid3-user-vo-map.txt'
-                       if not os.path.isfile(self.__UserVOMapFile):
-                           self.__UserVOMapFile = None
+                if vdttop != None:
+                    self.__UserVOMapFile = self.__findVDTTop() + \
+                                      '/monitoring/osg-user-vo-map.txt'
+                    if not os.path.isfile(self.__UserVOMapFile):
+                        self.__UserVOMapFile = self.__findVDTTop() + \
+                                      '/monitoring/grid3-user-vo-map.txt'
+                        if not os.path.isfile(self.__UserVOMapFile):
+                            self.__UserVOMapFile = None
 
         return self.__UserVOMapFile
 
@@ -372,7 +372,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.83 $
+    # $Revision: 1.84 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -457,7 +457,7 @@ def __connect():
 
     if (not __connected) and (__connectionRetries <= MaxConnectionRetries):
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
-            __connection = httplib.HTTP(Config.get_SOAPHost())            
+            __connection = httplib.HTTP(Config.get_SOAPHost())
             DebugPrint(1, 'Connected via HTTP to:  ' + Config.get_SOAPHost())
             #print "Using SOAP protocol"
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
@@ -516,7 +516,7 @@ def __disconnect():
     global __connection
     global __connected
     global __connectionError
-    
+
     try:
         if __connected and Config.get_UseSSL() != 0:
             __connection.system.logout()
@@ -552,7 +552,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
         # nothing
         if not __connect(): # Failed to connect
             raise IOError # Kick out to except: clause
-        
+
         # Generate a unique Id for this transaction
         transactionId = meterId + TimeToString().replace(":","")
         DebugPrint(1, 'TransactionId:  ' + transactionId)
@@ -593,7 +593,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
             # Send the soap message to the web service
             __connection.send(soapMessage)
 
-            # Get the web service response to the request    
+            # Get the web service response to the request
             (status_code, message, reply_headers) = __connection.getreply()
 
             # Read the response attachment to get the actual soap response
@@ -601,7 +601,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
             DebugPrint(2, 'Response:  ' + responseString)
 
             # Parse the response string into a response object
-            try: 
+            try:
                 doc = safeParseXML(responseString)
                 codeNode = doc.getElementsByTagName('ns1:_code')
                 messageNode = doc.getElementsByTagName('ns1:_message')
@@ -670,7 +670,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
 def SendStatus(meterId):
     # This function is not yet used.
     # Use Handshake() and SendHandshake() instead.
-    
+
     global __connection
     global __connectionError
     global __connectionRetries
@@ -681,7 +681,7 @@ def SendStatus(meterId):
         # nothing
         if not __connect(): # Failed to connect
             raise IOError # Kick out to except: clause
-        
+
         # Generate a unique Id for this transaction
         transactionId = meterId + TimeToString().replace(":","")
         DebugPrint(1, 'Status Upload:  ' + transactionId)
@@ -710,8 +710,8 @@ def SendStatus(meterId):
         response = Response(1,"Failed to send xml to web service")
 
     return response
-   
-               
+
+
 LogFileIsWriteable = True
 
 def LogToFile(message):
@@ -753,11 +753,11 @@ def LogToFile(message):
 def LogToSyslog(level, message) :
     import syslog
     if (level == -1) : syslevel = syslog.LOG_ERR
-    else: 
+    else:
         if (level == 0) : syslevel = syslog.LOG_INFO
-        else: 
-           if (level == 1) : syslevel = syslog.LOG_INFO
-           else: syslevel = syslog.LOG_DEBUG
+        else:
+            if (level == 1) : syslevel = syslog.LOG_INFO
+            else: syslevel = syslog.LOG_DEBUG
 
     try:
         syslog.openlog("Gratia ")
@@ -769,24 +769,24 @@ def LogToSyslog(level, message) :
             # Print the error message only once
             print "Gratia: Unable to log to syslog:  ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1]
         LogFileIsWriteable = False
-        
+
     syslog.closelog()
 
 def RemoveOldFiles(nDays = 31, globexp = None):
 
-   if not globexp: return
-   # Get the list of all files in the log directory
-   files = glob.glob(globexp)
-   if not files: return
-   
-   DebugPrint(3, " Will check the files: ",files)
-        
-   cutoff = time.time() - nDays * 24 * 3600
+    if not globexp: return
+    # Get the list of all files in the log directory
+    files = glob.glob(globexp)
+    if not files: return
 
-   for f in files:
-      if os.path.getmtime(f) < cutoff:
-         DebugPrint(2, "Will remove: " + f)
-         os.remove(f)
+    DebugPrint(3, " Will check the files: ",files)
+
+    cutoff = time.time() - nDays * 24 * 3600
+
+    for f in files:
+        if os.path.getmtime(f) < cutoff:
+            DebugPrint(2, "Will remove: " + f)
+            os.remove(f)
 
 #
 # Remove old backups
@@ -802,17 +802,17 @@ def RemoveOldBackups(self, probeConfig, nDays = 31):
     RemoveOldFiles(nDays, os.path.join(backupDir, "*.log"))
 
 def RemoveOldLogs(nDays = 31):
-   logDir = Config.get_LogFolder()
-   DebugPrint(1, "Removing log files older than ", nDays, " days from " , logDir)
-   RemoveOldFiles(nDays, os.path.join(logDir, "*.log"))
+    logDir = Config.get_LogFolder()
+    DebugPrint(1, "Removing log files older than ", nDays, " days from " , logDir)
+    RemoveOldFiles(nDays, os.path.join(logDir, "*.log"))
 
 def RemoveOldJobData(nDays = 31):
-   dataDir = Config.get_DataFolder()
-   cutoff = time.time() - nDays * 24 * 3600
-   DebugPrint(1, "Removing incomplete data files older than ", nDays, " days from " , dataDir)
-   RemoveOldFiles(nDays, os.path.join(dataDir, "gratia_certinfo_*"))
-   RemoveOldFiles(nDays, os.path.join(dataDir, "gratia_condor_log*"))
-   RemoveOldFiles(nDays, os.path.join(dataDir, "gram_condor_log*"))
+    dataDir = Config.get_DataFolder()
+    cutoff = time.time() - nDays * 24 * 3600
+    DebugPrint(1, "Removing incomplete data files older than ", nDays, " days from " , dataDir)
+    RemoveOldFiles(nDays, os.path.join(dataDir, "gratia_certinfo_*"))
+    RemoveOldFiles(nDays, os.path.join(dataDir, "gratia_condor_log*"))
+    RemoveOldFiles(nDays, os.path.join(dataDir, "gram_condor_log*"))
 
 def GenerateOutput(prefix,*arg):
     out = prefix
@@ -829,17 +829,17 @@ def DebugPrint(level, *arg):
     if Config and level<Config.get_LogLevel():
         out = GenerateOutput("Gratia: ",*arg)
         if (Config.get_UseSyslog()):
-           LogToSyslog(level,GenerateOutput("",*arg))
+            LogToSyslog(level,GenerateOutput("",*arg))
         else:
-           LogToFile(time.strftime(r'%H:%M:%S %Z', time.localtime()) + " " + out)
+            LogToFile(time.strftime(r'%H:%M:%S %Z', time.localtime()) + " " + out)
 
 def Error(*arg):
     out = GenerateOutput("Error in Gratia probe: ",*arg)
     print time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + out
     if (Config.get_UseSyslog()):
-       LogToSyslog(-1,GenerateOutput("",*arg))
+        LogToSyslog(-1,GenerateOutput("",*arg))
     else:
-       LogToFile(time.strftime(r'%H:%M:%S %Z', time.localtime()) + " " + out)
+        LogToFile(time.strftime(r'%H:%M:%S %Z', time.localtime()) + " " + out)
 
 ##
 ## Mkdir
@@ -998,7 +998,7 @@ class Record(object):
     __GridDescription = ""
 
     def __init__(self):
-        # See the function ResourceType for details on the 
+        # See the function ResourceType for details on the
         # parameter
         DebugPrint(0,"Creating a Record "+TimeToString())
         self.XmlData = []
@@ -1037,7 +1037,7 @@ class Record(object):
         self.GenericAddToList( "ProbeName", self.__ProbeName, self.__ProbeNameDescription )
         self.GenericAddToList( "SiteName", self.__SiteName, self.__SiteNameDescription )
         self.GenericAddToList( "Grid", self.__Grid, self.__GridDescription )
-		
+
     def Duration(self,value):
         " Helper Function to generate the xml (Do not call directly)"
         seconds = (long(value*100) % 6000 ) / 100.0
@@ -1054,8 +1054,8 @@ class Record(object):
             if minutes>0 : result = result + str(minutes)+ "M"
             if seconds>0 : result = result + str(seconds)+ "S"
         else : result = result + "T0S"
-        return result    
-        
+        return result
+
     def Description(self,value):
         " Helper Function to generate the xml (Do not call directly)"
         if len(value)>0 : return  "urwg:description=\""+escapeXML(value)+"\" "
@@ -1084,15 +1084,15 @@ class ProbeDetails(Record):
         DebugPrint(0,"Creating a ProbeDetails record "+TimeToString())
 
         self.ProbeDetails = []
-        
+
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.83 $")
+        rev = ExtractCvsRevision("$Revision: 1.84 $")
 
         self.ReporterLibrary("Gratia",rev);
 
         for data in HandshakeReg:
             self.ProbeDetails = self.AppendToList( self.ProbeDetails, data[0], data[1], data[2])
-        
+
 
     def ReporterLibrary(self,name,version):
         self.ProbeDetails = self.AppendToList(self.ProbeDetails,"ReporterLibrary","version=\""+version+"\"",name)
@@ -1138,7 +1138,7 @@ class ProbeDetails(Record):
 
     def Print(self):
         DebugPrint(1,"ProbeDetails Record: ",self)
-      
+
 class UsageRecord(Record):
     "Base class for the Gratia Usage Record"
     JobId = []
@@ -1148,7 +1148,7 @@ class UsageRecord(Record):
     __ResourceType = None
 
     def __init__(self, resourceType = None):
-        # See the function ResourceType for details on the 
+        # See the function ResourceType for details on the
         # parameter
         super(self.__class__,self).__init__()
         DebugPrint(0,"Creating a UsageRecord "+TimeToString())
@@ -1199,7 +1199,7 @@ class UsageRecord(Record):
     def ProcessId(self,value):
         self.JobId = self.AddToList(self.JobId,"ProcessId","",str(value))
 
-    def GlobalUsername(self,value): 
+    def GlobalUsername(self,value):
         self.UserId = self.AddToList(self.UserId,"GlobalUsername","",value)
 
     def LocalUserId(self,value):
@@ -1246,7 +1246,7 @@ class UsageRecord(Record):
         if type(value)==str : realvalue = value
         else : realvalue = self.Duration(value)
         if cputype=="sys" : cputype="system"
-        if cputype!="user" and cputype!="system" : 
+        if cputype!="user" and cputype!="system" :
             description = "(type="+cputype+") "+description
             cputype = ""
         self.RecordData = self.AppendToList(self.RecordData, "CpuDuration", self.UsageType(cputype)+self.Description(description), realvalue)
@@ -1368,8 +1368,8 @@ class UsageRecord(Record):
     def XmlAddMembers(self):
         super(self.__class__,self).XmlAddMembers()
         self.GenericAddToList( "Njobs", str(self.__Njobs), self.__NjobsDescription )
-        if (self.__ResourceType != None) : 
-                self.Resource( "ResourceType", self.__ResourceType )
+        if (self.__ResourceType != None) :
+            self.Resource( "ResourceType", self.__ResourceType )
 
     def VerifyUserInfo(self):
         " Verify user information: check for LocalUserId and add VOName and ReportableVOName if necessary"
@@ -1378,7 +1378,7 @@ class UsageRecord(Record):
         for wanted_key in interesting_keys: # Loop over wanted keys
             item_index = 0
             for id_item in self.UserId: # Loop over existing entries in UserId block
-                # Look for key
+            # Look for key
                 match = re.search(r'<\s*(?:[^:]*:)?'+wanted_key+r'\s*>\s*(?P<Value>.*?)\s*<\s*/',
                                   id_item, re.IGNORECASE)
                 # Store info
@@ -1447,7 +1447,7 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
     "Check for and fill in suitable values for important attributes"
 
     if not xmlDoc.documentElement: return 0 # Major problem
-        
+
     if external:
         # Local namespace
         namespace = xmlDoc.documentElement.namespaceURI
@@ -1494,8 +1494,8 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
             [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
             DebugPrint(0, "Warning: too many Grid entities in " + jobIdType + " " +
                                jobId + "(" + xmlFilename + ")");
-        
-                               
+
+
 def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
     "Fill in missing field in the xml document if needed"
     "If external is true, also check for ResourceType and Grid"
@@ -1506,7 +1506,7 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
     DebugPrint(4, "DEBUG: Checking xmlDoc integrity: OK")
     DebugPrint(4, "DEBUG: XML record to send: \n" +
                xmlDoc.toxml())
-    
+
     # Local namespace
     namespace = xmlDoc.documentElement.namespaceURI
     # Loop over (posibly multiple) jobUsageRecords
@@ -1639,7 +1639,7 @@ def Reprocess():
             responseString = responseString + '\nEmpty file ' + failedRecord + ': XML not sent'
             failedReprocessCount += 1
             continue
-        
+
         # Send the xml to the collector for processing
         response = __sendUsageXML(Config.get_MeterName(), xmlData)
         DebugPrint(1, 'Reprocess Response:  ' + response.get_message())
@@ -1709,17 +1709,17 @@ def SendHandshake(record):
         DebugPrint(0, responseString)
         DebugPrint(0, "***********************************************************")
         return responseString
-    
+
     xmlDoc.normalize()
-    
+
     # Generate the XML
     record.XmlData = safeEncodeXML(xmlDoc).splitlines(True)
 
     # Close and clean up the document
     xmlDoc.unlink()
 
-    # Currently, the recordXml is in a list format, with each item being a line of xml.  
-    # the collector web service requires the xml to be sent as a string.  
+    # Currently, the recordXml is in a list format, with each item being a line of xml.
+    # the collector web service requires the xml to be sent as a string.
     # This logic here turns the xml list into a single xml string.
     usageXmlString = ""
     for line in record.XmlData:
@@ -1834,8 +1834,8 @@ def Send(record):
 
         DebugPrint(4, "DEBUG: Backing up record to send: OK")
 
-        # Currently, the recordXml is in a list format, with each item being a line of xml.  
-        # the collector web service requires the xml to be sent as a string.  
+        # Currently, the recordXml is in a list format, with each item being a line of xml.
+        # the collector web service requires the xml to be sent as a string.
         # This logic here turns the xml list into a single xml string.
         usageXmlString = ""
         for line in record.XmlData:
@@ -1883,10 +1883,10 @@ def Send(record):
         DebugPrint(0, "***********************************************************")
         return responseString
     except Exception, e:
-       DebugPrint (0, "ERROR: " + str(e) + " exception caught while processing record ")
-       DebugPrint (0, "       This record has been LOST")
-       DebugPrintTraceback()
-       return "ERROR: record lost due to internal error!"
+        DebugPrint (0, "ERROR: " + str(e) + " exception caught while processing record ")
+        DebugPrint (0, "       This record has been LOST")
+        DebugPrintTraceback()
+        return "ERROR: record lost due to internal error!"
 
 # This sends the file contents of the given directory as raw XML. The
 # writer of the XML files is responsible for making sure that it is
@@ -1923,7 +1923,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
             DebugPrint(0, "Failed to parse XML file ", xmlFilename, "--",
                        sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
             xmlDoc = None
-            
+
         if xmlDoc:
             DebugPrint(1, "Adding information to parsed XML")
 
@@ -1945,16 +1945,16 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
             xmlDoc.unlink()
 
         else: # XML parsing failed: slurp the file in to xmlData and
-              # send as-is.
-              DebugPrint(1, "Backing up and sending failed XML as is.")
-              try:
-                  in_file = open(xmlFilename, "r")
-              except:
-                  DebugPrint(0, "Unable to open xmlFilename for simple read")
-                  continue
-              
-              xmlData = in_file.readlines()
-              in_file.close()
+            # send as-is.
+            DebugPrint(1, "Backing up and sending failed XML as is.")
+            try:
+                in_file = open(xmlFilename, "r")
+            except:
+                DebugPrint(0, "Unable to open xmlFilename for simple read")
+                continue
+
+            xmlData = in_file.readlines()
+            in_file.close()
 
         # Open the back up file
         # fill the back up file
@@ -1972,7 +1972,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
                 responseString = "Fatal Error: unable to save record prior to send attempt"
                 DebugPrint(0, responseString)
                 DebugPrint(0, "***********************************************************")
-                return responseString    
+                return responseString
             else:
                 try:
                     for line in xmlData:
@@ -2054,7 +2054,7 @@ def __ResourceTool(action, xmlDoc, usageRecord, namespace, prefix, key, value = 
        action != "AddIfMissingKey" and \
        action != "UnconditionalAdd":
         raise InternalError("__ResourceTool gets unrecognized action '%s'" % action)
-    
+
     resourceNodes = usageRecord.getElementsByTagNameNS(namespace,
                                                        'Resource')
     wantedResource = None
@@ -2072,7 +2072,7 @@ def __ResourceTool(action, xmlDoc, usageRecord, namespace, prefix, key, value = 
                     return None
             elif action == "AddIfMissingKey":
                 # Kick out, since we're not missing the key
-                    return None
+                return None
             elif action == "ReadValues" and resource.firstChild:
                 foundValues.append(resource.firstChild.data)
 
@@ -2083,7 +2083,7 @@ def __ResourceTool(action, xmlDoc, usageRecord, namespace, prefix, key, value = 
         if wantedResource.firstChild: # Return replaced value
             oldValue = wantedResource.firstChild.data
             wantedResource.firstChild.data = value
-            return oldValue 
+            return oldValue
         else: # No text data node
             textNode = xmlDoc.createTextNode(value)
             wantedResource.appendChild(textNode)
@@ -2188,13 +2188,13 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     DebugPrint(4, "DEBUG: reading initial VOName")
     VOName = VONameNodes[0].firstChild.data
     DebugPrint(4, "DEBUG: current VOName = " +
-               VONameNodes[0].firstChild.data) 
+               VONameNodes[0].firstChild.data)
 
     DebugPrint(4, "DEBUG: reading initial ReportableVOName")
     ReportableVOName = ReportableVONameNodes[0].firstChild.data
     DebugPrint(4, "DEBUG: current ReportableVOName = " +
                ReportableVONameNodes[0].firstChild.data)
-    
+
     vo_info = None
 
     # 2. Certinfo
@@ -2203,7 +2203,7 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
         vo_info = verifyFromCertInfo(xmlDoc, userIdentityNode,
                                      namespace, prefix)
         if (vo_info == None) or \
-               (vo_info and (not vo_info['VOName'] and 
+               (vo_info and (not vo_info['VOName'] and
                              not vo_info['ReportableVOName'])):
             DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: No VOName data")
             vo_info = None # Reset if no output.
@@ -2240,7 +2240,7 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
                ReportableVONameNodes[0].firstChild.data)
 
     ####################################################################
-    
+
     # Clean up.
     if not VOName:
         userIdentityNode.removeChild(VONameNodes[0])
@@ -2326,7 +2326,7 @@ def __InitializeDictionary():
     global __voiToVOcDictionary
     mapfile = Config.get_UserVOMapFile()
     if mapfile == None:
-         return None
+        return None
     __voi = []
     __VOc = []
     try:
@@ -2428,7 +2428,7 @@ def readCertInfo(localJobId, probeName):
     DebugPrint(4, "readCertInfo: continuing to process")
 
     matching_files = glob.glob(Config.get_DataFolder() + 'gratia_certinfo_*_' + localJobId + '*')
-    if matching_files == None or len(matching_files) == 0: 
+    if matching_files == None or len(matching_files) == 0:
         DebugPrint(4, "could not find certinfo files matching localJobId " + str(localJobId))
         return # No files
     if len(matching_files) == 1:
@@ -2508,4 +2508,3 @@ def DebugPrintTraceback(debugLevel = 4):
     message = string.join(traceback.format_exception(*sys.exc_info()), r'');
     DebugPrint(4, "In traceback print (1)")
     DebugPrint(debugLevel, message)
-    
