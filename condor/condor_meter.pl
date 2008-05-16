@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.20 2008-05-10 00:28:59 greenc Exp $
+# $Id: condor_meter.pl,v 1.21 2008-05-16 16:09:12 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.20 $ '; # CVS Version number
+my $prog_revision = '$Revision: 1.21 $ '; # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -1478,13 +1478,13 @@ sub generate_ws_stubs {
 sub job_identifier {
   my @identifiers = @_;
   if (@identifiers == 1) {      # Only ClusterId (maybe)
-    @identifiers = split /\./, @identifiers;
+    @identifiers = split /\./, join(".", @identifiers);
   }
   @identifiers = @identifiers[0 .. 2];
   for (my $loop = 0; $loop < 2; ++$loop) {
     $identifiers[$loop] = 0 unless $identifiers[$loop];
   }
-  my $job_id = join(".", map { sprintf "%d", $_; } @identifiers );
+  my $job_id = join(".", map { sprintf "%d", ($_ || 0); } @identifiers );
   print "job_identifier returning $job_id\n" if $verbose;
   return $job_id;
 }
@@ -1511,6 +1511,25 @@ sub checkSeenLocalJobId {
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.20  2008/05/10 00:28:59  greenc
+# Many, many changes:
+#
+# 1. Reorganized to have subroutines at the end for reasons of variable
+#    scope.
+#
+# 2. Find globus-condor.log and generate condor event log stubs for
+#    completed jobs, keeping state.
+#
+# 3. Facility (deactivated for now as expensive) to use certinfo files as
+#    stubs to kickstart condor history. Shouldn't be necessary as now all
+#    jobs should have either a ClassAdd file or a condor event log file
+#    due to (2). Expensive since incomplete jobs have this file and will
+#    generate a fruitless condor_history call.
+#
+# 4. Precedence order, with history files first, event log files second
+#    and certinfo files last (if not deactivated). Check for duplicates
+#    before sending records.
+#
 # Revision 1.17  2008/05/01 13:13:59  greenc
 # Retract erroneously committed (incomplete) changes to condor_meter.pl.
 #
