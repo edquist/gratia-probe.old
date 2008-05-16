@@ -32,6 +32,7 @@ if (-x $proxy_info_cmd) {
 sub gratia_save_cert_info {
   return unless $proxy_info_cmd;
   my ($jobmanager, $job_id) = @_;
+  $job_id = job_identifier($job_id);
   my $batchmanager_name = ref $jobmanager;
   $batchmanager_name =~ s&^.*::&&;
   return if $batchmanager_name eq 'fork'; # Don't save info for non-managed fork jobs.
@@ -45,7 +46,7 @@ sub gratia_save_cert_info {
                         "gratia/var/data/");
   my $gratia_filename = sprintf("gratia_certinfo_%s_%s",
                                 $batchmanager_name,
-                                job_identifier($job_id));
+                                $job_id);
   open(GRATIA_CERTINFO, ">$log_dir$gratia_filename") or return;
   binmode(GRATIA_CERTINFO, ':utf8');
   print GRATIA_CERTINFO '<?xml version="1.0" encoding="UTF-8"?>', "\n";
@@ -91,7 +92,12 @@ sub gratia_save_cert_info {
 sub job_identifier {
   my @identifiers = @_;
   if (@identifiers == 1) {      # Only ClusterId (maybe)
-    @identifiers = split /\./, join(".", @identifiers);
+    if ($identifers[0] =~ m&\.&) {
+      @identifiers = split /\./, join(".", @identifiers);
+    } else {
+      # Don't do anything for the simple case (non-Condor?)
+      return $identifers[0];
+    }
   }
   @identifiers = @identifiers[0 .. 2];
   for (my $loop = 0; $loop < 2; ++$loop) {
