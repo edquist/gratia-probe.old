@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.82 2008-05-10 04:26:14 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.83 2008-05-16 16:38:29 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -21,8 +21,10 @@ def disconnect_at_exit():
     if Config:
         try:
             RemoveOldLogs(Config.get_LogRotate())
+            RemoveOldJobData(Config.get_DataFileExpiration())
         except Exception, e:
-            DebugPrint(0, "Exception: " + str(e))
+            DebugPrint(0, "Exception caught at top level: " + str(e))
+            DebugPrintTraceback()
     DebugPrint(0, "End of execution summary: new records sent successfully: " + str(successfulSendCount))
     DebugPrint(0, "                          new records suppressed: " + str(suppressedCount))
     DebugPrint(0, "                          new records failed: " + str(failedSendCount))
@@ -370,7 +372,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.82 $
+    # $Revision: 1.83 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -480,6 +482,7 @@ def __connect():
                 DebugPrint(4, "DEBUG: Requesting HTTPS connection: OK")
             except Exception, e:
                 DebugPrint(0, "ERROR: could not initialize HTTPS connection")
+                DebugPrintTraceback()
                 __connectionError = True
                 return __connected
             try:
@@ -489,6 +492,7 @@ def __connect():
             except Exception, e:
                 DebugPrint(4, "DEBUG: Connect: FAILED")
                 DebugPrint(0, "Error: caught exception " + str(e) + "Trying to connect to HTTPS")
+                DebugPrintTraceback()
                 __connectionError = True
                 return __connected
             DebugPrint(1, "Connected via HTTPS to: " + Config.get_SSLHost())
@@ -768,25 +772,47 @@ def LogToSyslog(level, message) :
         
     syslog.closelog()
 
+def RemoveOldFiles(nDays = 31, globexp = None):
 
-def RemoveOldLogs(nDays = 31):
-
-   logDir = Config.get_LogFolder()
+   if not globexp: return
    # Get the list of all files in the log directory
-   files = glob.glob(os.path.join(logDir,"*")+".log")
-
+   files = glob.glob(globexp)
    if not files: return
    
-   cutoff = time.time() - nDays * 24 * 3600
-
-   DebugPrint(1, "Removing log files older than ", nDays, " days from " , logDir)
- 
    DebugPrint(3, " Will check the files: ",files)
         
+   cutoff = time.time() - nDays * 24 * 3600
+
    for f in files:
       if os.path.getmtime(f) < cutoff:
          DebugPrint(2, "Will remove: " + f)
          os.remove(f)
+
+#
+# Remove old backups
+#
+# Remove any backup older than the request number of days
+#
+# Parameters
+#   nDays - remove file older than 'nDays' (default 31)
+#
+def RemoveOldBackups(self, probeConfig, nDays = 31):
+    backupDir = Config.get_PSACCTBackupFileRepository()
+    DebugPrint(1, " Removing Gratia data backup files older than ", nDays, " days from " , backupDir)
+    RemoveOldFiles(nDays, os.path.join(backupDir, "*.log"))
+
+def RemoveOldLogs(nDays = 31):
+   logDir = Config.get_LogFolder()
+   DebugPrint(1, "Removing log files older than ", nDays, " days from " , logDir)
+   RemoveOldFiles(nDays, os.path.join(logDir, "*.log"))
+
+def RemoveOldJobData(nDays = 31):
+   dataDir = Config.get_DataFolder()
+   cutoff = time.time() - nDays * 24 * 3600
+   DebugPrint(1, "Removing incomplete data files older than ", nDays, " days from " , dataDir)
+   RemoveOldFiles(nDays, os.path.join(dataDir, "gratia_certinfo_*"))
+   RemoveOldFiles(nDays, os.path.join(dataDir, "gratia_condor_log*"))
+   RemoveOldFiles(nDays, os.path.join(dataDir, "gram_condor_log*"))
 
 def GenerateOutput(prefix,*arg):
     out = prefix
@@ -959,33 +985,6 @@ def OpenNewRecordFile(DirIndex):
 def TimeToString(t = time.gmtime() ):
     return time.strftime("%Y-%m-%dT%H:%M:%SZ",t)
 
-#
-# Remove old backups
-#
-# Remove any backup older than the request number of days
-#
-# Parameters
-#   nDays - remove file older than 'nDays' (default 31)
-#
-def RemoveOldBackups(self, probeConfig, nDays = 31):
-    backupDir = Config.get_PSACCTBackupFileRepository()
-
-    # Get the list of all files in the PSACCT File Backup Repository
-    files = glob.glob(os.path.join(backupDir,"*.log"))
-
-    if not files: return
-    
-    cutoff = time.time() - nDays * 24 * 3600
-
-    DebugPrint(1, " Removing Gratia data backup files older than ", nDays, " days from " , backupDir)
-
-    DebugPrint(3, " Will check the files: ",files)
-
-    for f in files:
-        if os.path.getmtime(f) < cutoff:
-            DebugPrint(2, "Will remove: " + f)
-            os.remove(f)
-
 class Record(object):
     "Base class for the Gratia Record"
     XmlData = []
@@ -1087,7 +1086,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
         
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.82 $")
+        rev = ExtractCvsRevision("$Revision: 1.83 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1552,6 +1551,7 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
                 DebugPrint(4, "DEBUG: Call CheckAndExtendUserIdentity: OK")
             except Exception, e:
                 DebugPrint(0, "DEBUG: Caught exception: ", e)
+                DebugPrintTraceback()
                 raise
 
 
@@ -1883,9 +1883,10 @@ def Send(record):
         DebugPrint(0, "***********************************************************")
         return responseString
     except Exception, e:
-        DebugPrint (0, "ERROR: " + str(e) + " exception caught while processing record ")
-        DebugPrint (0, "       This record has been LOST")
-        return "ERROR: record lost due to internal error!"
+       DebugPrint (0, "ERROR: " + str(e) + " exception caught while processing record ")
+       DebugPrint (0, "       This record has been LOST")
+       DebugPrintTraceback()
+       return "ERROR: record lost due to internal error!"
 
 # This sends the file contents of the given directory as raw XML. The
 # writer of the XML files is responsible for making sure that it is
@@ -2344,7 +2345,8 @@ def __InitializeDictionary():
                 __UserVODictionary[mapMatch.group('User')] = { "VOName" : mapMatch.group('voi'),
                                                                "ReportableVOName" : __voiToVOcDictionary[mapMatch.group('voi')] }
     except IOError, c:
-        print c
+        DebugPrint(0,"IO error exception initializing osg-user-vo-map dictionary" + str(c))
+        DebugPrintTraceback()
         return None
 
 def VOc(voi):
@@ -2381,7 +2383,7 @@ def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
     probeName = GetNodeData(usageRecord.getElementsByTagNameNS(namespace, 'ProbeName'))
     DebugPrint(4, "DEBUG: Get probeName: ", probeName)
     # Read certinfo
-    DebugPrint(4, "DEBUG: call readCertinfo")
+    DebugPrint(4, "DEBUG: call readCertinfo(" + str(localJobId) + ", " + str(probeName) + ")")
     certInfo = readCertInfo(localJobId, probeName)
     DebugPrint(4, "DEBUG: call readCertinfo: OK")
     DebugPrint(4, "DEBUG: certInfo: " + str(certInfo))
@@ -2410,8 +2412,8 @@ def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
 
     # Return VO information for insertion in a common place.
     DebugPrint(4, "DEBUG: returning VOName " +
-               certInfo['FQAN'] + " and ReportableVOName " +
-               certInfo['VO'])
+               str(certInfo['FQAN']) + " and ReportableVOName " +
+               str(certInfo['VO']))
     return { 'VOName': certInfo['FQAN'],
              'ReportableVOName': certInfo['VO']}
 
@@ -2419,10 +2421,16 @@ def readCertInfo(localJobId, probeName):
     " Look for and read contents of cert info file if present"
     global Config
 
+    DebugPrint(4, "readCertInfo: received (" + str(localJobId) + ", " + str(probeName) + ")")
+
     if localJobId == None: return # No LocalJobId, so no dice
 
+    DebugPrint(4, "readCertInfo: continuing to process")
+
     matching_files = glob.glob(Config.get_DataFolder() + 'gratia_certinfo_*_' + localJobId + '*')
-    if matching_files == None or len(matching_files) == 0: return # No files
+    if matching_files == None or len(matching_files) == 0: 
+        DebugPrint(4, "could not find certinfo files matching localJobId " + str(localJobId))
+        return # No files
     if len(matching_files) == 1:
         certinfo = matching_files[0] # simple
     else:
@@ -2437,7 +2445,7 @@ def readCertInfo(localJobId, probeName):
 
         JobManagers = []
         for f in matching_files:
-            match = re.search(r'gratia_certinfo_(?P<JobManger>.*?)_', f)
+            match = re.search(r'gratia_certinfo_(?P<JobManager>.*?)_', f)
             if match:
                 JobManager = string.lower(match.group("JobManager"))
                 JobManagers.append(JobManager)
@@ -2466,6 +2474,7 @@ def readCertInfo(localJobId, probeName):
     # Next, find the correct information and send it back.
     certinfo_nodes = certinfo_doc.getElementsByTagName('GratiaCertInfo')
     if certinfo_nodes.length == 1:
+        DebugPrint(4, "readCertinfo: removing " + str(certinfo))
         os.remove(certinfo) # Clean up.
         if (DN_FQAN_DISABLED): # Interim version.
             return
@@ -2493,3 +2502,10 @@ def FixDN(DN):
     fixedDN = string.replace(string.join(string.split(DN, r', '), r'/'), r'/UID=', r'/USERID=')
     if fixedDN[0] != r'/': fixedDN = r'/' + fixedDN
     return fixedDN
+
+def DebugPrintTraceback(debugLevel = 4):
+    DebugPrint(4, "In traceback print (0)")
+    message = string.join(traceback.format_exception(*sys.exc_info()), r'');
+    DebugPrint(4, "In traceback print (1)")
+    DebugPrint(debugLevel, message)
+    
