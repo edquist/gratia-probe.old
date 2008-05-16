@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.34a
+Version: 0.34.1
 Release: 1
 License: GPL
 Group: Applications/System
@@ -896,6 +896,13 @@ fi
 %endif # noarch
 
 %changelog
+* Fri May 16 2008 Christopher Green <greenc@fnal.gov> - 0.34.1-1
+- Better exception handling in Gratia.py.
+- Fix conrner case handling certinfo for WS jobs with ID < 100.
+
+* Mon May 12 2008 Christopher Green <greenc@fnal.gov> - 0.34b-1
+- Fix stupidities triggered under strange circumstances.
+
 * Fri May  9 2008 Christopher Green <greenc@fnal.gov> - 0.34a-1
 - Updates to Gratia.py to handle cases where certinfo is present
 -  but has nothing useful (WS).
