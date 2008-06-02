@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.21 2008-05-16 16:09:12 greenc Exp $
+# $Id: condor_meter.pl,v 1.22 2008-06-02 21:27:40 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.21 $ '; # CVS Version number
+my $prog_revision = '$Revision: 1.22 $ '; # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -155,20 +155,27 @@ if ($global_gram_log and -r $global_gram_log) {
 
 my $condor_pm_file = "$ENV{GLOBUS_LOCATION}/lib/perl/Globus/GRAM/JobManager/condor.pm";
 my $managedfork_pm_file = "$ENV{GLOBUS_LOCATION}/lib/perl/Globus/GRAM/JobManager/managedfork.pm";
-my $have_GratiaJobOrigin_in_JobManager =
-  (system("grep -e 'GratiaJobOrigin' \"$condor_pm_file\" >/dev/null 2>&1") == 0);
-if (not $have_GratiaJobOrigin_in_JobManager) {
+my $have_GratiaJobOrigin_in_JobManagers = 1;
+
+my $have_condor_pm_file = (-e $condor_pm_file);
+my $have_managedfork_pm_file = (-e $managedfork_pm_file);
+
+# Change logic so that we're tolerant of the situation where condor.pm
+# does not exist; but managedfork.pm does.
+if ($have_condor_pm_file and
+    system("grep -e 'GratiaJobOrigin' \"$condor_pm_file\" >/dev/null 2>&1") != 0) {
   warn sprintf("%s%s",
-               "Condor JobManager ($condor_pm_file) does not have expected addition of GratiaJobOrigin ClassAd.\n",
+               "Condor JobManager ($condor_pm_file) exists but does not have expected addition of GratiaJobOrigin ClassAd.\n",
                "Identification of local jobs disabled.");
-} else {                        # Have GratiaJobOrigin in condor.pm; do we also have it in managedfork?
-  if (-e $managedfork_pm_file and
-      (system("grep -e 'GratiaJobOrigin' \"$managedfork_pm_file\" >/dev/null 2>&1") != 0)) {
-    warn sprintf("%s%s",
-                 "Managedfork JobManager ($managedfork_pm_file) does not have expected addition of GratiaJobOrigin ClassAd.\n",
-                 "Identification of local jobs disabled.");
-    $have_GratiaJobOrigin_in_JobManager = 0;
-  }
+  $have_GratiaJobOrigin_in_JobManagers = 0;
+}
+
+if ($managedfork_pm_file and
+    system("grep -e 'GratiaJobOrigin' \"$managedfork_pm_file\" >/dev/null 2>&1") != 0) {
+  warn sprintf("%s%s",
+               "Managedfork JobManager ($managedfork_pm_file) exists but does not have expected addition of GratiaJobOrigin ClassAd.\n",
+               "Identification of local jobs disabled.");
+  $have_GratiaJobOrigin_in_JobManagers = 0;
 }
 
 #------------------------------------------------------------------
@@ -259,7 +266,11 @@ foreach my $file_regex ('m&^history\.\d+\.\d+&',
 # Get source file name(s)
 
 my $count_orig = $count_orig_004 = $count_orig_005 = $count_orig_009 = 0;
+my $count_orig_ignore_004 = $count_orig_ignore_005 = 0;
 my $count_xml = $count_xml_004 = $count_xml_005 = $count_xml_009 = 0;
+my $count_xml_ignore_004 = $count_xml_ignore_005 = 0;
+my $count_history = 0;
+my $count_stub_writes = 0;
 my $ctag_depth = 0;
 
 foreach $logfile (@logfiles) {
@@ -277,6 +288,7 @@ foreach $logfile (@logfiles) {
   if ($basename =~ /^history.(\d+)\.(\d+)/) {
     my $clusterId = $1;
     my $procId = $2;
+    ++$count_history;
     print "Processing condor history file $logfile for $clusterId.$procId\n" if ($verbose);
     # get the class ad from the file
     %condor_data_hash = Read_ClassAd($logfile);
@@ -434,6 +446,7 @@ foreach $logfile (@logfiles) {
                 }
               } else {
                 print "Ignoring event type 4 for $clusterId.$procId: already seen\n" if $verbose;
+                ++$count_xml_ignore_004;
               }
             } elsif ($event_hash{'EventTypeNumber'} == 5) { # Job finished
               print "Identified event type 5 in $logfile\n" if $verbose;
@@ -456,6 +469,7 @@ foreach $logfile (@logfiles) {
                 }
               } else {
                 print "Ignoring event type 5 for $clusterId.$procId: already seen\n" if $verbose;
+                ++$count_xml_ignore_005;
               }
             } elsif ($event_hash{'EventTypeNumber'} == 6) { # Image Size
               # JobImageSizeEvent: has Std and a Size
@@ -515,6 +529,7 @@ foreach $logfile (@logfiles) {
                                   $condor_data_hash{'ProcId'});
               } else {
                 print "Ignoring event type 4 for $clusterId.$procId: already seen\n" if $verbose;
+                ++$count_orig_ignore_004;
               }
             } else {
               if ($verbose) {
@@ -544,6 +559,7 @@ foreach $logfile (@logfiles) {
                                   $condor_data_hash{'ProcId'});
               } else {
                 print "Ignoring event type 5 for $clusterId.$procId: already seen\n" if $verbose;
+                ++$count_orig_ignore_005;
               }
             } else {
               if ($verbose) {
@@ -597,19 +613,28 @@ if ($delete_flag) {
 #------------------------------------------------------------------
 # Wrap up and report results
 
-$count_total = $count_orig + $count_xml;
+$count_total = $count_orig + $count_xml + $count_history;
 if (($count_total > 1) && ($verbose || $report_results)) {
   print "Condor probe is done processing log files.\n";
-  print "  Number of original format files: $count_orig\n"  if ($count_orig);
-  print "         # of original 004 events: $count_orig_004\n"  if ($count_orig_004);
-  print "         # of original 005 events: $count_orig_005\n"  if ($count_orig_005);
-  print "         # of original 009 events: $count_orig_009\n"  if ($count_orig_009);
-  print "       Number of XML format files: $count_xml\n"   if ($count_xml);
-  print "              # of XML 004 events: $count_xml_004\n"  if ($count_xml_004);
-  print "              # of XML 005 events: $count_xml_005\n"  if ($count_xml_005);
-  print "              # of XML 009 events: $count_xml_009\n"  if ($count_xml_009);
-  print "        Total number of log files: $count_total\n\n";
-  print " # of records submitted to Gratia: $count_submit\n" if ($count_submit);
+  if ($count_stub_writes) {
+    print "Number of logs extracted from\n";
+    print "                globus-condor.log: $count_stub_writes\n";
+  }
+  print " Number of ClassAd files processed: $count_history\n" if ($count_history);
+  print "   Number of original format files: $count_orig\n"  if ($count_orig);
+  print "# of original 004 events processed: $count_orig_004\n"  if ($count_orig_004);
+  print "  # of original 004 events ignored: $count_orig_ignore_004\n"  if ($count_orig_ignore_004);
+  print "# of original 005 events processed: $count_orig_005\n"  if ($count_orig_005);
+  print "  # of original 005 events ignored: $count_orig_ignore_005\n"  if ($count_orig_ignore_005);
+  print "          # of original 009 events: $count_orig_009\n"  if ($count_orig_009);
+  print "  Number of XML format files found: $count_xml\n"   if ($count_xml);
+  print "     # of XML 004 events processed: $count_xml_004\n"  if ($count_xml_004);
+  print "       # of XML 004 events ignored: $count_xml_ignore_004\n"  if ($count_xml_ignore_004);
+  print "     # of XML 005 events processed: $count_xml_005\n"  if ($count_xml_005);
+  print "       # of XML 005 events ignored: $count_xml_ignore_005\n"  if ($count_xml_ignore_005);
+  print "     # of XML 009 events processed: $count_xml_009\n"  if ($count_xml_009);
+  print "         Total number of log files: $count_total\n\n";
+  print "  # of records submitted to Gratia: $count_submit\n" if ($count_submit);
 }
 
 if ($verbose) {
@@ -937,16 +962,17 @@ sub Feed_Gratia {
     print $py qq/r.AdditionalInfo(\"condor.JobStatus\", \"/
       . $hash{'JobStatus'} . qq/\")\n/;
   }
-  if ($have_GratiaJobOrigin_in_JobManager and
-      $hash{'GratiaJobOrigin'} and
-      $hash{'GratiaJobOrigin'} eq 'GRAM') {
-    # If this exists, we have a real grid record
-    print $py q/r.Grid("OSG", "GratiaJobOrigin = GRAM")/, "\n";
-  } else {                      # Non-GRAM job
-    print $py q/r.Grid("Local", "GratiaJobOrigin not GRAM")/, "\n";
+  if ($have_GratiaJobOrigin_in_JobManagers) {
+    if ($hash{'GratiaJobOrigin'} and
+        $hash{'GratiaJobOrigin'} eq 'GRAM') {
+      # If this exists, we have a real grid record
+      print $py q/r.Grid("OSG", "GratiaJobOrigin = GRAM")/, "\n";
+    } else {                      # Non-GRAM job
+      print $py q/r.Grid("Local", "GratiaJobOrigin not GRAM")/, "\n";
+    }
   }
   #print $py qq/r.AdditionalInfo(\"\", \"/ . $hash{''} . qq/\")\n/;
-  # Sample: 
+  # Sample:
 
   print $py "Gratia.Send(r)\n";
   print $py "#\n";
@@ -1448,6 +1474,7 @@ sub generate_ws_stubs {
       # If we have a real terminate event, write the stub file.
       if ($event_hash{'EventTypeNumber'} == 4 or
           $event_hash{'EventTypeNumber'} == 5) {
+        ++$count_stub_writes;
         print "Writing stub for ", $event_hash{'ClusterId'}, ".", $event_hash{'Proc'},
           " event type ", $event_hash{'EventTypeNumber'}, "\n" if $verbose;
         my $stub_file = "gratia_condor_log.$event_hash{'ClusterId'}.$event_hash{'Proc'}.log";
@@ -1501,6 +1528,7 @@ sub checkSeenLocalJobId {
   my $result = (exists $seenLocalJobIds{$job_id} and $seenLocalJobIds{$job_id});
   print "checkSeenLocalJobId returning ", $result,
     " for job ", $job_id, "\n" if $verbose;
+  return $result;
 }
 
 #==================================================================
@@ -1511,6 +1539,10 @@ sub checkSeenLocalJobId {
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.21  2008/05/16 16:09:12  greenc
+# Correct job identifier creation for all rare cases (which aren't always
+# rare).
+#
 # Revision 1.20  2008/05/10 00:28:59  greenc
 # Many, many changes:
 #
