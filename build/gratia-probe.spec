@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.34.1
+Version: 0.34.8
 Release: 1
 License: GPL
 Group: Applications/System
@@ -896,6 +896,14 @@ fi
 %endif # noarch
 
 %changelog
+* Mon Jun  2 2008 Christopher Green <greenc@fnal.gov> - 0.34.8-1
+- Correct cleanup of no-longer-useful files in gratia/var/data.
+- Improve DebugPrint.py in the case that input contains blank lines.
+- Improve logic used in condor probe to decide whether we can use the absence
+-  of the GratiaJobOrigin ClassAd attribute to infer that a job is local.
+- Condor probe is now verbose but prints to main Gratia log.
+- Condor probe only assigns grid=Local to jobs it's really sure are local.
+
 * Fri May 16 2008 Christopher Green <greenc@fnal.gov> - 0.34.1-1
 - Better exception handling in Gratia.py.
 - Fix corner case handling certinfo for WS jobs with ID < 100.
