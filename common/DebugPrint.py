@@ -46,10 +46,11 @@ def main():
         Gratia.DebugPrint(level, string.join(args, " ").rstrip())
     else:
         while 1:
-            line = sys.stdin.readline().rstrip()
-            if not line:
+            try:
+                line = raw_input();
+            except EOFError, e:
                 break
-            Gratia.DebugPrint(level, line)
+            Gratia.DebugPrint(level, line.rstrip())
             
 
 if __name__ == "__main__":
