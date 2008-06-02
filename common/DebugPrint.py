@@ -8,12 +8,12 @@ import string
 def usage():
     print """usage: DebugPrint.py [-h|--help]
        DebugPrint.py [-l #|--level=#] [-c <probeconfig>|--conf=<probeconfig>] <message>
-       cat message.txt | DebugPrint.py [-l #|--level=#] [-c <probeconfig>|--conf=<probeconfig>]""" 
+       cat message.txt | DebugPrint.py [-l #|--level=#] [-c <probeconfig>|--conf=<probeconfig>]"""
 
 def main():
     level = 0
     customConfig = None;
-    
+
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hc:l:", ["help", "conf=" , "level="])
 
@@ -25,7 +25,7 @@ def main():
         if o in ["-h", "--help"]:
             usage()
             sys.exit()
-                
+
         if o in ["-c", "--conf"]:
             customConfig = a
 
@@ -51,7 +51,7 @@ def main():
             except EOFError, e:
                 break
             Gratia.DebugPrint(level, line.rstrip())
-            
+
 
 if __name__ == "__main__":
     main()
