@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.84 2008-05-16 16:47:46 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.85 2008-06-02 21:23:30 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -43,6 +43,7 @@ class ProbeConfiguration:
     __DebugLevel = None
     __LogLevel = None
     __LogRotate = None
+    __DataFileExpiration = None
     __UseSyslog = None
     __UserVOMapFile = None
 
@@ -173,6 +174,15 @@ class ProbeConfiguration:
             else:
                 self.__LogRotate = int(val)
         return self.__LogRotate
+
+    def get_DataFileExpiration(self):
+        if (self.__DataFileExpiration == None):
+            val = self.__getConfigAttribute('DataFileExpiration')
+            if val == None or val == "":
+                self.__DataFileExpiration = 31
+            else:
+                self.__DataFileExpiration = int(val)
+        return self.__DataFileExpiration
 
     def get_UseSyslog(self):
         if (self.__UseSyslog == None):
@@ -372,7 +382,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.84 $
+    # $Revision: 1.85 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1086,7 +1096,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.84 $")
+        rev = ExtractCvsRevision("$Revision: 1.85 $")
 
         self.ReporterLibrary("Gratia",rev);
 
