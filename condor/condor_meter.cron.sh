@@ -3,7 +3,7 @@
 # condor_meter.cron.sh - Shell script used with cron to parse Condor log 
 #   files for OSG accounting data collection.
 #      By Ken Schumacher <kschu@fnal.gov>  Began 5 April 2006
-# $Id: condor_meter.cron.sh,v 1.4 2008-05-10 00:18:17 greenc Exp $
+# $Id: condor_meter.cron.sh,v 1.5 2008-06-02 22:30:55 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.cron.sh,v $
 
 Logger='/usr/bin/logger -s -t condor_meter'
@@ -98,7 +98,11 @@ if [ ${NCMeter} -eq 0 ]; then
   # The '-d' option tells the meter to delete log files after they are
   #    reported to Gratia.
   # The '-s' option gives the location of the state file for globus-condor.log
-  ./condor_meter.pl -d -s "${VDT_LOCATION}/gratia/var/tmp/globus-condor-log-state.dat" ${CondorLog_Dir}
+  ./condor_meter.pl \
+    -d \
+    -v \
+    -s "${VDT_LOCATION}/gratia/var/tmp/globus-condor-log-state.dat" \
+    ${CondorLog_Dir} | ${pp_dir}/DebugPrint.py -l 1
   ExitCode=$?
   # If the probe ended in error, report this in Syslog and exit
   if [ $ExitCode != 0 ]; then
@@ -119,6 +123,10 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.4  2008/05/10 00:18:17  greenc
+# Include use of -s option to use a state file for reading
+# globus-condor.log.
+#
 # Revision 1.3  2007/09/10 20:17:14  greenc
 # Update SPEC file.
 #
