@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.34.8
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -896,6 +896,9 @@ fi
 %endif # noarch
 
 %changelog
+* Tue Jun  3 2008 Christopher Green <greenc@fnal.gov> - 0.34.8-2
+- Fix bad mode on DebugPrint.py
+
 * Mon Jun  2 2008 Christopher Green <greenc@fnal.gov> - 0.34.8-1
 - Correct cleanup of no-longer-useful files in gratia/var/data.
 - Improve DebugPrint.py in the case that input contains blank lines.
