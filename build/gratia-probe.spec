@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.34.8
-Release: 2
+Version: 0.34.9
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -666,8 +666,8 @@ The gLExec probe for the Gratia OSG accounting system.
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
 %configure_probeconfig_pre -d glexec -m glexec
-s&(CertificateFile\s*=\s*)\"[^\"]*\"&${1}"${RPM_INSTALL_PREFIX2}/grid-security/hostproxy.pem"&;
-s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"${RPM_INSTALL_PREFIX2}/grid-security/hostproxykey.pem"&;
+s&(CertificateFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxy.pem"&;
+s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxykey.pem"&;
 m&^/>& and print <<EOF;
     gLExecMonitorLog="/var/log/glexec/glexec_monitor.log"
 EOF
@@ -896,6 +896,9 @@ fi
 %endif # noarch
 
 %changelog
+* Fri Jun  6 2008 Christopher Green <greenc@fnal.gov> - 0.34.9-1
+- Fix problems with JobManagerGratia.pm.
+
 * Tue Jun  3 2008 Christopher Green <greenc@fnal.gov> - 0.34.8-2
 - Fix bad mode on DebugPrint.py
 
