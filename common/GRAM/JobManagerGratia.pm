@@ -92,11 +92,11 @@ sub gratia_save_cert_info {
 sub job_identifier {
   my @identifiers = @_;
   if (@identifiers == 1) {      # Only ClusterId (maybe)
-    if ($identifers[0] =~ m&\.&) {
+    if ($identifiers[0] =~ m&\.&) {
       @identifiers = split /\./, join(".", @identifiers);
     } else {
       # Don't do anything for the simple case (non-Condor?)
-      return $identifers[0];
+      return $identifiers[0];
     }
   }
   @identifiers = @identifiers[0 .. 2];
