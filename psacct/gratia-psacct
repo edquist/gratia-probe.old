@@ -35,7 +35,7 @@ case "$1" in
 	stop
 	;;
   status)
-	if [ -e /var/lock/subsys/psacct ]; then
+	if [ -e /var/lock/subsys/gratia-psacct ]; then
 		echo $"Gratia process accounting is enabled."
 	else
 		echo $"Gratia process accounting is disabled."
