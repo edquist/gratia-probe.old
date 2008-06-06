@@ -899,6 +899,7 @@ fi
 * Fri Jun  6 2008 Christopher Green <greenc@fnal.gov> - 0.34.9-1
 - Fix problems with JobManagerGratia.pm.
 - Fix typo in gratia-psacct init file (only affected status).
+- Fix typo in glexec README file.
 
 * Tue Jun  3 2008 Christopher Green <greenc@fnal.gov> - 0.34.8-2
 - Fix bad mode on DebugPrint.py
