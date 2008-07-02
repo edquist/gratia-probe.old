@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.85 2008-06-02 21:23:30 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.86 2008-07-02 22:14:12 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -12,6 +12,7 @@ quiet = 0
 __urlencode_records = 1
 __responseMatcherURLCheck = re.compile(r'Unknown Command: URL', re.IGNORECASE)
 __responseMatcherErrorCheck = re.compile(r'Error report</title', re.IGNORECASE)
+__certinfoLocalJobIdMunger = re.compile(r'(?P<ID>\d+(?:\.\d+)*)')
 
 # FQAN now in production: switch should remain for now however.
 DN_FQAN_DISABLED = False
@@ -382,7 +383,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.85 $
+    # $Revision: 1.86 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1096,7 +1097,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.85 $")
+        rev = ExtractCvsRevision("$Revision: 1.86 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -2432,7 +2433,10 @@ def readCertInfo(localJobId, probeName):
     global Config
 
     DebugPrint(4, "readCertInfo: received (" + str(localJobId) + ", " + str(probeName) + ")")
-
+    idMatch = __certinfoLocalJobIdMunger.search(localJobId)
+    if idMatch:
+        DebugPrint(4, "readCertInfo: trimming " + localJobId + " to " + idMatch.group(1))
+        localJobId = idMatch.group("ID")
     if localJobId == None: return # No LocalJobId, so no dice
 
     DebugPrint(4, "readCertInfo: continuing to process")
