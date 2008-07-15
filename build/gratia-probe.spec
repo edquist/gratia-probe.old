@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.34.9
+Version: 0.36
 Release: 1
 License: GPL
 Group: Applications/System
@@ -896,6 +896,9 @@ fi
 %endif # noarch
 
 %changelog
+* Tue Jul 15 2008 Christopher Green <greenc@fnal.gov> - 0.36-1
+- Fix certinfo / batch job matching for PBS jobs.
+
 * Fri Jun  6 2008 Christopher Green <greenc@fnal.gov> - 0.34.9-1
 - Fix problems with JobManagerGratia.pm.
 - Fix typo in gratia-psacct init file (only affected status).
