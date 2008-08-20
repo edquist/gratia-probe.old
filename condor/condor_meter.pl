@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.22 2008-06-02 21:27:40 greenc Exp $
+# $Id: condor_meter.pl,v 1.23 2008-08-20 23:36:20 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.22 $ '; # CVS Version number
+my $prog_revision = '$Revision: 1.23 $ '; # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -939,28 +939,32 @@ sub Feed_Gratia {
   #    where value can be a string or number
   if ( defined ($hash{'MyType'})) {
     # Sample: MyType = "Job"
-    print $py qq/r.AdditionalInfo(\"CondorMyType\", \"/
-      . $hash{'MyType'} . qq/\")\n/;
+    print $py qq/r.AdditionalInfo(\"CondorMyType\", \"/,
+      $hash{'MyType'}, qq/\")\n/;
   }
   if ( defined ($hash{'AccountingGroup'})) {
     # Sample: AccountingGroup = "group_sdss.sdss"
-    print $py qq/r.AdditionalInfo(\"AccountingGroup\", \"/
-      . $hash{'AccountingGroup'} . qq/\")\n/;
+    print $py qq/r.AdditionalInfo(\"AccountingGroup\", \"/,
+      $hash{'AccountingGroup'}, qq/\")\n/;
   }
   if ( defined ($hash{'ExitBySignal'})) {
     # Sample: ExitBySignal = FALSE
-    print $py qq/r.AdditionalInfo(\"ExitBySignal\", \"/
-      . $hash{'ExitBySignal'} . qq/\")\n/;
+    print $py qq/r.AdditionalInfo(\"ExitBySignal\", \"/,
+      $hash{'ExitBySignal'}, qq/\")\n/;
+  }
+  if ( defined ($hash{'ExitSignal'})) {
+    print $py qq/r.AdditionalInfo(\"ExitSignal\", \"/,
+      $hash{'ExitSignal'}, qq/\")\n/;
   }
   if ( defined ($hash{'ExitCode'})) {
     # Sample: ExitCode = 0
-    print $py qq/r.AdditionalInfo(\"ExitCode\", \"/
-      . $hash{'ExitCode'} . qq/\")\n/;
+    print $py qq/r.AdditionalInfo(\"ExitCode\", \"/,
+      $hash{'ExitCode'}, qq/\")\n/;
   }
   if ( defined ($hash{'JobStatus'})) {
     # Sample: JobStatus = 4
-    print $py qq/r.AdditionalInfo(\"condor.JobStatus\", \"/
-      . $hash{'JobStatus'} . qq/\")\n/;
+    print $py qq/r.AdditionalInfo(\"condor.JobStatus\", \"/,
+      $hash{'JobStatus'}, qq/\")\n/;
   }
   if ($have_GratiaJobOrigin_in_JobManagers) {
     if ($hash{'GratiaJobOrigin'} and
@@ -1539,6 +1543,17 @@ sub checkSeenLocalJobId {
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.22  2008/06/02 21:27:40  greenc
+# More statistics when operating in verbose mode.
+#
+# Only set Grid=Local if we're sure that the ClassAd attribute should have
+# been added by the JobManager (assuming it passed through same) but was
+# not (indicating a local job).
+#
+# Improbe logic testing whether we can rely on the check for the
+# JobManager in the case that the site is running Condor for managed fork
+# and PBS for standard batch jobs.
+#
 # Revision 1.21  2008/05/16 16:09:12  greenc
 # Correct job identifier creation for all rare cases (which aren't always
 # rare).
