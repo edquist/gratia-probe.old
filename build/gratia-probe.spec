@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.36
+Version: 0.38
 Release: 1
 License: GPL
 Group: Applications/System
@@ -22,7 +22,7 @@ BuildRequires: gcc-c++
 %global setuptools_source setuptools-0.6c3-py2.3.egg
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
-%global dcache_transfer_probe_version v0-1
+%global dcache_transfer_probe_version v0-2
 %global dcache_storage_probe_version v0-1
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
@@ -41,7 +41,6 @@ BuildRequires: gcc-c++
 %global osg_collector gratia.opensciencegrid.org
 %global fnal_collector gratia-fermi.fnal.gov
 %global metric_collector metric.opensciencegrid.org
-%global dcache_collector dcache-transfer.opensciencegrid.org
 
 %if %{itb}
   %global collector_port 8881
@@ -896,6 +895,11 @@ fi
 %endif # noarch
 
 %changelog
+* Wed Aug 20 2008 Christopher Green <greenc@fnal.gov> - 0.38-1
+- Include transfer probe with fixed StartTime and new upload of IsNew
+-  attribute.
+- Include Condor probe with upload of ExitSignal attribute when present.
+
 * Tue Jul 15 2008 Christopher Green <greenc@fnal.gov> - 0.36-1
 - Fix certinfo / batch job matching for PBS jobs.
 
