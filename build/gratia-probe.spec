@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.38
+Version: 0.38a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -677,9 +677,9 @@ EOF
 # Configure crontab entry
 %scrub_root_crontab glexec
 
-(( min = $RANDOM % 15 ))
+(( min = $RANDOM ))
 %{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-glexec.cron <<EOF
-$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * root \
+$min * * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/glexec/glexec_meter.cron.sh"
 EOF
 
@@ -895,6 +895,11 @@ fi
 %endif # noarch
 
 %changelog
+* Mon Aug 25 2008 Christopher Green <greenc@fnal.gov> - 0.38a-1
+- Glexec execution period set to 1h.
+- Condor will batch sends so that a given python script will only
+-  generate 500 records at max before sending.
+
 * Wed Aug 20 2008 Christopher Green <greenc@fnal.gov> - 0.38-1
 - Include transfer probe with fixed StartTime and new upload of IsNew
 -  attribute.

@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.23 2008-08-20 23:36:20 greenc Exp $
+# $Id: condor_meter.pl,v 1.24 2008-08-25 19:47:00 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.23 $ '; # CVS Version number
+my $prog_revision = '$Revision: 1.24 $ '; # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -67,6 +67,7 @@ $report_results = ($opt_l == 1);
 $reprocess_flag = ($opt_r == 1);
 $verbose = ($opt_v == 1);
 $debug_mode = ($opt_x == 1);
+$max_batch_size = 500; # Max records in one python file.
 
 # After we have stripped off switches, there needs to be at least one
 # directory or file name passed as an argument
@@ -209,7 +210,7 @@ foreach $name_arg (@ARGV) {
 }
 
 # Remove old temporary files (if still there) used for debugging
-foreach $tmp_file ( "/tmp/py.in", "/tmp/py.out" ) {
+foreach $tmp_file ( "/tmp/py.out", "/tmp/py.in") {
   if ( -e $tmp_file ) {
     unlink $tmp_file
       or warn "Unable to delete old file: $tmp_file\n";
@@ -218,18 +219,9 @@ foreach $tmp_file ( "/tmp/py.in", "/tmp/py.out" ) {
 
 #------------------------------------------------------------------
 # Open the pipe to the Gratia meter library process
-$py = new FileHandle;
-$py->open("| tee /tmp/py.in | python -u >/tmp/py.out 2>&1");
-autoflush $py 1;
+open_new_py();
+
 $count_submit = 0;
-
-print $py "import Gratia\n";
-
-if (defined($gratia_config)) {
-  print $py "Gratia.Initialize(\"$gratia_config\")\n";
-} else {
-  print $py "Gratia.Initialize()\n";
-}
 
 $logs_found = scalar @logfiles;
 if ($logs_found == 0) {
@@ -240,16 +232,6 @@ if ($logs_found == 0) {
   }
 }
 
-if ( $reprocess_flag ) {
-  # I should probably add a test here to see if there are files waiting
-  print $py "Gratia.Reprocess()\n";
-
-  # If someone uses the '-r' option to reprocess working files, should
-  #   the program end here?  If one is sending new data, the '-r' is 
-  #   redundant as we will reprocess any left over files when we start
-  #   sending this data.
-  exit 0;
-}
 
 my @logfiles_sorted = ();
 # Order logfiles by type:
@@ -980,8 +962,10 @@ sub Feed_Gratia {
 
   print $py "Gratia.Send(r)\n";
   print $py "#\n";
-  $count_submit++;
-
+  ++$count_submit;
+  if (($count_submit % $max_batch_size) == 0) {
+    open_new_py();
+  }
   return 1;
 
   # Moved to outer block
@@ -1535,6 +1519,31 @@ sub checkSeenLocalJobId {
   return $result;
 }
 
+sub open_new_py {
+  $py->close() if $py;
+  $py = new FileHandle;
+  my $tmp_py = "/tmp/py.in";
+  $py->open("| tee \"$tmp_py\" | python -u >/tmp/py.out 2>&1");
+  autoflush $py 1;
+  print $py "import Gratia\n";
+  if (defined($gratia_config)) {
+    print $py "Gratia.Initialize(\"$gratia_config\")\n";
+  } else {
+    print $py "Gratia.Initialize()\n";
+  }
+  if ( $reprocess_flag ) {
+    # I should probably add a test here to see if there are files waiting
+    print $py "Gratia.Reprocess()\n";
+
+    # If someone uses the '-r' option to reprocess working files, should
+    #   the program end here?  If one is sending new data, the '-r' is 
+    #   redundant as we will reprocess any left over files when we start
+    #   sending this data.
+    exit 0;
+  }
+  return;
+}
+
 #==================================================================
 #==================================================================
 # End of Program - condor_meter-pl
@@ -1543,6 +1552,9 @@ sub checkSeenLocalJobId {
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.23  2008/08/20 23:36:20  greenc
+# Today's commit-and-run #2: Handle Condor jobs ended by signal. Please check!
+#
 # Revision 1.22  2008/06/02 21:27:40  greenc
 # More statistics when operating in verbose mode.
 #
