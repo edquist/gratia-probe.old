@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.86 2008-07-02 22:14:12 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.87 2008-09-08 21:39:56 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -54,7 +54,11 @@ class ProbeConfiguration:
 
     def __getConfigAttribute(self, attributeName):
         if self.__doc == None:
-            self.loadConfiguration()
+            try:
+                self.loadConfiguration()
+            except xml.parsers.expat.ExpatError, e:
+                sys.stderr.write("Parse error in " + self.__configname + ": " + str(e) + "\n")
+                raise
 
         # TODO:  Check if the ProbeConfiguration node exists
         # TODO:  Check if the requested attribute exists
@@ -383,7 +387,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.86 $
+    # $Revision: 1.87 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -754,7 +758,7 @@ def LogToFile(message):
     except:
         if LogFileIsWriteable:
             # Print the error message only once
-            print "Gratia: Unable to log to file:  ", filename, " ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1]
+            print "Gratia: Unable to log to file:  ", filename, " ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.e,xc_info()[1]
         LogFileIsWriteable = False
 
     if file != None:
@@ -833,16 +837,22 @@ def GenerateOutput(prefix,*arg):
 
 def DebugPrint(level, *arg):
     if quiet: return
-    if ((not Config) or level<Config.get_DebugLevel()):
+    try:
+        if ((not Config) or level<Config.get_DebugLevel()):
+            out = time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + \
+                  GenerateOutput("Gratia: ",*arg)
+            print out
+            if Config and level<Config.get_LogLevel():
+                out = GenerateOutput("Gratia: ",*arg)
+                if (Config.get_UseSyslog()):
+                    LogToSyslog(level,GenerateOutput("",*arg))
+                else:
+                    LogToFile(time.strftime(r'%H:%M:%S %Z', time.localtime()) + " " + out)
+    except:
         out = time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + \
-              GenerateOutput("Gratia: ",*arg)
-        print out
-    if Config and level<Config.get_LogLevel():
-        out = GenerateOutput("Gratia: ",*arg)
-        if (Config.get_UseSyslog()):
-            LogToSyslog(level,GenerateOutput("",*arg))
-        else:
-            LogToFile(time.strftime(r'%H:%M:%S %Z', time.localtime()) + " " + out)
+                  GenerateOutput("Gratia: printing failed message: ",*arg)
+        sys.stderr.write(out + "\n")
+        sys.exit()
 
 def Error(*arg):
     out = GenerateOutput("Error in Gratia probe: ",*arg)
@@ -1097,7 +1107,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.86 $")
+        rev = ExtractCvsRevision("$Revision: 1.87 $")
 
         self.ReporterLibrary("Gratia",rev);
 

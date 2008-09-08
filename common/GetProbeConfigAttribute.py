@@ -3,6 +3,7 @@
 import sys
 import Gratia
 import getopt
+import xml.sax.saxutils
 
 def usage():
     print """usage: GetProbeConfigAttribute [-h|--help]
@@ -34,8 +35,14 @@ def main():
         Config = Gratia.ProbeConfiguration()
     
     for attribute in args:
-        print Config.getConfigAttribute(attribute)
-
+        try:
+            print Config.getConfigAttribute(attribute)
+        except xml.parsers.expat.ExpatError:
+            sys.exit(1)
+        except:
+            sys.stderr.write("Problem reading config attribute " + attribute +
+                             ": " + str(sys.exc_info()[1]) + "\n")
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
