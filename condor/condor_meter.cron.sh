@@ -3,7 +3,7 @@
 # condor_meter.cron.sh - Shell script used with cron to parse Condor log 
 #   files for OSG accounting data collection.
 #      By Ken Schumacher <kschu@fnal.gov>  Began 5 April 2006
-# $Id: condor_meter.cron.sh,v 1.5 2008-06-02 22:30:55 greenc Exp $
+# $Id: condor_meter.cron.sh,v 1.6 2008-09-08 21:40:50 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.cron.sh,v $
 
 Logger='/usr/bin/logger -s -t condor_meter'
@@ -88,11 +88,16 @@ if [ ${NCMeter} -eq 0 ]; then
   fi
   export PYTHONPATH
 
-	enabled=`${pp_dir}/GetProbeConfigAttribute.py EnableProbe`
-	if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
+  enabled=`${pp_dir}/GetProbeConfigAttribute.py EnableProbe`
+  (( status = $? ))
+  if (( $status != 0 )); then
+    echo "ERROR checking probe configuration!" 1>&2
+    exit $status
+  fi
+  if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
     ${pp_dir}/DebugPrint.py -l -1 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
-		exit 1
-	fi
+    exit 1
+  fi
     
   #echo "Begin processing directory ${CondorLog_Dir}"
   # The '-d' option tells the meter to delete log files after they are
@@ -123,6 +128,9 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.5  2008/06/02 22:30:55  greenc
+# Turn verbose mode on by default and use DebugPrint.py.
+#
 # Revision 1.4  2008/05/10 00:18:17  greenc
 # Include use of -s option to use a state file for reading
 # globus-condor.log.

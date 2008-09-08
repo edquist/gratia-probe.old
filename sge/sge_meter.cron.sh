@@ -3,7 +3,7 @@
 # sge_meter.cron.sh - Shell script used with cron to parse sge log 
 #   files for OSG accounting data collection.
 
-# $Id: sge_meter.cron.sh,v 1.5 2007-09-10 20:17:14 greenc Exp $
+# $Id: sge_meter.cron.sh,v 1.6 2008-09-08 21:40:51 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/sge/sge_meter.cron.sh,v $
 
 Logger='/usr/bin/logger -s -t sge_meter'
@@ -82,11 +82,16 @@ if [ ${NCMeter} -eq 0 ]; then
   fi
   export PYTHONPATH
 
-	enabled=`${pp_dir}/GetProbeConfigAttribute.py EnableProbe`
-	if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
+  enabled=`${pp_dir}/GetProbeConfigAttribute.py EnableProbe`
+  (( status = $? ))
+  if (( $status != 0 )); then
+    echo "ERROR checking probe configuration!" 1>&2
+    exit $status
+  fi
+  if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
     ${pp_dir}/DebugPrint.py -l -1 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
-		exit 1
-	fi
+    exit 1
+  fi
 
   # Note: location of accounting file should be specified in ProbeConfig
   ./sge_meter.py -c
@@ -110,6 +115,11 @@ exit 0
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.5  2007/09/10 20:17:14  greenc
+# Update SPEC file.
+#
+# Improve redirection of non-managed output.
+#
 # Revision 1.4  2007/06/15 23:48:08  greenc
 # Fix silly problem
 #
