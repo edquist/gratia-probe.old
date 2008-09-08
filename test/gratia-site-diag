@@ -49,6 +49,8 @@ if (not scalar @ARGV) {
   $options{local} = 1;
 }
 
+print "gratia-site-diag version \$Revision: \n";
+
 foreach my $gk (@ARGV) {
   print "SITE: $gk\n";
   my ($osg_loc, $hostname);
@@ -73,7 +75,7 @@ foreach my $gk (@ARGV) {
   my $oldpwd = cwd();
   chdir("GratiaTests_${gk}_${test_timestamp}");
   print "  Directory output: listing.{out,err}\n";
-  execute("/usr/bin/find \"$osg_loc/gratia\" \"$osg_loc/monitoring\" \"$osg_loc/globus/lib/perl/Globus/GRAM/JobManager\" -follow -printf \"\%T\@\\t\" -ls > listing.out 2>listing.err", $gk);
+  execute("/usr/bin/find \"$osg_loc/gratia\" \"$osg_loc/monitoring\" \"$osg_loc/globus/lib/perl/Globus/GRAM/JobManager\" -printf \"\%T\@\\t\" -ls > listing.out 2>listing.err", $gk);
   open(SITE_LISTING, "listing.out") or
     die "Unable to open listing.out for read.";
   my @interesting_files = ("$osg_loc/o..pacman..o/logs/commands",
@@ -145,24 +147,26 @@ foreach my $gk (@ARGV) {
     my $local_config_file = $file_map{$remote_config_file};
     next unless $local_config_file;
     my ($probe_type) = ($remote_config_file =~ m&([^/]+)/ProbeConfig$&);
-    my $log_file = "gratia_var_log_gratia-probe-$probe_type.log"; 
-    print "  > Checking for existence and date of probe log file gratia-probe-$probe_type.log ... ";
-    my ($remote_log_file) = (grep m&gratia/var/logs/gratia-probe-$probe_type\.log$&, keys %probe_log_file_info);
-    if ($remote_log_file and $probe_log_file_info{$remote_log_file}) { # Log file exists
-      if ((time - $probe_log_file_info{$remote_log_file}->{mtime_epoch}) > 86400) {
-        print "\n    > WARNING: gratia-probe-$probe_type.log is more than 1 day old:\n",
+    my $log_file = "gratia_var_log_gratia-probe-$probe_type.log";
+    if ($probe_type ne "metric") {
+      print "  > Checking for existence and date of probe log file gratia-probe-$probe_type.log ... ";
+      my ($remote_log_file) = (grep m&gratia/var/logs/gratia-probe-$probe_type\.log$&, keys %probe_log_file_info);
+      if ($remote_log_file and $probe_log_file_info{$remote_log_file}) { # Log file exists
+        if ((time - $probe_log_file_info{$remote_log_file}->{mtime_epoch}) > 86400) {
+          print "\n    > WARNING: gratia-probe-$probe_type.log is more than 1 day old:\n",
+            "      is probe service enabled with vdt-control --on?\n";
+          $file_ok = 0;
+        } else {
+          print "OK\n";
+        }
+      } else {
+        print "\n    > WARNING: gratia-probe-$probe_type.log does not exist:\n",
           "      is probe service enabled with vdt-control --on?\n";
         $file_ok = 0;
-      } else {
-        print "OK\n";
       }
-    } else {
-      print "\n    > WARNING: gratia-probe-$probe_type.log does not exist:\n",
-        "      is probe service enabled with vdt-control --on?\n";
-      $file_ok = 0;
     }
     $local_config_file =~ /common_ProbeConfig/ and next;
-    print "  > Checking $local_config_file:\n";
+    print "  > Checking $local_config_file (verify INFO items manually):\n";
     unless (open(CONFIG_FILE, "$local_config_file")) {
       print "    > ERROR: Could not open local copy $local_config_file!\n";
       $file_ok = 0;
@@ -171,13 +175,13 @@ foreach my $gk (@ARGV) {
     my $config = join("", <CONFIG_FILE>);
     $config =~ m&EnableProbe\s*=\s*"([^"]+)"&s and ($1 ne 1) and
       print "    > WARNING: EnableProbe set to \"$1\" instead of \"1\"\n" and $file_ok = 0;
-    $config =~ m&SOAPHost\s*=\s*"([^"]+)"&s and
-      (($1 eq "localhost:8443") or
-       not (($1 =~ m&gratia\.opensciencegrid\.org:888\d&) or
-            ($1 =~ m&gratia.*\.fnal\.gov:888\d&))) and
-      print "    > WARNING: SOAPHost set to \"$1\", which may not be correct.\n" and $file_ok = 0;
-    my $site_dns;
-    $config =~ m&MeterName\s*=\s*"((?:[^:]+:)?([^"]+))"&s and $site_dns = $2;
+    my ($meter_name, $site_dns) = ($config =~ m&MeterName\s*=\s*"((?:[^:]+:)?([^"]+))"&s);
+    print "    > INFO: MeterName set to ", ($meter_name?$meter_name:"<UNSET>"), "\n";
+    my ($site_name) = ($config =~ m&SiteName\s*=\s*"([^"]+)"&si);
+    print "    > INFO: SiteName set to ", ($site_name?$site_name:"<UNSET>"), "\n";
+    my ($soap_host) =  ($config =~ m&SOAPHost\s*=\s*"([^"]+)"&si);
+    print "    > INFO: SOAPHost set to ", ($soap_host?$soap_host:"<UNSET>"), "\n";
+
     $site_dns or
       print "    > WARNING: MeterName set to \"$1\", which may not be correct.\n" and $file_ok = 0;
     $config =~ m&SiteName\s*=\s*"([^"]+)"&s and
