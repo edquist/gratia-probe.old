@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.24 2008-08-25 19:47:00 greenc Exp $
+# $Id: condor_meter.pl,v 1.25 2008-09-17 16:55:04 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.24 $ '; # CVS Version number
+my $prog_revision = '$Revision: 1.25 $ '; # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -700,8 +700,12 @@ sub Feed_Gratia {
   }
 
   print $py "# initialize and populate r\n";
-  print $py "r = Gratia.UsageRecord(\"Batch\")\n";
-  
+  my $resource_type = ($hash{'GridMonitorJob'} and
+                       $hash{'GridMonitorJob'} =~ /(?:t|true|1)/i)?
+                         'GridMonitor':
+                           'Batch';
+  print $py "r = Gratia.UsageRecord(\"$resource_type\")\n";
+
   # 2.1 RecordIdentity must be set by Philippe's module?
   # RecordIdentity is a required string which must be unique
 
@@ -1552,6 +1556,9 @@ sub open_new_py {
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.24  2008/08/25 19:47:00  greenc
+# Implemented batching to avoid inordinate memory use by python.
+#
 # Revision 1.23  2008/08/20 23:36:20  greenc
 # Today's commit-and-run #2: Handle Condor jobs ended by signal. Please check!
 #
