@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.87 2008-09-08 21:39:56 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.88 2008-09-24 22:31:28 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -111,13 +111,15 @@ class ProbeConfiguration:
         return self.__getConfigAttribute('GratiaKeyFile')
 
     def setMeterName(self,name):
-        self.__MeterName = name
+        if (name == None):
+            self.__MeterName = ""
+        else:
+            self.__MeterName = name
 
     def get_MeterName(self):
         if (self.__MeterName == None):
-            return self.__getConfigAttribute('MeterName')
-        else:
-            return self.__MeterName
+            setMeterName(genDefaultMeterName())
+        return self.__MeterName
 
     def get_Grid(self):
         if (self.__Grid == None):
@@ -387,7 +389,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.87 $
+    # $Revision: 1.88 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -972,7 +974,6 @@ def FilenameProbeCollectorFragment():
     return re.sub(r'[:/]', r'_', fragment)
 
 def OpenNewRecordFile(DirIndex):
-
     # The file name will be rUNIQUE.$pid.gratia.xml
     DebugPrint(3,"Open request: ",DirIndex)
     index = 0
@@ -1107,7 +1108,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.87 $")
+        rev = ExtractCvsRevision("$Revision: 1.88 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -2532,3 +2533,9 @@ def DebugPrintTraceback(debugLevel = 4):
     message = string.join(traceback.format_exception(*sys.exc_info()), r'');
     DebugPrint(4, "In traceback print (1)")
     DebugPrint(debugLevel, message)
+
+def genDefaultMeterName():
+    f = os.popen("hostname -f")
+    meterName = "auto:" + f.read().strip()
+    f.close()
+    return meterName
