@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.88 2008-09-24 22:31:28 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.89 2008-09-26 21:57:23 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -119,6 +119,9 @@ class ProbeConfiguration:
     def get_MeterName(self):
         if (self.__MeterName == None):
             setMeterName(genDefaultMeterName())
+            DebugPrint(0, "INFO: MeterName not specified in " +
+                       self.__configname + ": defaulting to " +
+                       self.__MeterName)
         return self.__MeterName
 
     def get_Grid(self):
@@ -389,7 +392,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.88 $
+    # $Revision: 1.89 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1108,7 +1111,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.88 $")
+        rev = ExtractCvsRevision("$Revision: 1.89 $")
 
         self.ReporterLibrary("Gratia",rev);
 
