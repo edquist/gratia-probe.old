@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.25 2008-09-17 16:55:04 greenc Exp $
+# $Id: condor_meter.pl,v 1.26 2008-09-26 15:23:44 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.25 $ '; # CVS Version number
+my $prog_revision = '$Revision: 1.26 $ '; # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -140,7 +140,7 @@ $condor_hist_file = `$condor_config_val_cmd HISTORY`;
 chomp $condor_hist_file;
 
 my $global_gram_log =
-  `grep -e '^log_path' "$ENV{GLOBUS_LOCATION}/etc/globus-condor.conf"`;
+  `grep -e '^log_path' "$ENV{GLOBUS_LOCATION}/etc/globus-condor.conf 2>/dev/null"`;
 chomp $global_gram_log;
 $global_gram_log =~ s&^log_path=&&;
 
@@ -151,7 +151,7 @@ if ($global_gram_log and -r $global_gram_log) {
   }
   generate_ws_stubs($global_gram_log);
 } else {
-  warn "Unable to find global GRAM log via globus-condor.conf: some WS jobs may not be accounted.";
+  print "INFO: Unable to find global GRAM log via globus-condor.conf: some WS jobs may not be accounted.";
 }
 
 my $condor_pm_file = "$ENV{GLOBUS_LOCATION}/lib/perl/Globus/GRAM/JobManager/condor.pm";
@@ -165,17 +165,17 @@ my $have_managedfork_pm_file = (-e $managedfork_pm_file);
 # does not exist; but managedfork.pm does.
 if ($have_condor_pm_file and
     system("grep -e 'GratiaJobOrigin' \"$condor_pm_file\" >/dev/null 2>&1") != 0) {
-  warn sprintf("%s%s",
-               "Condor JobManager ($condor_pm_file) exists but does not have expected addition of GratiaJobOrigin ClassAd.\n",
-               "Identification of local jobs disabled.");
+  print sprintf("%s%s",
+               "INFO: Condor JobManager ($condor_pm_file) exists but does not have expected addition of GratiaJobOrigin ClassAd.\n",
+               "INFO: Identification of local jobs disabled.");
   $have_GratiaJobOrigin_in_JobManagers = 0;
 }
 
 if ($managedfork_pm_file and
     system("grep -e 'GratiaJobOrigin' \"$managedfork_pm_file\" >/dev/null 2>&1") != 0) {
-  warn sprintf("%s%s",
-               "Managedfork JobManager ($managedfork_pm_file) exists but does not have expected addition of GratiaJobOrigin ClassAd.\n",
-               "Identification of local jobs disabled.");
+  print sprintf("%s%s",
+               "INFO: Managedfork JobManager ($managedfork_pm_file) exists but does not have expected addition of GratiaJobOrigin ClassAd.\n",
+               "INFO: Identification of local jobs disabled.");
   $have_GratiaJobOrigin_in_JobManagers = 0;
 }
 
@@ -1556,6 +1556,10 @@ sub open_new_py {
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.25  2008/09/17 16:55:04  greenc
+# Probe will report ResourceType as GridMonitor for jobs where classAd has
+# GridMonitorJob set to true.
+#
 # Revision 1.24  2008/08/25 19:47:00  greenc
 # Implemented batching to avoid inordinate memory use by python.
 #
