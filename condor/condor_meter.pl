@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.26 2008-09-26 15:23:44 greenc Exp $
+# $Id: condor_meter.pl,v 1.27 2008-09-26 16:03:16 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.26 $ '; # CVS Version number
+my $prog_revision = '$Revision: 1.27 $ '; # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -848,7 +848,9 @@ sub Feed_Gratia {
     qq/), "user", "Was entered in seconds")\n/;
 
   # 2.12 EndTime - "The time at which the job completed"
-  if ( defined ($hash{'CompletionDate'})) {
+  if ( (defined($hash{'CompletionDate'})) &&
+       ($hash{'CompletionDate'} != 0) )
+  {
     # Sample: CompletionDate = 1126898099
     print $py qq/r.EndTime(/ . $hash{'CompletionDate'} .
       qq/,\"Was entered in seconds\")\n/;
@@ -1556,6 +1558,9 @@ sub open_new_py {
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.26  2008/09/26 15:23:44  greenc
+# Make messages more useful and less worrying.
+#
 # Revision 1.25  2008/09/17 16:55:04  greenc
 # Probe will report ResourceType as GridMonitor for jobs where classAd has
 # GridMonitorJob set to true.
