@@ -22,8 +22,8 @@ BuildRequires: gcc-c++
 %global setuptools_source setuptools-0.6c3-py2.3.egg
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
-%global dcache_transfer_probe_version v0-2
-%global dcache_storage_probe_version v0-1
+%global dcache_transfer_probe_version v0-2-1
+%global dcache_storage_probe_version v0-1-1
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
 %define _unpackaged_files_terminate_build 0
@@ -895,6 +895,15 @@ fi
 %endif # noarch
 
 %changelog
+* Fri Sep 26 2008 Christopher Green <greenc@fnal.gov> - 0.38a-1
+- Incorporate patch from Greg Quinn such that condor probe only updates
+-  EndTime if CompletionDate >0.
+- Downgrade some warning messages from condor probe.
+- Provide early and explicit warning of ProbeConfig problems in all
+-  probes.
+- Gratia.py now defaults MeterName to auto:`hostname -f` if not set in
+-  ProbeConfig.
+
 * Mon Aug 25 2008 Christopher Green <greenc@fnal.gov> - 0.38a-1
 - Glexec execution period set to 1h.
 - Condor will batch sends so that a given python script will only
