@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.89 2008-09-26 21:57:23 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.90 2008-09-29 16:09:16 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -111,17 +111,18 @@ class ProbeConfiguration:
         return self.__getConfigAttribute('GratiaKeyFile')
 
     def setMeterName(self,name):
-        if (name == None):
-            self.__MeterName = ""
-        else:
-            self.__MeterName = name
+        self.__MeterName = name
 
     def get_MeterName(self):
         if (self.__MeterName == None):
-            setMeterName(genDefaultMeterName())
-            DebugPrint(0, "INFO: MeterName not specified in " +
-                       self.__configname + ": defaulting to " +
-                       self.__MeterName)
+            result = self.__getConfigAttribute('MeterName')
+            if (result == None or result == ''):
+                self.setMeterName(genDefaultMeterName())
+                DebugPrint(0, "INFO: MeterName not specified in " +
+                           self.__configname + ": defaulting to " +
+                           self.__MeterName)
+            else:
+                self.setMeterName(result)
         return self.__MeterName
 
     def get_Grid(self):
@@ -392,7 +393,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.89 $
+    # $Revision: 1.90 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -847,12 +848,12 @@ def DebugPrint(level, *arg):
             out = time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + \
                   GenerateOutput("Gratia: ",*arg)
             print out
-            if Config and level<Config.get_LogLevel():
-                out = GenerateOutput("Gratia: ",*arg)
-                if (Config.get_UseSyslog()):
-                    LogToSyslog(level,GenerateOutput("",*arg))
-                else:
-                    LogToFile(time.strftime(r'%H:%M:%S %Z', time.localtime()) + " " + out)
+        if Config and level<Config.get_LogLevel():
+            out = GenerateOutput("Gratia: ",*arg)
+            if (Config.get_UseSyslog()):
+                LogToSyslog(level,GenerateOutput("",*arg))
+            else:
+                LogToFile(time.strftime(r'%H:%M:%S %Z', time.localtime()) + " " + out)
     except:
         out = time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + \
                   GenerateOutput("Gratia: printing failed message: ",*arg)
@@ -1111,7 +1112,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.89 $")
+        rev = ExtractCvsRevision("$Revision: 1.90 $")
 
         self.ReporterLibrary("Gratia",rev);
 
