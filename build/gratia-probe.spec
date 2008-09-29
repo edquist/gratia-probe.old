@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.38a
+Version: 0.38b
 Release: 1
 License: GPL
 Group: Applications/System
@@ -895,6 +895,10 @@ fi
 %endif # noarch
 
 %changelog
+* Mon Sep 29 2008 Christopher Green <greenc@fnal.gov> - 0.38b-1
+- Fix indentation problem in DebugPrint().
+- Fix MeterName setting.
+
 * Fri Sep 26 2008 Christopher Green <greenc@fnal.gov> - 0.38a-1
 - Incorporate patch from Greg Quinn such that condor probe only updates
 -  EndTime if CompletionDate >0.
