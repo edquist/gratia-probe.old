@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 0.38b
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -677,7 +677,7 @@ EOF
 # Configure crontab entry
 %scrub_root_crontab glexec
 
-(( min = $RANDOM ))
+(( min = $RANDOM % 60 ))
 %{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-glexec.cron <<EOF
 $min * * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/glexec/glexec_meter.cron.sh"
@@ -895,6 +895,9 @@ fi
 %endif # noarch
 
 %changelog
+* Thu Oct  2 2008 Christopher Green <greenc@fnal.gov> - 0.38b-2
+- Correct erroneous minutes entry for glexec cron.
+
 * Mon Sep 29 2008 Christopher Green <greenc@fnal.gov> - 0.38b-1
 - Fix indentation problem in DebugPrint().
 - Fix MeterName setting.
