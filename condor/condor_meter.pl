@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.27 2008-09-26 16:03:16 greenc Exp $
+# $Id: condor_meter.pl,v 1.28 2008-10-10 21:46:34 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.27 $ '; # CVS Version number
+my $prog_revision = '$Revision: 1.28 $ '; # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -119,8 +119,19 @@ unless ( -x $condor_history ) {
   exit 2;
 }
 
+$condor_version = $condor_history;
+$condor_version =~ s/history$/version/;
+
+if ($condor_version and -x $condor_version) {
+  $condor_version = `$condor_version 2>/dev/null`;
+  $condor_version =~ s&^\$CondorVersion:\s*(.*)\s*\$\n\$CondorPlatform:\s*(.*)\s*\$\n&$1 / $2&;
+} else {
+  undef $condor_version;
+}
+
 if ($verbose) {
   print "Condor_history at $condor_history\n";
+  print "Condor version is $condor_version\n";
 }
 
 $condor_hist_cmd = $condor_history;
@@ -140,7 +151,7 @@ $condor_hist_file = `$condor_config_val_cmd HISTORY`;
 chomp $condor_hist_file;
 
 my $global_gram_log =
-  `grep -e '^log_path' "$ENV{GLOBUS_LOCATION}/etc/globus-condor.conf 2>/dev/null"`;
+  `grep -e '^log_path' "$ENV{GLOBUS_LOCATION}/etc/globus-condor.conf" 2>/dev/null`;
 chomp $global_gram_log;
 $global_gram_log =~ s&^log_path=&&;
 
@@ -1531,7 +1542,13 @@ sub open_new_py {
   my $tmp_py = "/tmp/py.in";
   $py->open("| tee \"$tmp_py\" | python -u >/tmp/py.out 2>&1");
   autoflush $py 1;
-  print $py "import Gratia\n";
+  print $py "import Gratia\n\n";
+  print $py "Gratia.RegisterReporter(\"condor_meter.pl\", \"",
+    $prog_revision, " (tag ", $prog_version, ")\")\n";
+  if ($condor_version) {
+    print $py "Gratia.RegisterService(\"Condor\", \"",
+      $condor_version, "\")\n";
+  }
   if (defined($gratia_config)) {
     print $py "Gratia.Initialize(\"$gratia_config\")\n";
   } else {
@@ -1558,6 +1575,10 @@ sub open_new_py {
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.27  2008/09/26 16:03:16  greenc
+# Patch from Greg Quinn to call Gratia.UsageRecord.EndTime() only if
+# CompletionDate is non-zero.
+#
 # Revision 1.26  2008/09/26 15:23:44  greenc
 # Make messages more useful and less worrying.
 #
