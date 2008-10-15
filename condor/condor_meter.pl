@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.28 2008-10-10 21:46:34 greenc Exp $
+# $Id: condor_meter.pl,v 1.29 2008-10-15 17:23:43 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,7 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.28 $ '; # CVS Version number
+my $prog_revision = '$Revision: 1.29 $ '; # CVS Version number
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -587,21 +587,8 @@ foreach $logfile (@logfiles) {
 }                               # End of the 'foreach $logfile' loop.
 
 # Close Python pipe to Gratia.py
-$py->close;
+close_py_and_cleanup();
 
-# Now we have closed the Python pipe, I can delete the log files that
-#    were just processed.
-if ($delete_flag) {
-  foreach $plog (@processed_logfiles) {
-    if (unlink ($plog)) {
-      if ($verbose) {
-        print "Removed logfile ($plog)\n";
-      }
-    } else {
-      warn "Unable to remove logfile ($plog)\n"
-    }
-  }
-}
 
 #------------------------------------------------------------------
 # Wrap up and report results
@@ -1536,8 +1523,26 @@ sub checkSeenLocalJobId {
   return $result;
 }
 
-sub open_new_py {
+sub close_py_and_cleanup {
   $py->close() if $py;
+  # Now we have closed the Python pipe, I can delete the log files that
+  # were just processed.
+  if ($delete_flag) {
+    foreach $plog (@processed_logfiles) {
+      if (unlink ($plog)) {
+        if ($verbose) {
+          print "Removed logfile ($plog)\n";
+        }
+      } else {
+        warn "Unable to remove logfile ($plog)\n"
+      }
+    }
+  }
+  @processed_logfiles = (); # Reset
+}
+
+sub open_new_py {
+  close_py_and_cleanup();
   $py = new FileHandle;
   my $tmp_py = "/tmp/py.in";
   $py->open("| tee \"$tmp_py\" | python -u >/tmp/py.out 2>&1");
@@ -1575,6 +1580,11 @@ sub open_new_py {
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.28  2008/10/10 21:46:34  greenc
+# Correct quoting problem while looking for globus-condor.conf
+#
+# Report the version of condor_meter.pl.
+#
 # Revision 1.27  2008/09/26 16:03:16  greenc
 # Patch from Greg Quinn to call Gratia.UsageRecord.EndTime() only if
 # CompletionDate is non-zero.
