@@ -59,17 +59,27 @@ my $lrms = uc $configValues{lrmsType};
 my $lrms_version;
 if ($lrms eq "PBS") {
   ($lrms_version) = grep /\bpbs_version\b/, `qmgr -c "print server" 2>/dev/null`;
-  $lrms_version =~ s&^.*=\s*(.*)\n$&$1&;
+  if ($lrms_version) {
+    $lrms_version =~ s&^.*=\s*(.*)\n$&$1&;
+  }
 } elsif ($lrms eq "LSF") {
   $lrms_version = `bsub -V 2>&1 1>/dev/null`;
-  $lrms_version =~ m&^Platform\s*([^\n]*)(?:.*binary type\s*:\s*(.*))?&s and
-    $lrms_version = $2?"$1 / $2":"$1";
+  if ($lrms_version) {
+    $lrms_version =~ m&^Platform\s*([^\n]*)(?:.*binary type\s*:\s*(.*))?&s and
+      $lrms_version = $2?"$1 / $2":"$1";
+  }
 }
 
-my $status = system("$URCOLLECTOR_LOC/pbs-lsf.py",
-                    "$configValues{URBox}",
-                    $lrms,
-                    $lrms_version);
+my $status;
+if ($lrms_version) {
+  $status = system("$URCOLLECTOR_LOC/pbs-lsf.py",
+                   "$configValues{URBox}",
+                   $lrms,
+                   $lrms_version);
+} else {
+  $status = system("$URCOLLECTOR_LOC/pbs-lsf.py",
+                   "$configValues{URBox}");
+}
 
 if (delLock($configValues{collectorLockFileName}) != 0) {
   local_error("Error removing lock file.\n");
