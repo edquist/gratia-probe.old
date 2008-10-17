@@ -78,7 +78,7 @@ if ($lrms_version) {
                    $lrms_version);
 } else {
   $status = system("$URCOLLECTOR_LOC/pbs-lsf.py",
-                   "$configValues{URBox}");
+                   "$configValues{URBox}", $lrms);
 }
 
 if (delLock($configValues{collectorLockFileName}) != 0) {
