@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.90 2008-09-29 16:09:16 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.91 2008-10-17 23:25:09 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -9,10 +9,13 @@ import urllib
 import xml.sax.saxutils
 
 quiet = 0
+Config = None
 __urlencode_records = 1
 __responseMatcherURLCheck = re.compile(r'Unknown Command: URL', re.IGNORECASE)
 __responseMatcherErrorCheck = re.compile(r'Error report</title', re.IGNORECASE)
 __certinfoLocalJobIdMunger = re.compile(r'(?P<ID>\d+(?:\.\d+)*)')
+__certinfoJobManagerExtractor = re.compile(r'gratia_certinfo_(?P<JobManager>(?:[^\d_][^_]*))')
+__lrms = None
 
 # FQAN now in production: switch should remain for now however.
 DN_FQAN_DISABLED = False
@@ -354,7 +357,6 @@ BackupDirList = []
 OutstandingRecord = { }
 RecordPid = os.getpid()
 RecordId = 0
-Config = None
 MaxConnectionRetries = 2
 MaxFilesToReprocess = 100000
 XmlRecordCheckers = []
@@ -393,7 +395,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.90 $
+    # $Revision: 1.91 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -844,7 +846,7 @@ def GenerateOutput(prefix,*arg):
 def DebugPrint(level, *arg):
     if quiet: return
     try:
-        if ((not Config) or level<Config.get_DebugLevel()):
+        if ((not Config) or (level<Config.get_DebugLevel())):
             out = time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + \
                   GenerateOutput("Gratia: ",*arg)
             print out
@@ -1112,7 +1114,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.90 $")
+        rev = ExtractCvsRevision("$Revision: 1.91 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1549,6 +1551,9 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
                 break
 
         DebugPrint(4, "DEBUG: Looking for prefix: " + prefix)
+
+        StandardCheckXmldoc(xmlDoc,usageRecord,external,prefix)
+
         [VOName, ReportableVOName] = [None, None]
 
         DebugPrint(4, "DEBUG: Finding UserIdentityNodes")
@@ -1603,8 +1608,6 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
         if external and resourceType != None:
             AddResourceIfMissingKey(xmlDoc, usageRecord, namespace, prefix,
                                     'ResourceType', resourceType)
-
-        StandardCheckXmldoc(xmlDoc,usageRecord,external,prefix)
 
     return len(getUsageRecords(xmlDoc))
 
@@ -2409,9 +2412,9 @@ def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
     probeName = GetNodeData(usageRecord.getElementsByTagNameNS(namespace, 'ProbeName'))
     DebugPrint(4, "DEBUG: Get probeName: ", probeName)
     # Read certinfo
-    DebugPrint(4, "DEBUG: call readCertinfo(" + str(localJobId) + ", " + str(probeName) + ")")
+    DebugPrint(4, "DEBUG: call readCertInfo(" + str(localJobId) + ", " + str(probeName) + ")")
     certInfo = readCertInfo(localJobId, probeName)
-    DebugPrint(4, "DEBUG: call readCertinfo: OK")
+    DebugPrint(4, "DEBUG: call readCertInfo: OK")
     DebugPrint(4, "DEBUG: certInfo: " + str(certInfo))
     if certInfo == None or (not certInfo.has_key('DN')) or (not certInfo['DN']):
         DebugPrint(4, "Returning without processing certInfo")
@@ -2443,11 +2446,33 @@ def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
     return { 'VOName': certInfo['FQAN'],
              'ReportableVOName': certInfo['VO']}
 
+jobManagers = []
+
 def readCertInfo(localJobId, probeName):
     " Look for and read contents of cert info file if present"
     global Config
-
+    global jobManagers
+    certinfo_files = []
+    
     DebugPrint(4, "readCertInfo: received (" + str(localJobId) + ", " + str(probeName) + ")")
+
+    # Ascertain LRMS type -- from explicit set method if possible, from probe name if not
+    lrms = __lrms
+    if lrms == None:
+        match = re.search(r'^(?P<Type>.*?):', probeName)
+        if match:
+            lrms = string.lower(match.group("Type"))
+            DebugPrint(4, "readCertInfo: obtained LRMS type " + lrms + \
+                       " from ProbeName")
+        else:
+            DebugPrint(0, 'Error: Unable to ascertain lrms to match against multiple certinfo entries')
+            return
+
+    if len(jobManagers) == 0:
+        jobManagers.append(lrms) # Useful default
+        DebugPrint(4, "readCertInfo: added default LRMS type " + lrms + " to search list")
+
+    # Ascertain local job ID
     idMatch = __certinfoLocalJobIdMunger.search(localJobId)
     if idMatch:
         DebugPrint(4, "readCertInfo: trimming " + localJobId + " to " + idMatch.group(1))
@@ -2455,68 +2480,85 @@ def readCertInfo(localJobId, probeName):
     if localJobId == None: return # No LocalJobId, so no dice
 
     DebugPrint(4, "readCertInfo: continuing to process")
+    
+    for jobManager in jobManagers:
+        filestem = Config.get_DataFolder() + \
+                   'gratia_certinfo' + '_' + \
+                   jobManager + '_' + \
+                   localJobId
+        DebugPrint(4, "readCertInfo: looking for " + filestem)
+        if os.path.exists(filestem):
+            certinfo_files.append(filestem)
+            break
+        elif os.path.exists(filestem + '.0.0'):
+            certinfo_files.append(filestem + '.0.0')
+            break
 
-    matching_files = glob.glob(Config.get_DataFolder() + 'gratia_certinfo_*_' + localJobId + '*')
-    if matching_files == None or len(matching_files) == 0:
-        DebugPrint(4, "could not find certinfo files matching localJobId " + str(localJobId))
-        return # No files
-    if len(matching_files) == 1:
-        certinfo = matching_files[0] # simple
+    if len(certinfo_files) == 1:
+        DebugPrint(4, "readCertInfo: found certinfo file " + certinfo_files[0])
     else:
-        # Need to whittle it down
-        # Need probe type
-        match = re.search(r'^(?P<Type>.*?):', probeName)
-        if match:
-            ProbeType = string.lower(match.group("Type"))
+        DebugPrint(4, "readCertInfo: globbing for certinfo file")
+        certinfo_files = glob.glob(Config.get_DataFolder() + 'gratia_certinfo_*_' + localJobId + '*')
+        if certinfo_files == None or len(certinfo_files) == 0:
+            DebugPrint(4, "readCertInfo: could not find certinfo files matching localJobId " + str(localJobId))
+            return # No files
+
+        if len(certinfo_files) == 1:
+            fileMatch = __certinfoJobManagerExtractor.search(certinfo_files[0])
+            if fileMatch:
+                jobManagers.insert(0,fileMatch.group(1)) # Save to short-circuit glob next time
+                DebugPrint(4, "readCertInfo: (1) saving jobManager " +
+                           fileMatch.group(1) + " for future reference")
+
+    for certinfo in certinfo_files:
+        found = 0 # Keep track of whether to return info for this file.
+        result = None
+        
+        try:
+            certinfo_doc = xml.dom.minidom.parse(certinfo)
+        except Exception, e:
+            DebugPrint(0, 'ERROR: Unable to parse XML file ' + certinfo, ": ", e)
+            continue
+
+        # Next, find the correct information and send it back.
+        certinfo_nodes = certinfo_doc.getElementsByTagName('GratiaCertInfo')
+        if certinfo_nodes.length == 1:
+            if (DN_FQAN_DISABLED):
+                DebugPrint(4, "readCertInfo: removing " + str(certinfo))
+                os.remove(certinfo) # Clean up.
+                continue
+
+            if len(certinfo_files) == 1:
+                found = 1 # Only had one candidate -- use it
+            else:
+                # Check LRMS as recorded in certinfo matches our LRMS ascertained from system or probe.
+                certinfo_lrms = string.lower(GetNodeData(certinfo_nodes[0].
+                                                         getElementsByTagName('BatchManager'), 0))
+                DebugPrint(4, "readCertInfo: want LRMS " + lrms + ": found " + certinfo_lrms)
+                if certinfo_lrms == lrms: # Match
+                    found = 1
+                    fileMatch = __certinfoJobManagerExtractor.search(certinfo)
+                    if fileMatch:
+                        jobManagers.insert(0,fileMatch.group(1)) # Save to short-circuit glob next time
+                        DebugPrint(4, "readCertInfo: saving jobManager " +
+                                   fileMatch.group(1) + " for future reference")
+
+            if found == 1:
+                result = {
+                    "DN": GetNodeData(certinfo_nodes[0].getElementsByTagName('DN'), 0),
+                    "VO": GetNodeData(certinfo_nodes[0].getElementsByTagName('VO'), 0),
+                    "FQAN": GetNodeData(certinfo_nodes[0].getElementsByTagName('FQAN'), 0)
+                    }
+                DebugPrint(4, "readCertInfo: removing " + str(certinfo))
+                os.remove(certinfo) # Clean up.
+                break # Done -- stop looking
         else:
-            DebugPrint(0, 'Error: Unable to ascertain ProbeType to match against multiple certinfo entries')
-            return
+            DebugPrint(0, 'ERROR: certinfo file ' + certinfo +
+                       ' does not contain one valid GratiaCertInfo node')
 
-        JobManagers = []
-        for f in matching_files:
-            match = re.search(r'gratia_certinfo_(?P<JobManager>.*?)_', f)
-            if match:
-                JobManager = string.lower(match.group("JobManager"))
-                JobManagers.append(JobManager)
-            if ProbeType == JobManager or \
-                   (ProbeType == "condor" and \
-                    (JobManager == "condor" or \
-                     JobManager == "managedfork" or \
-                     JobManager == "cemon")) or \
-                     (ProbeType == "pbs-lsf" and \
-                      (JobManager == "pbs" or \
-                       JobManager == "lsf")):
-                certinfo = f
-                break
-
-        if certinfo == None: # Problem: multiple possibilities but no match.
-            DebugPrint(0, 'ERROR: Unable to match ProbeType ' + ProbeType +
-                      ' to JobManagers: ' + string.join(JobManagers, ', '))
-            return
-
-    try:
-        certinfo_doc = xml.dom.minidom.parse(certinfo)
-    except Exception, e:
-        DebugPrint(0, 'ERROR: Unable to parse XML file ' + certinfo, ": ", e)
-        return
-
-    # Next, find the correct information and send it back.
-    certinfo_nodes = certinfo_doc.getElementsByTagName('GratiaCertInfo')
-    if certinfo_nodes.length == 1:
-        DebugPrint(4, "readCertinfo: removing " + str(certinfo))
-        os.remove(certinfo) # Clean up.
-        if (DN_FQAN_DISABLED): # Interim version.
-            return
-        else:
-            return {
-                "DN": GetNodeData(certinfo_nodes[0].getElementsByTagName('DN'), 0),
-                "VO": GetNodeData(certinfo_nodes[0].getElementsByTagName('VO'), 0),
-                "FQAN": GetNodeData(certinfo_nodes[0].getElementsByTagName('FQAN'), 0)
-                }
-    else:
-        DebugPrint(0, 'ERROR: certinfo file ' + certinfo +
-                   ' does not contain one valid GratiaCertInfo node')
-        return
+    if result != None:
+        return result
+    DebugPrint(0, 'ERROR: unable to find valid certinfo file for job ' + localJobId)
 
 def GetNode(nodeList, nodeIndex = 0):
     if (nodeList == None) or (nodeList.length <= nodeIndex): return None
@@ -2543,3 +2585,7 @@ def genDefaultMeterName():
     meterName = "auto:" + f.read().strip()
     f.close()
     return meterName
+
+def setProbeBatchManager(lrms):
+    global __lrms
+    __lrms = string.lower(lrms)
