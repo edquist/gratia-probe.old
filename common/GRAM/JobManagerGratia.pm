@@ -33,9 +33,9 @@ sub gratia_save_cert_info {
   return unless $proxy_info_cmd;
   my ($jobmanager, $job_id) = @_;
   $job_id = job_identifier($job_id);
-  my $batchmanager_name = ref $jobmanager;
-  $batchmanager_name =~ s&^.*::&&;
-  return if $batchmanager_name eq 'fork'; # Don't save info for non-managed fork jobs.
+  my $jobmanager_name = ref $jobmanager;
+  $jobmanager_name =~ s&^.*::&&;
+  return if $jobmanager_name eq 'fork'; # Don't save info for non-managed fork jobs.
   my $env = "$ENV{VDT_LOCATION}";
   unless ($env) {
     $env = "$ENV{GLOBUS_LOCATION}";
@@ -45,7 +45,7 @@ sub gratia_save_cert_info {
                         $env,
                         "gratia/var/data/");
   my $gratia_filename = sprintf("gratia_certinfo_%s_%s",
-                                $batchmanager_name,
+                                $jobmanager_name,
                                 $job_id);
   open(GRATIA_CERTINFO, ">$log_dir$gratia_filename") or return;
   binmode(GRATIA_CERTINFO, ':utf8');
@@ -56,6 +56,8 @@ sub gratia_save_cert_info {
 #  print GRATIA_CERTINFO '  <DebugInfo>',
 #    $xmls->escape_value(scalar `$grid_info_cmd -all 2>/dev/null`), "  </DebugInfo>\n";
   my $description  = $jobmanager->{JobDescription};
+  my $batchmanager = (exists $jobmanager->{individual_condor_log})?
+    "condor":$jobmanager_name;
   my @proxy_info = split /\n/, `$proxy_info_cmd 2>/dev/null`;
   my ($identity, $vo, $fqan) = ('', '', '');
   if (scalar @proxy_info) {
@@ -70,7 +72,7 @@ sub gratia_save_cert_info {
 #  print GRATIA_CERTINFO '  <DebugInfo>',
 #    $xmls->escape_value(join("\n", @proxy_info)), "</DebugInfo>\n";
   printf GRATIA_CERTINFO "  <BatchManager>%s</BatchManager>\n",
-    $xmls->escape_value($batchmanager_name);
+    $xmls->escape_value($batchmanager);
   printf GRATIA_CERTINFO "  <UniqID>%s</UniqID>\n",
     $xmls->escape_value($description->uniq_id());
   printf GRATIA_CERTINFO
@@ -90,19 +92,7 @@ sub gratia_save_cert_info {
 }
 
 sub job_identifier {
-  my @identifiers = @_;
-  if (@identifiers == 1) {      # Only ClusterId (maybe)
-    if ($identifiers[0] =~ m&\.&) {
-      @identifiers = split /\./, join(".", @identifiers);
-    } else {
-      # Don't do anything for the simple case (non-Condor?)
-      return $identifiers[0];
-    }
-  }
-  @identifiers = @identifiers[0 .. 2];
-  for (my $loop = 0; $loop < 2; ++$loop) {
-    $identifiers[$loop] = 0 unless $identifiers[$loop];
-  }
-  my $job_id = join(".", map { sprintf "%d", ($_ || 0); } @identifiers );
+  my $identifier = join(".", @_);
+  my ($job_id) = ($identifier =~ m&(\d+)(?:\.[1-9]+)*&);
   return $job_id;
 }
