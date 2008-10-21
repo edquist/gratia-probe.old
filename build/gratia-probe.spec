@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 0.38b
-Release: 2
+Version: 1.00
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -895,6 +895,13 @@ fi
 %endif # noarch
 
 %changelog
+* Mon Oct 20 2008 Philippe Canal <pcanal@fnal.gov> - 1.00
+- Major overhaul in the way certinfo files are found and ambiguities
+-  resolved, in particular improving run-time performance.
+- Probe reports additional information about the probe library
+-  and the batch job.
+- Insure ProbeName is always set
+
 * Thu Oct  2 2008 Christopher Green <greenc@fnal.gov> - 0.38b-2
 - Correct erroneous minutes entry for glexec cron.
 
