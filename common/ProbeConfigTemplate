@@ -36,6 +36,7 @@
     UseSyslog="0"
     SuppressUnknownVORecords="0"
     SuppressNoDNRecords="0"
+    SuppressGridLocalRecords="0"
     EnableProbe="0"
 
 />

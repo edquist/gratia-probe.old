@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.91 2008-10-17 23:25:09 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.92 2008-11-06 17:03:07 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -299,6 +299,17 @@ class ProbeConfiguration:
         else:
             return None
 
+    def get_SuppressGridLocalRecords(self):
+        result = self.__getConfigAttribute('SuppressGridLocalRecords')
+        if result:
+            match = re.search(r'^(True|1|t)$', result, re.IGNORECASE);
+            if match:
+                return True
+            else:
+                return False
+        else:
+            return None
+
 class Event:
     _xml = ""
     _id = ""
@@ -395,7 +406,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.91 $
+    # $Revision: 1.92 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1114,7 +1125,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.91 $")
+        rev = ExtractCvsRevision("$Revision: 1.92 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1586,20 +1597,38 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
                 raise
 
 
-        # If we are trying to handle only GRID jobs, suppress records
-        # with a null or unknown VOName or missing DN (preferred, but
-        # requires JobManager patch).
-        if Config.get_SuppressNoDNRecords() and not usageRecord.getElementsByTagNameNS(namespace, 'DN'):
-            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
-            DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
-                       jobId + "due to missing DN")
-            usageRecord.parentNode.removeChild(usageRecord)
-            usageRecord.unlink()
-            continue
+        # If we are trying to handle only GRID jobs, optionally suppress records.
+        #
+        # Order of preference from the point of view of data integrity:
+        #
+        # 1. With Grid set to Local (modern condor probe (only) detects
+        # attribute inserted in ClassAd by Gratia JobManager patch found
+        # in OSG 1.0+).
+        #
+        # 2, Missing DN (preferred, but requires JobManager patch and
+        # could miss non-delegated WS jobs).
+        #
+        # 3. A null or unknown VOName (prone to suppressing jobs we care
+        # about if osg-user-vo-map.txt is not well-cared-for).
+        reason = None
+        if Config.get_SuppressGridLocalRecords():
+            GridNodes = usageRecord.getElementsByTagNameNS(namespace, 'Grid')
+            if GridNodes.length == 1:
+                Grid = GridNodes[0].firstChild.data
+                if Grid and (string.lower(Grid) == 'local'):
+                    # 1
+                    reason = "due to Grid == Local"
+        elif Config.get_SuppressNoDNRecords() and not usageRecord.getElementsByTagNameNS(namespace, 'DN'):
+            # 2
+            reason = "due to missing DN"
         elif Config.get_SuppressUnknownVORecords() and ((not VOName) or VOName == "Unknown"):
+            # 3
+            reason = "due to unknown or null VOName"
+
+        if reason:
             [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
             DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
-                       jobId + "due to unknown or null VOName")
+                       jobId + reason)
             usageRecord.parentNode.removeChild(usageRecord)
             usageRecord.unlink()
             continue
