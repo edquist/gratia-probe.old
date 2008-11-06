@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.92 2008-11-06 17:03:07 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.93 2008-11-06 17:29:24 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -406,7 +406,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.92 $
+    # $Revision: 1.93 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -1125,7 +1125,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.92 $")
+        rev = ExtractCvsRevision("$Revision: 1.93 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1617,18 +1617,18 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
                 Grid = GridNodes[0].firstChild.data
                 if Grid and (string.lower(Grid) == 'local'):
                     # 1
-                    reason = "due to Grid == Local"
+                    reason = "Grid == Local"
         elif Config.get_SuppressNoDNRecords() and not usageRecord.getElementsByTagNameNS(namespace, 'DN'):
             # 2
-            reason = "due to missing DN"
+            reason = "missing DN"
         elif Config.get_SuppressUnknownVORecords() and ((not VOName) or VOName == "Unknown"):
             # 3
-            reason = "due to unknown or null VOName"
+            reason = "unknown or null VOName"
 
         if reason:
             [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
             DebugPrint(0, "Info: suppressing record with " + jobIdType + " " +
-                       jobId + reason)
+                       jobId + " due to " + reason)
             usageRecord.parentNode.removeChild(usageRecord)
             usageRecord.unlink()
             continue
@@ -2098,8 +2098,13 @@ def FindBestJobId(usageRecord, namespace, prefix):
     if RecordIdNodes and RecordIdNodes[0].firstChild and \
            RecordIdNodes[0].firstChild.data:
         return [RecordIdNodes[0].localName, RecordIdNodes[0].firstChild.data]
-    else:
-        return ['Unknown', 'Unknown']
+
+    LocalJobIdNodes = usageRecord.getElementsByTagNameNS(namespace, 'LocalJobId')
+    if LocalJobIdNodes and LocalJobIdNodes[0].firstChild and \
+       LocalJobIdNodes[0].firstChild.data:
+        return [LocalJobIdNodes[0].localName, LocalJobIdNodes[0].firstChild.data]
+    
+    return ['Unknown', 'Unknown']
 
 def __ResourceTool(action, xmlDoc, usageRecord, namespace, prefix, key, value = ''):
     "Private routine sitting underneath (possibly) several public ones"
