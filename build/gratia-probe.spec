@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.00.1
+Version: 1.00.3
 Release: 1
 License: GPL
 Group: Applications/System
@@ -22,7 +22,7 @@ BuildRequires: gcc-c++
 %global setuptools_source setuptools-0.6c3-py2.3.egg
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
-%global dcache_transfer_probe_version v0-2-3
+%global dcache_transfer_probe_version v0-2-4
 %global dcache_storage_probe_version v0-1-1
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
@@ -895,6 +895,12 @@ fi
 %endif # noarch
 
 %changelog
+* Thu Nov  6 2008 Christopher Green <greenc@fnal.gov> - 1.00.3-1
+- Add SuppressGridLocalRecords option to ProbeConfig and implementation
+-  thereof in Gratia.py
+- Include dCache-transfer v0.2.4 with latest patch for handling bad
+-  billing DB data from Brian.
+
 * Wed Oct 29 2008 Christopher Green <greenc@fnal.gov> - 1.00.1-1
 - Include v0.2.3 of the dCache-transfer probe which has the
 - not-earlier-than threshold from Brian.
