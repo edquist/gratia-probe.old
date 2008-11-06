@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 1.00.3
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -28,7 +28,7 @@ BuildRequires: gcc-c++
 # RH5 precompiles the python files and produces .pyc and .pyo files.
 %define _unpackaged_files_terminate_build 0
 
-%global ProbeConfig_template_marker <!-- Temporary RPM-generated template marker -->
+%global ProbeConfig_template_marker <!-- This probe has not yet been configured -->
 %global pbs_lsf_template_marker # Temporary RPM-generated template marker
 %global urCollector_version 2006-06-13
 
@@ -895,6 +895,9 @@ fi
 %endif # noarch
 
 %changelog
+* Thu Nov  6 2008 Christopher Green <greenc@fnal.gov> - 1.00.3-2
+- Change template marker to allow VDT configuration script to spot pristine config files.
+
 * Thu Nov  6 2008 Christopher Green <greenc@fnal.gov> - 1.00.3-1
 - Add SuppressGridLocalRecords option to ProbeConfig and implementation
 -  thereof in Gratia.py
