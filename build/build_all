@@ -13,7 +13,9 @@
 ########################################################################
 
 # Defaults
-rpmbuild_top=~/rpmbuild
+rpmbuild_top=`grep -e '^%_topdir' ~/.rpmmacros | cut -d' ' -f2`
+[[ -n "$rpmbuild_top" ]] || rpmbuild_top=~/rpmbuild
+
 specfile="`pwd`/build/gratia-probe.spec"
 [[ -f "$specfile" ]] || specfile=~/gratia/probe/build/gratia-probe.spec
 
