@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.00.3
-Release: 2
+Version: 1.00.3a
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -22,8 +22,8 @@ BuildRequires: gcc-c++
 %global setuptools_source setuptools-0.6c3-py2.3.egg
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
-%global dcache_transfer_probe_version v0-2-4
-%global dcache_storage_probe_version v0-1-1
+%global dcache_transfer_probe_version v0-2-5
+%global dcache_storage_probe_version v0-1-2
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
 %define _unpackaged_files_terminate_build 0
@@ -895,6 +895,9 @@ fi
 %endif # noarch
 
 %changelog
+* Fri Nov  7 2008 Christopher Green <greenc@fnal.gov> - 1.00.3a-1
+- Proper version reporting for dCache and glexec probes.
+
 * Thu Nov  6 2008 Christopher Green <greenc@fnal.gov> - 1.00.3-2
 - Change template marker to allow VDT configuration script to spot pristine config files.
 
