@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.93 2008-11-06 17:29:24 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.94 2008-11-13 16:28:54 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -7,6 +7,7 @@ import re, fileinput
 import atexit
 import urllib
 import xml.sax.saxutils
+import exceptions
 
 quiet = 0
 Config = None
@@ -249,7 +250,8 @@ class ProbeConfiguration:
                 val = re.sub("MAGIC\_VDT_LOCATION",
                              vdttop,
                              val)
-                if os.path.isfile(val): self.__UserVOMapFile = val
+                if os.path.isfile(val):
+                    self.__UserVOMapFile = val
         elif val and os.path.isfile(val):
             self.__UserVOMapFile = val
         else: # Invalid or missing config entry
@@ -280,7 +282,7 @@ class ProbeConfiguration:
     def get_SuppressUnknownVORecords(self):
         result = self.__getConfigAttribute('SuppressUnknownVORecords')
         if result:
-            match = re.search(r'^(True|1|t)$', result, re.IGNORECASE);
+            match = re.search(r'^(True|1|t)$', result, re.IGNORECASE)
             if match:
                 return True
             else:
@@ -291,7 +293,7 @@ class ProbeConfiguration:
     def get_SuppressNoDNRecords(self):
         result = self.__getConfigAttribute('SuppressNoDNRecords')
         if result:
-            match = re.search(r'^(True|1|t)$', result, re.IGNORECASE);
+            match = re.search(r'^(True|1|t)$', result, re.IGNORECASE)
             if match:
                 return True
             else:
@@ -314,13 +316,11 @@ class Event:
     _xml = ""
     _id = ""
 
-    def __init__(self):
-        self._xml = ""
-        self._id = ""
-
-    def __init__(self, id, xml):
-        self._xml = xml
-        self._id = id
+    def __init__(self, in_id, in_xml):
+        if in_id:
+            self._id = in_id
+        if in_xml:
+            self._xml = in_xml
 
     def get_id(self):
         return self._id
@@ -338,19 +338,16 @@ class Response:
     _code = -1
     _message = ""
 
-    def __init__(self):
-        self._code = -1
-        self._message = ""
-
     def __init__(self, code, message):
         if code == -1:
             if message == "OK":
                 self._code = 0
             else:
                 self._code = 1
-        else:
+        elif code:
             self._code = code
-        self._message = message
+        if message:
+            self._message = message
 
     def get_code(self):
         return self._code
@@ -406,7 +403,7 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.93 $
+    # $Revision: 1.94 $
     return revision.split("$")[1].split(":")[1].strip()
 
 def Initialize(customConfig = "ProbeConfig"):
@@ -553,7 +550,7 @@ def __disconnect():
 
     try:
         if __connected and Config.get_UseSSL() != 0:
-            __connection.system.logout()
+            __connection.close()
             DebugPrint(1, 'Disconnected from ' + Config.get_SSLHost() )
     except:
         if not __connectionError: # We've already complained, so shut up
@@ -777,7 +774,7 @@ def LogToFile(message):
     except:
         if LogFileIsWriteable:
             # Print the error message only once
-            print "Gratia: Unable to log to file:  ", filename, " ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.e,xc_info()[1]
+            print "Gratia: Unable to log to file:  ", filename, " ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1]
         LogFileIsWriteable = False
 
     if file != None:
@@ -1048,7 +1045,6 @@ class Record(object):
 
     def Print(self) :
         DebugPrint(1,"Usage Record: ",self)
-        DebugPrint(1,"Username: ", self.Username)
 
     def VerbatimAppendToList(self,where,what,comment,value):
         " Helper Function to generate the xml (Do not call directly)"
@@ -1125,7 +1121,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.93 $")
+        rev = ExtractCvsRevision("$Revision: 1.94 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1500,7 +1496,7 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
         elif ProbeNameNodes.length > 1:
             [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
             DebugPrint(0, "Warning: too many ProbeName entities in " + jobIdType + " " +
-                               jobId + "(" + xmlFilename + ")")
+                               jobId)
 
         # SiteName
         SiteNameNodes = recordElement.getElementsByTagNameNS(namespace, 'SiteName')
@@ -1512,7 +1508,7 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
         elif SiteNameNodes.length > 1:
             [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
             DebugPrint(0, "Warning: too many SiteName entities in " + jobIdType + " " +
-                               jobId + "(" + xmlFilename + ")");
+                               jobId);
 
         # Grid
         GridNodes = recordElement.getElementsByTagNameNS(namespace, 'Grid')
@@ -1532,7 +1528,7 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
         else: # Too many entries
             [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
             DebugPrint(0, "Warning: too many Grid entities in " + jobIdType + " " +
-                               jobId + "(" + xmlFilename + ")");
+                               jobId);
 
 
 def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
@@ -1714,7 +1710,7 @@ def Reprocess():
                            "Connection problems: reprocessing suspended; new record processing shall continue")
             failedReprocessCount += 1
 
-    if responseString <> "":
+    if responseString != "":
         DebugPrint(0, responseString)
 
     return responseString
@@ -2106,6 +2102,9 @@ def FindBestJobId(usageRecord, namespace, prefix):
     
     return ['Unknown', 'Unknown']
 
+class InternalError(exceptions.Exception):
+    pass
+
 def __ResourceTool(action, xmlDoc, usageRecord, namespace, prefix, key, value = ''):
     "Private routine sitting underneath (possibly) several public ones"
 
@@ -2461,9 +2460,9 @@ def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
     keyInfoNS = 'http://www.w3.org/2000/09/xmldsig#';
     keyInfoNode = GetNode(userIdentityNode.getElementsByTagNameNS(keyInfoNS, 'KeyInfo'))
     DNnode = GetNode(userIdentityNode.getElementsByTagNameNS(namespace, 'DN'))
-    if DNnode and DN.firstChild: # Override
+    if DNnode and DNnode.firstChild: # Override
         DebugPrint(4, "DEBUG: overriding DN from certInfo")
-        DN.firstChild.data = certInfo['DN']
+        DNnode.firstChild.data = certInfo['DN']
     else:
         DebugPrint(4, "DEBUG: creating fresh DN node")
         if not DNnode: DNnode = xmlDoc.createElementNS(namespace, 'DN')
