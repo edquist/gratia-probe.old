@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.30 2008-10-17 23:27:49 greenc Exp $
+# $Id: condor_meter.pl,v 1.31 2008-11-13 16:28:21 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -29,7 +29,10 @@ my $progname = "condor_meter.pl";
 my $prog_version = '$Name: not supported by cvs2svn $';
 $prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
 $prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.30 $ '; # CVS Version number
+my $prog_revision = '$Revision: 1.31 $ '; # CVS Version number
+$prog_revision =~ s&\$Revision(?::\s*)?(.*)\$$&$1&;
+$prog_revision or $prog_revision = "unknown";
+
 #$true = 1; $false = 0;
 $verbose = 1;
 
@@ -1581,6 +1584,9 @@ sub open_new_py {
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.30  2008/10/17 23:27:49  greenc
+# Set the batch manager name.
+#
 # Revision 1.29  2008/10/15 17:23:43  greenc
 # Clean up processed files (and clear list) after each loop.
 #
