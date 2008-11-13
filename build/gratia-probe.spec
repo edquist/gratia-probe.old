@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.00.3a
+Version: 1.00.3b
 Release: 1
 License: GPL
 Group: Applications/System
@@ -895,6 +895,10 @@ fi
 %endif # noarch
 
 %changelog
+* Thu Nov 13 2008 Christopher Green <greenc@fnal.gov> - 1.00.3b-1
+- Fix errors in Gratia.py found by pylint.
+- Remove cruft around revision no. in condor_meter.pl.
+
 * Fri Nov  7 2008 Christopher Green <greenc@fnal.gov> - 1.00.3a-1
 - Proper version reporting for dCache and glexec probes.
 
