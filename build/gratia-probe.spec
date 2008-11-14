@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.00.3c
+Version: 1.00.4
 Release: 1
 License: GPL
 Group: Applications/System
@@ -895,6 +895,9 @@ fi
 %endif # noarch
 
 %changelog
+* Fri Nov 14 2008 Christopher Green <greenc@fnal.gov> - 1.00.4-1
+- Version bump only to match collector.
+
 * Thu Nov 13 2008 Christopher Green <greenc@fnal.gov> - 1.00.3c-1
 - If the ProbeConfig is missing the SuppressGridLocalRecords attribute,
 -  it defaults to true.
