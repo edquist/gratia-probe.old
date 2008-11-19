@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.00.4
+Version: 1.00.5a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -22,8 +22,10 @@ BuildRequires: gcc-c++
 %global setuptools_source setuptools-0.6c3-py2.3.egg
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
+%global gridftp_transfer_source gratia-probe-gridftp-transfer-%{gridftp_transfer_probe_version}.tar.bz2
 %global dcache_transfer_probe_version v0-2-5
 %global dcache_storage_probe_version v0-1-2
+%global gridftp_transfer_probe_version v0-1
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
 %define _unpackaged_files_terminate_build 0
@@ -72,9 +74,9 @@ BuildRequires: gcc-c++
 
 %define max_pending_files_check() (( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\\"\\{0,1\\}\\([0-9]\\{1,\\}\\)\\"\\{0,1\\}.*$/\\1/p' "${RPM_INSTALL_PREFIX1}/probe/%1/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\\n"; fi
 
-%define configure_probeconfig_pre(p:d:m:M:h:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; if [[ -n "%{-M*}" ]]; then chmod %{-M*} "$config_file"; fi; %{__perl} -wni.orig -e 's&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $meter_name = %{meter_name}; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":("%{-h*}" || "%{osg_collector}"); my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&(MeterName\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
+%define configure_probeconfig_pre(p:d:m:M:h:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; if [[ -n "%{-M*}" ]]; then chmod %{-M*} "$config_file"; fi; %{__perl} -wni.orig -e 'my $meter_name = %{meter_name}; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":("%{-h*}" || "%{osg_collector}"); my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&(MeterName\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
 
-%define configure_probeconfig_post(g:) my $grid = "%{-g*}" || "%{grid}"; s&(Grid\\s*=\\s*)\\\"[^\\\"]*\\\"&${1}"${grid}"&; m&%{ProbeConfig_template_marker}& or print; ' "$config_file" >/dev/null 2>&1; %{expand: %final_post_message $config_file }; %{__rm} -f "$config_file.orig"; done
+%define configure_probeconfig_post(g:) s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $grid = "%{-g*}" || "%{grid}"; s&(Grid\\s*=\\s*)\\\"[^\\\"]*\\\"&${1}"${grid}"&; m&%{ProbeConfig_template_marker}& or print; ' "$config_file" >/dev/null 2>&1; %{expand: %final_post_message $config_file }; %{__rm} -f "$config_file.orig"; done
 
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
@@ -89,6 +91,7 @@ Source9: psycopg2-%{psycopg2_version}.tar.gz
 Source11: %{setuptools_source}
 Source12: %{dcache_transfer_source}
 Source13: %{dcache_storage_source}
+Source14: %{gridftp_transfer_source}
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch2: urCollector-2006-06-13-createTime-timezone.patch
@@ -131,6 +134,7 @@ cd urCollector-%{urCollector_version}
 %setup -q -D -T -a 12
 %{__rm} -rf dCache-transfer/{external,tmp,install.sh} # Not needed by this install.
 %setup -q -D -T -a 13
+%setup -q -D -T -a 14
 
 %build
 %ifnarch noarch
@@ -154,7 +158,8 @@ cd SQLAlchemy-%{sqlalchemy_version}
 
 %ifarch noarch
   # Obtain files
-  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage} "${RPM_BUILD_ROOT}%{default_prefix}/probe"
+  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer} \
+              "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
   for probe_config in \
@@ -165,12 +170,13 @@ cd SQLAlchemy-%{sqlalchemy_version}
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/metric/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-storage/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/gridftp-transfer/ProbeConfig" \
       ; do
     %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
   done
 
-  # dCache init script
+  # dCache-transfer init script
   %{__install} -d "${RPM_BUILD_ROOT}/etc/rc.d/init.d/"
   %{__install} -m 755 "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/gratia-dcache-transfer" "${RPM_BUILD_ROOT}/etc/rc.d/init.d/gratia-dcache-transfer"
   %{__rm} -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/gratia-dcache-transfer"
@@ -331,6 +337,7 @@ m&%{pbs_lsf_template_marker}& or print;
 done
 
 %configure_probeconfig_pre -d pbs-lsf -m pbs-lsf
+m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 %max_pending_files_check pbs-lsf
@@ -446,6 +453,7 @@ m&^/>& and print <<EOF;
     PSACCTExceptionsRepository="$ENV{RPM_INSTALL_PREFIX1}/logs/exceptions/"
 EOF
 m&^\s*VDTSetupFile\s*=& and next;
+m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post -g Local
 
 # Configure boot-time activation of accounting.
@@ -528,6 +536,7 @@ The Condor probe for the Gratia OSG accounting system.
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
 %configure_probeconfig_pre -d condor -m condor
+m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 # Configure GRAM perl modules
@@ -618,6 +627,7 @@ The SGE probe for the Gratia OSG accounting system.
 m&^/>& and print <<EOF;
     SGEAccountingFile=""
 EOF
+m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 %max_pending_files_check sge
@@ -670,6 +680,7 @@ s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxykey.pem"&;
 m&^/>& and print <<EOF;
     gLExecMonitorLog="/var/log/glexec/glexec_monitor.log"
 EOF
+m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 %max_pending_files_check glexec
@@ -725,6 +736,7 @@ s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"${RPM_INSTALL_PREFIX2}/grid-security/hostproxy
 m&^/>& and print <<EOF;
     metricMonitorLog="/var/log/metric/metric_monitor.log"
 EOF
+m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 %max_pending_files_check metric
@@ -782,6 +794,7 @@ m&^/>& and print <<EOF;
     AggrLogLevel="warn"
     OnlySendInterSiteTransfers="true"
 EOF
+m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 # Configure init script
@@ -863,6 +876,7 @@ m&^/>& and print <<EOF;
     DCacheServerHost="POSTGRES_HOST"
     DcacheLogLevel="warn"
 EOF
+m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 perl -wapi.bak -e 's&^python &%{pexec} &g' \
@@ -890,11 +904,83 @@ fi
 #   End of dCache-storage preun
 # End of dCache-storage section
 
+%package gridftp-transfer%{?maybe_itb_suffix}
+Summary: Gratia OSG accounting system probe for gridftp transfers.
+Group: Application/System
+Requires: %{name}-common >= 0.30
+License: See LICENSE.
+%{?config_itb:Obsoletes: %{name}-gridftp-transfer}
+%{!?config_itb:Obsoletes: %{name}-gridftp-transfer%{itb_suffix}}
+
+%description gridftp-transfer%{?maybe_itb_suffix}
+Gratia OSG accounting system probe for available space in dCache.
+Contributed by Andrei Baranovski of the OSG storage team.
+
+%files gridftp-transfer%{?maybe_itb_suffix}
+%defattr(-,root,root,-)
+%{default_prefix}/probe/gridftp-transfer/ContextTransaction.py
+%{default_prefix}/probe/gridftp-transfer/FileDigest.py
+%{default_prefix}/probe/gridftp-transfer/GftpLogParserCorrelator.py
+%{default_prefix}/probe/gridftp-transfer/GratiaConnector.py
+%{default_prefix}/probe/gridftp-transfer/GridftpToGratiaEventTransformer.py
+%{default_prefix}/probe/gridftp-transfer/GridftpTransferProbeDriver.py
+%{default_prefix}/probe/gridftp-transfer/Logger.py
+%{default_prefix}/probe/gridftp-transfer/gridftp-transfer_meter.cron.sh
+%{default_prefix}/probe/gridftp-transfer/netlogger/
+%config(noreplace) %{default_prefix}/probe/gridftp-transfer/ProbeConfig
+
+%post gridftp-transfer%{?maybe_itb_suffix}
+# /usr -> "${RPM_INSTALL_PREFIX0}"
+# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
+%configure_probeconfig_pre -d gridftp-transfer -m gridftp-transfer -M 600 -h %{dcache_collector} -p %{dcache_port}
+%configure_probeconfig_post
+
+perl -wapi.bak -e 's&^python &%{pexec} &g' \
+"${RPM_INSTALL_PREFIX1}"/probe/gridftp-transfer/gridftp-transfer_meter.cron.sh && \
+%{__rm} -f "${RPM_INSTALL_PREFIX1}/probe/gridftp-transfer/gridftp-transfer_meter.cron.sh.bak"
+
+%max_pending_files_check gridftp-transfer
+
+# Configure crontab entry
+%scrub_root_crontab gridftp-transfer
+
+(( min = $RANDOM % 30 ))
+%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-gridftp-transfer.cron <<EOF
+$min,$(( $min + 30 )) * * * * root \
+"${RPM_INSTALL_PREFIX1}/probe/gridftp-transfer/gridftp-transfer_meter.cron.sh"
+EOF
+
+# End of gridftp-transfer post
+
+%preun gridftp-transfer%{?maybe_itb_suffix}
+# Only execute this if we're uninstalling the last package of this name
+if [ $1 -eq 0 ]; then
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-gridftp-transfer.cron
+fi
+#   End of gridftp-transfer preun
+# End of gridftp-transfer section
+
+
 %endif # dCache
 
 %endif # noarch
 
 %changelog
+* Wed Nov 19 2008 Christopher Green <greenc@fnal.gov> - 1.00.5a-1
+- GridftpLogDir moved to ProbeConfigTemplate for ease of translation.
+
+* Wed Nov 19 2008 Christopher Green <greenc@fnal.gov> - 1.00.5-3
+- gridftp-transfer probed does not need extra-libs.
+
+* Wed Nov 19 2008 Christopher Green <greenc@fnal.gov> - 1.00.5-2
+- Reorder some regex replacements in postconfig to allow late-entry
+-  MAGIC_VDT_LOCATION to be subbed.
+
+* Wed Nov 19 2008 Christopher Green <greenc@fnal.gov> - 1.00.5-1
+- Packaged gridftp-transfer probe from Andrei.
+- Bumped version number to match collector.
+
 * Fri Nov 14 2008 Christopher Green <greenc@fnal.gov> - 1.00.4-1
 - Version bump only to match collector.
 
