@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.00.5b
+Version: 1.00.5c
 Release: 1
 License: GPL
 Group: Applications/System
@@ -25,7 +25,7 @@ BuildRequires: gcc-c++
 %global gridftp_transfer_source gratia-probe-gridftp-transfer-%{gridftp_transfer_probe_version}.tar.bz2
 %global dcache_transfer_probe_version v0-2-6
 %global dcache_storage_probe_version v0-1-2
-%global gridftp_transfer_probe_version v0-1
+%global gridftp_transfer_probe_version v0-2
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
 %define _unpackaged_files_terminate_build 0
@@ -967,6 +967,9 @@ fi
 %endif # noarch
 
 %changelog
+* Mon Dec  8 2008 Christopher Green <greenc@fnal.gov> - 1.00.5c-1
+- Incorporate v0.2 of gridftp-transfer probe.
+
 * Thu Nov 20 2008 Christopher Green <greenc@fnal.gov> - 1.00.5b-1
 - Updated dCache-transfer/README from Tanya.
 
