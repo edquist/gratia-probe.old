@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 1.00.5c
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -904,10 +904,15 @@ fi
 #   End of dCache-storage preun
 # End of dCache-storage section
 
+%endif # dCache
+
 %package gridftp-transfer%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for gridftp transfers.
 Group: Application/System
 Requires: %{name}-common >= 0.30
+%if %{?python:0}%{!?python:1}
+Requires: python >= 2.3
+%endif
 License: See LICENSE.
 %{?config_itb:Obsoletes: %{name}-gridftp-transfer}
 %{!?config_itb:Obsoletes: %{name}-gridftp-transfer%{itb_suffix}}
@@ -962,11 +967,13 @@ fi
 # End of gridftp-transfer section
 
 
-%endif # dCache
-
 %endif # noarch
 
 %changelog
+* Mon Dec  8 2008 Christopher Green <greenc@fnal.gov> - 1.00.5c-2
+- gridftp-transfer probe is not a dCache probe.
+- gridftp-transfer probe requires python >= 2.3.
+
 * Mon Dec  8 2008 Christopher Green <greenc@fnal.gov> - 1.00.5c-1
 - Incorporate v0.2 of gridftp-transfer probe.
 
