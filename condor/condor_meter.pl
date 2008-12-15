@@ -2,7 +2,7 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id: condor_meter.pl,v 1.31 2008-11-13 16:28:21 greenc Exp $
+# $Id: condor_meter.pl,v 1.32 2008-12-15 23:09:38 greenc Exp $
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
 #
 # Revision History:
@@ -26,10 +26,8 @@ use File::Basename;
 sub create_unique_id(\%);
 
 my $progname = "condor_meter.pl";
-my $prog_version = '$Name: not supported by cvs2svn $';
-$prog_version =~ s&\$Name(?::\s*)?(.*)\$$&$1&;
-$prog_version or $prog_version = "unknown";
-my $prog_revision = '$Revision: 1.31 $ '; # CVS Version number
+my $prog_version = '%%%RPMVERSION%%%';
+my $prog_revision = '$Revision: 1.32 $ '; # CVS Version number
 $prog_revision =~ s&\$Revision(?::\s*)?(.*)\$$&$1&;
 $prog_revision or $prog_revision = "unknown";
 
@@ -1584,6 +1582,24 @@ sub open_new_py {
 #==================================================================
 # CVS Log
 # $Log: not supported by cvs2svn $
+# Revision 1.31  2008/11/13 16:28:21  greenc
+# Run pylint and remove errors:
+#
+# E:321:Event.__init__: method already defined line 317
+# E:345:Response.__init__: method already defined line 341
+# E:556:__disconnect: Instance of 'HTTPConnection' has no 'system' member
+# E:556:__disconnect: Instance of 'HTTP' has no 'system' member
+# E:556:__disconnect: Instance of 'HTTPSConnection' has no 'system' member
+# E:780:LogToFile: Module 'sys' has no 'e' member
+# E:780:LogToFile: Undefined variable 'xc_info'
+# E:1051:Record.Print: Instance of 'Record' has no 'Username' member
+# E:1503:StandardCheckXmldoc: Undefined variable 'xmlFilename'
+# E:1515:StandardCheckXmldoc: Undefined variable 'xmlFilename'
+# E:1535:StandardCheckXmldoc: Undefined variable 'xmlFilename'
+# E:2119:__ResourceTool: Undefined variable 'InternalError'
+# E:2464:verifyFromCertInfo: Undefined variable 'DN'
+# E:2466:verifyFromCertInfo: Undefined variable 'DN'
+#
 # Revision 1.30  2008/10/17 23:27:49  greenc
 # Set the batch manager name.
 #

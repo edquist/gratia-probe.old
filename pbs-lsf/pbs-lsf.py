@@ -3,8 +3,8 @@
 import Gratia, sys
 
 if __name__ == '__main__':
-        rev = Gratia.ExtractCvsRevision("$Revision: 1.7 $");
-        tag = Gratia.ExtractCvsRevision("$Name: not supported by cvs2svn $");
+        rev = Gratia.ExtractCvsRevision("$Revision: 1.8 $");
+        tag = Gratia.ExtractCvsRevision("%%%RPMVERSION%%%");
         Gratia.RegisterReporter("pbs-lsf.py", str(rev) + " (tag " + str(tag) + ")")
 	if hasattr(sys,'argv') and sys.argv[1]:
                 if (len(sys.argv) >= 3 and sys.argv[2]):

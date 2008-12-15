@@ -143,9 +143,8 @@ def send_one(el,
 #
 
 def main():
-    rev =  Gratia.ExtractCvsRevision("$Revision: 1.9 $")
-    tag =  Gratia.ExtractCvsRevision("$Name: not supported by cvs2svn $")
-    Gratia.RegisterReporter("glexec_meter.py", str(rev) + " (tag " + str(tag) + ")")
+    rev =  Gratia.ExtractCvsRevision("$Revision: 1.10 $")
+    Gratia.RegisterReporter("glexec_meter.py", str(rev) + " (tag %%%RPMVERSION%%%)")
     Gratia.Initialize()
     sitename=Gratia.Config.get_SiteName()
     if sitename=="generic Site":
