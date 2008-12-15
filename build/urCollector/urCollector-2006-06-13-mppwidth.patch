@@ -1,0 +1,31 @@
+--- /home/greenc/probe-test/pbs-lsf-0.30d-1/urCollector.pl	2008-01-22 17:12:15.000000000 -0600
++++ ./urCollector.pl	2008-12-15 16:18:22.000000000 -0600
+@@ -1282,6 +1282,7 @@
+ 	if (/^(\d*)\.(.*)$/o) {
+     $urAcctlogInfo{server}=$2;
+   }
++  $urAcctlogInfo{processors} = 1; # Default
+ 	foreach my $record_field ( @$lrmsRecordFields ) {
+ 		if ( $record_field =~ /^queue=(.*)$/o) {
+       $urAcctlogInfo{queue}=$1;
+@@ -1303,7 +1304,10 @@
+ 			$urAcctlogInfo{mem}     = $1;
+       next;
+ 		}
+-		if ( $record_field =~ /^Resource_List.neednodes=(\d*)$/o) {	
++    if ( $record_field =~ /^Resource_List.mppwidth=(\d*)$/o) {
++      $urAcctlogInfo{processors} = $1;
++      next;
++    } elsif ( $record_field =~ /^Resource_List.neednodes=(\d*)$/o) {	
+ 			$urAcctlogInfo{processors} = $1;
+ 			# attention! might also be list of hostnames,
+ 			# in this case the number of hosts should be
+@@ -1313,8 +1317,6 @@
+ 		} elsif ( $record_field =~ /^Resource_List.nodect=(\d*)/o ) {
+ 			$urAcctlogInfo{processors} = $1;
+       next;
+-		} else {
+-			$urAcctlogInfo{processors} = 1;
+ 		}
+ 		if ( $record_field =~ /^group=(.*)$/o) {	
+ 			$urAcctlogInfo{group} = $1;
