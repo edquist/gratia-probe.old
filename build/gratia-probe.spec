@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.00.5c
-Release: 2
+Version: 1.00.5d
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -101,6 +101,7 @@ Patch5: urCollector-2006-06-13-modules-2.patch
 Patch6: urCollector-2006-06-13-xmlUtil.h-gcc4.1-fixes.patch
 Patch7: urCollector-2006-06-13-tac-race.patch
 Patch8: urCollector-2006-06-13-parser-improve.patch
+Patch9: urCollector-2006-06-13-mppwidth.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -124,6 +125,7 @@ cd urCollector-%{urCollector_version}
 %patch -P 6 -b .xmlUtil.h-gcc4.1-fixes
 %patch -P 7 -b .tac-race
 %patch -P 8 -b .parser-improve
+%patch -P 9 -b .mppwidth
 %setup -q -D -T -a 9
 %endif
 %setup -q -D -T -a 5
@@ -202,10 +204,10 @@ cd SQLAlchemy-%{sqlalchemy_version}
   done
   cd "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf"
   %{__ln_s} . etc
-  %{__ln_s} . libexec
+  %{__ln_s} . libexec 
   cd - >/dev/null
 
-  # Get urCollector software
+   # Get urCollector software
   cd urCollector-%{urCollector_version}
   %{__cp} -p urCreator urCollector.pl \
   "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf"
@@ -230,6 +232,9 @@ cd SQLAlchemy-%{sqlalchemy_version}
 %endif
 
 cd "${RPM_BUILD_ROOT}%{default_prefix}"
+
+%{__grep} -rIle '%%%%%%RPMVERSION%%%%%%' probe | \
+xargs %{__perl} -wpi.orig -e 's&%%%%%%RPMVERSION%%%%%%&%{version}-%{release}&g'
 
 %ifarch noarch
   # Set up var area
@@ -970,6 +975,12 @@ fi
 %endif # noarch
 
 %changelog
+* Mon Dec 15 2008 Christopher Green <greenc@fnal.gov> - 1.00.5d-1
+- Add patch to urCollector.pl to understand mppwidth directive in PBS log.
+- Add facility to Gratia.py to extract the CVS revision from another file.
+- Change glexec.py, pbs-lsf.py and condor_meter.pl to get their tag info
+-  from the RPM packaging process rather than CVS' Name attribute.
+
 * Mon Dec  8 2008 Christopher Green <greenc@fnal.gov> - 1.00.5c-2
 - gridftp-transfer probe is not a dCache probe.
 - gridftp-transfer probe requires python >= 2.3.
