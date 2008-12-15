@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.95 2008-11-13 21:09:05 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.96 2008-12-15 23:07:54 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -403,8 +403,16 @@ def RegisterService(name,version):
 
 def ExtractCvsRevision(revision):
     # Extra the numerical information from the CVS keyword:
-    # $Revision: 1.95 $
+    # $Revision\: $
     return revision.split("$")[1].split(":")[1].strip()
+
+def ExtractCvsRevisionFromFile(file):
+    pipe = os.popen(r"sed -ne 's/.*\$Revision\: \([^$][^$]*\)\$.*$/\1/p' " + file)
+    result = None
+    if pipe !=  None:
+        result = string.strip(pipe.readline())
+        pipe.close()
+    return result
 
 def Initialize(customConfig = "ProbeConfig"):
     "This function initializes the Gratia metering engine"
@@ -1121,7 +1129,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.95 $")
+        rev = ExtractCvsRevision("$Revision: 1.96 $")
 
         self.ReporterLibrary("Gratia",rev);
 
