@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.96 2008-12-15 23:07:54 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.97 2008-12-16 16:33:15 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1129,7 +1129,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.96 $")
+        rev = ExtractCvsRevision("$Revision: 1.97 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -2282,7 +2282,9 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
                        " and " + vo_info['ReportableVOName'])
             DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: DONE")
             VONameNodes[0].firstChild.data = vo_info['VOName']
+            VOName = vo_info['VOName']
             ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
+            ReportableVOName = vo_info['ReportableVOName']
 
     # 3. & 4.
     if not vo_info and not VOName:
