@@ -2,7 +2,7 @@ eval '(exit $?0)' && eval 'exec perl -S $0 ${1+"$@"}'
   && eval 'exec perl -S $0 $argv:q'
   if 0;
 ########################################################################
-# $Id: gratia-rsv-probe,v 1.1 2008-12-05 23:37:05 greenc Exp $
+# $Id: gratia-rsv-probe,v 1.2 2008-12-19 19:16:20 greenc Exp $
 #
 # Check if Gratia probe installation is operating nominally.
 #
@@ -44,6 +44,7 @@ GetOptions(
            "gratia-config-file|gmpcf=s"=> \$o{'gratiaMetricProbeConfigFile'},
            "python-loc=s"              => \$o{'pythonToUse'},
            "version"                   => \$o{'version'},
+           "test|T"                    => \$o{'test'},
            "help|h"                    => \$o{'help'},
           )
   or &OSG_RSV_Probe_Base::Print_Usage(\%o,\%m_gratia) && exit 1;
@@ -84,7 +85,6 @@ unless (grep m&^\Q$ENV{VDT_LOCATION}/gratia/probe/common\E$&, @PYTHONPATH) {
 my $probeConfig_cmd = <<EOF;
 cd "$ENV{VDT_LOCATION}/gratia/probe/$probeType"; ../common/GetProbeConfigAttribute.py
 EOF
-print "$probeConfig_cmd\n";
 my $soaphost = getProbeConfigAttribute("SOAPHost");
 my $probename = getProbeConfigAttribute("MeterName");
 my $sitename = getProbeConfigAttribute("SiteName");
@@ -99,7 +99,7 @@ my $probe_in_cron = system("crontab -l | grep -e '^\\s*[^#].*gratia/probe/$probe
 # Check some basic critical stuff
 if ($probe_in_cron != 1) {
   setCritical();
-  $m_gratia{detailsData} = "Probe $probename is not listed in crontab";
+  $m_gratia{detailsData} = "Probe $probename is not listed in crontab.";
   normal_exit();
 } elsif ($enabled ne "1") {
   setCritical();
@@ -133,6 +133,7 @@ chomp $probe_contact_check;
 $probe_contact_check =~ s&^last-contact=([^\s]+)\s+([^\s]+)$&${1}T${2}Z&;
 
 my $cmpDate = DateCalc("today", "- 1 hour");
+my $probe_seen_by_soaphost;
 if (!$probe_contact_check) {
   setWarning();
   add_to_details(<<EOF);
@@ -149,18 +150,22 @@ EOF
   add_to_details(<<EOF);
 Probe $probename has not been seen by Gratia collector $soaphost in >1h.
 EOF
+} else {
+  $probe_seen_by_soaphost = 1;
 }
 
 ################################
 # Cross-check locally configured site name matches Gratia server sitename.
-my $probe_site_check =
-  system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^$probename: last-contact' >/dev/null 2>&1") == 0;
+if ($probe_seen_by_soaphost) {
+  my $probe_site_check =
+    system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^$probename: last-contact' >/dev/null 2>&1") == 0;
 
-if (!$probe_site_check) {
-  setWarning();
-  add_to_details(<<EOF);
+  if (!$probe_site_check) {
+    setWarning();
+    add_to_details(<<EOF);
 Probe $probename not found in check of probes reporting to $soaphost from $sitename.
 EOF
+  }
 }
 
 ################################
@@ -171,7 +176,7 @@ probe_specific_checks();
 $m_gratia{metricStatus} = "OK"
   if ($m_gratia{metricStatus} eq "UNKNOWN");
 
-normal_exit();
+normal_exit(1);
 
 ########################################################################
 # Subroutines
@@ -182,6 +187,7 @@ sub add_to_details {
 }
 
 sub normal_exit {
+  return if $o{test} and not $_[0];
   ## Print metric, and we're all done!
   &OSG_RSV_Probe_Base::Print_Summary_Metric_Results (\%o,\%m_gratia);
   exit (&OSG_RSV_Probe_Base::Get_Probe_Exit_Value(\%o,\%m_gratia));
@@ -189,7 +195,7 @@ sub normal_exit {
 
 
 sub Pre_Initialize_Probe {
-  $o{'revision'} = '$Revision: 1.1 $';
+  $o{'revision'} = '$Revision: 1.2 $';
 
   $o{'helpIntro'} = <<'EOF';
 Probe to check whether Gratia probes are configured and operating.
@@ -223,13 +229,13 @@ sub probe_specific_checks {
 }
 
 sub probe_check_pbs_lsf {
-  my $URCOLLECTOR_LOC = "$ENV{VDT_LOCATION}/gratia/$probeType";
+  my $URCOLLECTOR_LOC = "$ENV{VDT_LOCATION}/gratia/probe/$probeType";
   push @INC, $URCOLLECTOR_LOC;
   eval "require urCollector::Configuration";
   if ($@) {                     # FAILED
     setCritical();
     add_to_details(<<EOF);
-Error loading urCollector::Configuration.
+Error loading urCollector::Configuration: $@
 EOF
     normal_exit();
   }
@@ -238,7 +244,7 @@ EOF
   if ($@) {                     # FAILED
     setCritical();
     add_to_details(<<EOF);
-Error reading $URCOLLECTOR_LOC/urCollector.conf.
+Error reading $URCOLLECTOR_LOC/urCollector.conf: $@
 EOF
     normal_exit();
   }
@@ -304,21 +310,21 @@ EOF
 
 sub getProbeConfigAttribute {
   my $probeConfig_cmd = <<EOF;
-( cd "$ENV{VDT_LOCATION}/gratia/probe/$probeType"; ../common/GetProbeConfigAttribute.py %s ) 2>&1
+( cd "$ENV{VDT_LOCATION}/gratia/probe/$probeType"; ../common/GetProbeConfigAttribute.py %s )
 EOF
 
   my @results = ();
 
   foreach my $configAttribute (@_) {
     my $cmd = sprintf($probeConfig_cmd, $configAttribute);
-    push @results, `$cmd`;
+    push @results, `$cmd 2>/dev/null`;
   }
 
   chomp @results;
-  if ($#results == 0) {
-    return $results[0];
-  } else {
+  if (wantarray) {
     return @results;
+  } else {
+    return $results[0];
   }
 }
 
