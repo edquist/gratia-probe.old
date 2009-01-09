@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.97 2008-12-16 16:33:15 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.98 2009-01-09 23:10:04 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -310,7 +310,7 @@ class ProbeConfiguration:
             else:
                 return False
         else:
-            return True # If the config entry is missing, default to true
+            return False # If the config entry is missing, default to false
 
 class Event:
     _xml = ""
@@ -1129,7 +1129,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.97 $")
+        rev = ExtractCvsRevision("$Revision: 1.98 $")
 
         self.ReporterLibrary("Gratia",rev);
 
