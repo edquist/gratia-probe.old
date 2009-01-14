@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.98 2009-01-09 23:10:04 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.99 2009-01-14 00:23:16 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -311,6 +311,17 @@ class ProbeConfiguration:
                 return False
         else:
             return False # If the config entry is missing, default to false
+
+    def get_NoCertinfoRecordsAreLocal(self):
+        result = self.__getConfigAttribute('NoCertinfoRecordsAreLocal')
+        if result:
+            match = re.search(r'^(True|1|t)$', result, re.IGNORECASE);
+            if match:
+                return True
+            else:
+                return False
+        else:
+            return True # If the config entry is missing, default to true
 
 class Event:
     _xml = ""
@@ -1129,7 +1140,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.98 $")
+        rev = ExtractCvsRevision("$Revision: 1.99 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1570,7 +1581,8 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
         StandardCheckXmldoc(xmlDoc,usageRecord,external,prefix)
 
         [VOName, ReportableVOName] = [None, None]
-
+        id_info = { }
+        
         DebugPrint(4, "DEBUG: Finding UserIdentityNodes")
         UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
         DebugPrint(4, "DEBUG: Finding UserIdentityNodes (processing)")
@@ -1589,12 +1601,20 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
                                jobId)
 
                 DebugPrint(4, "DEBUG: Call CheckAndExtendUserIdentity")
-                [VOName, ReportableVOName] = \
-                         CheckAndExtendUserIdentity(xmlDoc,
-                                                    UserIdentityNodes[0],
-                                                    namespace,
-                                                    prefix)
+                id_info = CheckAndExtendUserIdentity(xmlDoc,
+                                                     UserIdentityNodes[0],
+                                                     namespace,
+                                                     prefix)
                 DebugPrint(4, "DEBUG: Call CheckAndExtendUserIdentity: OK")
+                if Config.get_NoCertinfoRecordsAreLocal() and \
+                       not (id_info.has_key('has_certinfo') and id_info['has_certinfo']):
+                    # Set Grid local
+                    DebugPrint(4, "DEBUG: no certinfo: setting Grid to Local")
+                    UpdateOrInsertElement(xmlDoc, usageRecord, namespace, prefix, 'Grid', 'Local')
+                if id_info.has_key("VOName"):
+                    VOName = id_info["VOName"]
+                if id_info.has_key("ReportableVOName"):
+                    ReportableVOName = id_info["ReportableVOName"]
             except Exception, e:
                 DebugPrint(0, "DEBUG: Caught exception: ", e)
                 DebugPrintTraceback()
@@ -1615,13 +1635,11 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
         # 3. A null or unknown VOName (prone to suppressing jobs we care
         # about if osg-user-vo-map.txt is not well-cared-for).
         reason = None
-        if Config.get_SuppressGridLocalRecords():
-            GridNodes = usageRecord.getElementsByTagNameNS(namespace, 'Grid')
-            if GridNodes.length == 1:
-                Grid = GridNodes[0].firstChild.data
-                if Grid and (string.lower(Grid) == 'local'):
-                    # 1
-                    reason = "Grid == Local"
+        Grid = GetElement(xmlDoc, usageRecord, namespace, prefix, 'Grid') 
+        if Config.get_SuppressGridLocalRecords() and \
+               Grid and (string.lower(Grid) == 'local'):
+            # 1
+            reason = "Grid == Local"
         elif Config.get_SuppressNoDNRecords() and not usageRecord.getElementsByTagNameNS(namespace, 'DN'):
             # 2
             reason = "missing DN"
@@ -2194,8 +2212,49 @@ def AddResource(xmlDoc, usageRecord, namespace, prefix, key, value):
 
     return __ResourceTool("UnconditionalAdd", xmlDoc, usageRecord, namespace, prefix, key, value)
 
+def GetElement(xmlDoc, parent, namespace, prefix, tag):
+    return __ElementTool(xmlDoc, parent, namespace, prefix, tag, None)
+
+def GetElementOrCreateDefault(xmlDoc, parent, namespace, prefix, tag, default):
+    if default == None: default = ''
+    return __ElementTool(xmlDoc, parent, namespace, prefix, tag, default)
+
+def __ElementTool(xmlDoc, parent, namespace, prefix, tag, default):
+    "Get the value if the element exists; otherwise create with default value if specified."
+
+    nodes = parent.getElementsByTagNameNS(namespace, tag)
+
+    if nodes and nodes.length > 0 and nodes[0].firstChild:
+        return nodes[0].firstChild.data
+    elif default != None:
+        UpdateOrInsertElement(xmlDoc, parent, namespace, prefix, tag, default)
+        return default
+    else:
+        return None
+
+def UpdateOrInsertElement(xmlDoc, parent, namespace, prefix, tag, value):
+    "Update or insert the first matching node under parent."
+
+    if value == None: value = ''
+
+    nodes = parent.getElementsByTagNameNS(namespace, tag)
+
+    if nodes and nodes.length > 0:
+        if nodes[0].firstChild:
+            nodes[0].firstChild.data = value
+        else:
+            textNode = xmlDoc.createTextNode(value)
+            nodes[0].appendChild(textNode)
+    else:
+        node = xmlDoc.createElementNS(namespace, prefix + tag)
+        textNode = xmlDoc.createTextNode(value)
+        node.appendChild(textNode)
+        recordElement.appendChild(node)
+
 def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     "Check the contents of the UserIdentity block and extend if necessary"
+
+    result = { }
 
     # LocalUserId
     LocalUserIdNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'LocalUserId')
@@ -2206,7 +2265,7 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
         DebugPrint(0, "Warning: UserIdentity block does not have exactly ",
                    "one populated LocalUserId node in " + jobIdType + " " +
                    jobId)
-        return [None, None]
+        return result
 
     LocalUserId = LocalUserIdNodes[0].firstChild.data
 
@@ -2224,7 +2283,7 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
         DebugPrint(0,
                    "Warning: UserIdentity block has multiple VOName nodes in " +
                    jobIdType + " " + jobId)
-        return [None, None]
+        return result
 
     # ReportableVOName
     ReportableVONameNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'ReportableVOName')
@@ -2241,7 +2300,7 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
         [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
         DebugPrint(0, "Warning: UserIdentity block has multiple ",
                    "ReportableVOName nodes in " + jobIdType + " " + jobId)
-        return [None, None]
+        return result
 
     ####################################################################
     # Priority goes as follows:
@@ -2254,6 +2313,16 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     #
     # 4. VOName from reverse map file.
 
+    DebugPrint(4, "DEBUG: Calling verifyFromCertInfo")
+    vo_info = verifyFromCertInfo(xmlDoc, userIdentityNode,
+                                 namespace, prefix)
+    if (vo_info != None):
+        result['has_certinfo'] = 1
+        if (vo_info and not ( vo_info['VOName'] or
+                              vo_info['ReportableVOName'])):
+            DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: No VOName data")
+            vo_info = None # Reset if no output.
+
     # 1. Initial values
     DebugPrint(4, "DEBUG: reading initial VOName")
     VOName = VONameNodes[0].firstChild.data
@@ -2265,26 +2334,15 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     DebugPrint(4, "DEBUG: current ReportableVOName = " +
                ReportableVONameNodes[0].firstChild.data)
 
-    vo_info = None
-
     # 2. Certinfo
-    if (not VOName) or VOName[0] != r'/':
-        DebugPrint(4, "DEBUG: Calling verifyFromCertInfo")
-        vo_info = verifyFromCertInfo(xmlDoc, userIdentityNode,
-                                     namespace, prefix)
-        if (vo_info == None) or \
-               (vo_info and (not vo_info['VOName'] and
-                             not vo_info['ReportableVOName'])):
-            DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: No VOName data")
-            vo_info = None # Reset if no output.
-        else:
-            DebugPrint(4, "DEBUG: Received values " + vo_info['VOName'] +
-                       " and " + vo_info['ReportableVOName'])
-            DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: DONE")
-            VONameNodes[0].firstChild.data = vo_info['VOName']
-            VOName = vo_info['VOName']
-            ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
-            ReportableVOName = vo_info['ReportableVOName']
+    if vo_info and ((not VOName) or VOName[0] != r'/'):
+      DebugPrint(4, "DEBUG: Received values " + vo_info['VOName'] +
+                 " and " + vo_info['ReportableVOName'])
+      DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: DONE")
+      VONameNodes[0].firstChild.data = vo_info['VOName']
+      VOName = vo_info['VOName']
+      ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
+      ReportableVOName = vo_info['ReportableVOName']
 
     # 3. & 4.
     if not vo_info and not VOName:
@@ -2322,7 +2380,10 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
         userIdentityNode.removeChild(ReportableVONameNodes[0])
         ReportableVONameNodes[0].unlink()
 
-    return [VOName, ReportableVOName]
+    result["VOName"] = VOName
+    result["ReportableVOName"] = ReportableVOName
+
+    return result
 
 def getUsageRecords(xmlDoc):
     if not xmlDoc.documentElement: return [] # Major problem
@@ -2459,9 +2520,14 @@ def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
     certInfo = readCertInfo(localJobId, probeName)
     DebugPrint(4, "DEBUG: call readCertInfo: OK")
     DebugPrint(4, "DEBUG: certInfo: " + str(certInfo))
-    if certInfo == None or (not certInfo.has_key('DN')) or (not certInfo['DN']):
-        DebugPrint(4, "Returning without processing certInfo")
+    if certInfo == None:
+        DebugPrint(4, "DEBUG: Returning without processing certInfo")
         return
+    elif (not certInfo.has_key('DN')) or (not certInfo['DN']):
+        # Found a certinfo file, but no useful info.
+        DebugPrint(4, "DEBUG: Certinfo with no DN: WS without delegation?")
+        return { 'VOName': certInfo['FQAN'],
+                 'ReportableVOName': certInfo['VO']}
     # Use certinfo
     DebugPrint(4, "DEBUG: fixing DN")
     certInfo['DN'] = FixDN(certInfo['DN']) # "Standard" slash format
