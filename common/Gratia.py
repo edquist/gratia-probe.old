@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.99 2009-01-14 00:23:16 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.100 2009-01-14 00:59:05 greenc Exp $
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -312,8 +312,8 @@ class ProbeConfiguration:
         else:
             return False # If the config entry is missing, default to false
 
-    def get_NoCertinfoRecordsAreLocal(self):
-        result = self.__getConfigAttribute('NoCertinfoRecordsAreLocal')
+    def get_NoCertinfoBatchRecordsAreLocal(self):
+        result = self.__getConfigAttribute('NoCertinfoBatchRecordsAreLocal')
         if result:
             match = re.search(r'^(True|1|t)$', result, re.IGNORECASE);
             if match:
@@ -1140,7 +1140,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.99 $")
+        rev = ExtractCvsRevision("$Revision: 1.100 $")
 
         self.ReporterLibrary("Gratia",rev);
 
@@ -1580,6 +1580,13 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
 
         StandardCheckXmldoc(xmlDoc,usageRecord,external,prefix)
 
+        # Add ResourceType if appropriate
+        if external and resourceType != None:
+            DebugPrint(4, "DEBUG: Adding missing resourceType " + str(resourceType))
+            AddResourceIfMissingKey(xmlDoc, usageRecord, namespace, prefix,
+                                    'ResourceType', resourceType)
+
+        # Identity info check
         [VOName, ReportableVOName] = [None, None]
         id_info = { }
         
@@ -1606,7 +1613,11 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
                                                      namespace,
                                                      prefix)
                 DebugPrint(4, "DEBUG: Call CheckAndExtendUserIdentity: OK")
-                if Config.get_NoCertinfoRecordsAreLocal() and \
+                ResourceType = FirstResourceMatching(xmlDoc, usageRecord,
+                                                     namespace, prefix, 'ResourceType')
+                DebugPrint(4, "DEBUG: Read ResourceType as " + str(ResourceType))
+                if Config.get_NoCertinfoBatchRecordsAreLocal() and \
+                       (ResourceType and ResourceType == 'Batch') and \
                        not (id_info.has_key('has_certinfo') and id_info['has_certinfo']):
                     # Set Grid local
                     DebugPrint(4, "DEBUG: no certinfo: setting Grid to Local")
@@ -1654,11 +1665,6 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
             usageRecord.parentNode.removeChild(usageRecord)
             usageRecord.unlink()
             continue
-
-        # Add ResourceType if appropriate
-        if external and resourceType != None:
-            AddResourceIfMissingKey(xmlDoc, usageRecord, namespace, prefix,
-                                    'ResourceType', resourceType)
 
     return len(getUsageRecords(xmlDoc))
 
@@ -2138,6 +2144,7 @@ def __ResourceTool(action, xmlDoc, usageRecord, namespace, prefix, key, value = 
 
     if action != "UpdateFirst" and \
        action != "ReadValues" and \
+       action != "ReadFirst" and \
        action != "AddIfMissingValue" and \
        action != "AddIfMissingKey" and \
        action != "UnconditionalAdd":
@@ -2161,10 +2168,13 @@ def __ResourceTool(action, xmlDoc, usageRecord, namespace, prefix, key, value = 
             elif action == "AddIfMissingKey":
                 # Kick out, since we're not missing the key
                 return None
+            elif action == "ReadFirst" and resource.firstChild:
+                return resource.firstChild.data
             elif action == "ReadValues" and resource.firstChild:
                 foundValues.append(resource.firstChild.data)
 
-    if action == "ReadValues": return foundValues # Done, no updating necessary
+    if action == "ReadValues":
+        return foundValues # Done, no updating necessary
 
     # Found
     if wantedResource: # UpdateFirst
@@ -2191,6 +2201,11 @@ def UpdateResource(xmlDoc, usageRecord, namespace, prefix, key, value):
     "Update a resource key in the XML record"
 
     return __ResourceTool("UpdateFirst", xmlDoc, usageRecord, namespace, prefix, key, value)
+
+def FirstResourceMatching(xmlDoc, usageRecord, namespace, prefix, key):
+    "Return value of first matching resource"
+
+    return __ResourceTool("ReadFirst", xmlDoc, usageRecord, namespace, prefix, key)
 
 def ResourceValues(xmlDoc, usageRecord, namespace, prefix, key):
     "Return all found values for a given resource"
