@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.00.5f
+Version: 1.00.5g
 Release: 1
 License: GPL
 Group: Applications/System
@@ -977,6 +977,9 @@ fi
 %endif # noarch
 
 %changelog
+* Tue Jan 20 2009 Christopher Green <greenc@fnal.gov> - 1.00.5g-1
+- Fix problem with walltime patch.
+
 * Tue Jan 20 2009 Christopher Green <greenc@fnal.gov> - 1.00.5f-1
 - Fix problem getting walltime and cputime if >100h.
 
