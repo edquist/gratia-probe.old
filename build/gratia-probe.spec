@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.00.5d
+Version: 1.00.5f
 Release: 1
 License: GPL
 Group: Applications/System
@@ -23,7 +23,7 @@ BuildRequires: gcc-c++
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
 %global gridftp_transfer_source gratia-probe-gridftp-transfer-%{gridftp_transfer_probe_version}.tar.bz2
-%global dcache_transfer_probe_version v0-2-6
+%global dcache_transfer_probe_version v0-2-7
 %global dcache_storage_probe_version v0-1-2
 %global gridftp_transfer_probe_version v0-2
 
@@ -102,6 +102,7 @@ Patch6: urCollector-2006-06-13-xmlUtil.h-gcc4.1-fixes.patch
 Patch7: urCollector-2006-06-13-tac-race.patch
 Patch8: urCollector-2006-06-13-parser-improve.patch
 Patch9: urCollector-2006-06-13-mppwidth.patch
+Patch10: urCollector-2006-06-13-walltime.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -126,6 +127,7 @@ cd urCollector-%{urCollector_version}
 %patch -P 7 -b .tac-race
 %patch -P 8 -b .parser-improve
 %patch -P 9 -b .mppwidth
+%patch -P 10 -b .walltime
 %setup -q -D -T -a 9
 %endif
 %setup -q -D -T -a 5
@@ -975,6 +977,15 @@ fi
 %endif # noarch
 
 %changelog
+* Tue Jan 20 2009 Christopher Green <greenc@fnal.gov> - 1.00.5f-1
+- Fix problem getting walltime and cputime if >100h.
+
+* Fri Jan 16 2009 Christopher Green <greenc@fnal.gov> - 1.00.5e-1
+- Update transfer probe to include Brian's latest fixes.
+- Gratia.py now handles marking of batch records without certinfo files
+-  as local.
+- SuppressGridLocalRecords is no longer defaulted to true.
+
 * Mon Dec 15 2008 Christopher Green <greenc@fnal.gov> - 1.00.5d-1
 - Add patch to urCollector.pl to understand mppwidth directive in PBS log.
 - Add facility to Gratia.py to extract the CVS revision from another file.
