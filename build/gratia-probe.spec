@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.00.5g
-Release: 1
+Version: 1.02.1
+Release: 5
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -25,7 +25,7 @@ BuildRequires: gcc-c++
 %global gridftp_transfer_source gratia-probe-gridftp-transfer-%{gridftp_transfer_probe_version}.tar.bz2
 %global dcache_transfer_probe_version v0-2-7
 %global dcache_storage_probe_version v0-1-2
-%global gridftp_transfer_probe_version v0-2
+%global gridftp_transfer_probe_version v0-3
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
 %define _unpackaged_files_terminate_build 0
@@ -40,22 +40,19 @@ BuildRequires: gcc-c++
 %{?python: %global pexec %{python}}
 %{!?python: %global pexec python }
 
-%global osg_collector gratia.opensciencegrid.org
-%global fnal_collector gratia-fermi.fnal.gov
-%global metric_collector metric.opensciencegrid.org
+%global default_collector_port 80
 
+%global metric_port 8880
 %if %{itb}
-  %global collector_port 8881
-  %global metric_port 8881
+  %global default_osg_collector gratia-osg-itb.opensciencegrid.org
+  %global default_fnal_collector gratia-fermi-itb.fnal.gov
   %global grid OSG-ITB
-  %global dcache_collector %{osg_collector}
-  %global dcache_port %{collector_port}
+  %global metric_collector rsv-itb.grid.iu.edu
 %else
-  %global dcache_collector gratia-transfer.opensciencegrid.org
-  %global collector_port 8880
-  %global metric_port 8880
+  %global default_osg_collector gratia-osg-prod.opensciencegrid.org
+  %global default_fnal_collector gratia-fermi-osg.fnal.gov
   %global grid OSG
-  %global dcache_port 8886
+  %global metric_collector rsv.grid.iu.edu
 %endif
 
 %{?vdt_loc: %global vdt_loc_set 1}
@@ -343,6 +340,9 @@ m&%{pbs_lsf_template_marker}& or print;
 "$config_file" >/dev/null 2>&1
 done
 
+%global osg_collector %{default_osg_collector}
+%global fnal_collector %{default_fnal_collector}
+%global collector_port %{default_collector_port}
 %configure_probeconfig_pre -d pbs-lsf -m pbs-lsf
 m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
@@ -453,7 +453,10 @@ The psacct probe for the Gratia OSG accounting system.
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 # /etc -> "${RPM_INSTALL_PREFIX2}"
 
-%configure_probeconfig_pre -p 8882 -d psacct -m psacct ${RPM_INSTALL_PREFIX1}/probe/psacct/facct-catchup ${RPM_INSTALL_PREFIX1}/probe/psacct/facct-turnoff.sh ${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh ${RPM_INSTALL_PREFIX1}/probe/psacct/gratia-psacct ${RPM_INSTALL_PREFIX2}/rc.d/init.d/gratia-psacct
+%global fnal_collector gratia-fermi-psacct.fnal.gov
+%global osg_collector %{fnal_collector}
+%global collector_port %{default_collector_port}
+%configure_probeconfig_pre -d psacct -m psacct ${RPM_INSTALL_PREFIX1}/probe/psacct/facct-catchup ${RPM_INSTALL_PREFIX1}/probe/psacct/facct-turnoff.sh ${RPM_INSTALL_PREFIX1}/probe/psacct/psacct_probe.cron.sh ${RPM_INSTALL_PREFIX1}/probe/psacct/gratia-psacct ${RPM_INSTALL_PREFIX2}/rc.d/init.d/gratia-psacct
 m&^/>& and print <<EOF;
     PSACCTFileRepository="$ENV{RPM_INSTALL_PREFIX1}/var/account/"
     PSACCTBackupFileRepository="$ENV{RPM_INSTALL_PREFIX1}/var/backup/"
@@ -542,6 +545,9 @@ The Condor probe for the Gratia OSG accounting system.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
+%global osg_collector %{default_osg_collector}
+%global fnal_collector %{default_fnal_collector}
+%global collector_port %{default_collector_port}
 %configure_probeconfig_pre -d condor -m condor
 m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
@@ -630,6 +636,9 @@ The SGE probe for the Gratia OSG accounting system.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
+%global osg_collector %{default_osg_collector}
+%global fnal_collector %{default_fnal_collector}
+%global collector_port %{default_collector_port}
 %configure_probeconfig_pre -d sge -m sge
 m&^/>& and print <<EOF;
     SGEAccountingFile=""
@@ -681,6 +690,9 @@ The gLExec probe for the Gratia OSG accounting system.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
+%global osg_collector %{default_osg_collector}
+%global fnal_collector %{default_fnal_collector}
+%global collector_port %{default_collector_port}
 %configure_probeconfig_pre -d glexec -m glexec
 s&(CertificateFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxy.pem"&;
 s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxykey.pem"&;
@@ -737,6 +749,9 @@ The metric probe for the Gratia OSG accounting system.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
+%global osg_collector %{metric_collector}
+%global fnal_collector %{metric_collector}
+%global collector_port %{metric_port}
 %configure_probeconfig_pre -d metric -m metric
 s&(CertificateFile\s*=\s*)\"[^\"]*\"&${1}"${RPM_INSTALL_PREFIX2}/grid-security/hostproxy.pem"&;
 s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"${RPM_INSTALL_PREFIX2}/grid-security/hostproxykey.pem"&;
@@ -785,8 +800,16 @@ Contributed by Greg Sharp and the dCache project.
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 # /etc -> "${RPM_INSTALL_PREFIX2}"
 
+%if %{itb}
+  %global osg_collector %{default_osg_collector}
+  %global fnal_collector %{default_fnal_collector}
+%else
+  %global osg_collector gratia-osg-transfer.opensciencegrid.org
+  %global fnal_collector gratia-fermi-transfer.fnal.gov
+%endif
+%global collector_port %{default_collector_port}
 # Configure ProbeConfig
-%configure_probeconfig_pre -d dCache-transfer -m dcache-transfer -M 600 -h %{dcache_collector} -p %{dcache_port}
+%configure_probeconfig_pre -d dCache-transfer -m dcache-transfer -M 600
 (m&\bVDTSetupFile\b& or m&\bUserVOMapFile\b&) and next; # Skip, not needed.
 m&^/>& and print <<EOF;
     UpdateFrequency="120"
@@ -871,7 +894,15 @@ Contributed by Greg Sharp and the dCache project.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
-%configure_probeconfig_pre -d dCache-storage -m dcache-storage -M 600 -h %{dcache_collector} -p %{dcache_port}
+%if %{itb}
+  %global osg_collector %{default_osg_collector}
+  %global fnal_collector %{default_fnal_collector}
+%else
+  %global osg_collector gratia-osg-transfer.opensciencegrid.org
+  %global fnal_collector gratia-fermi-transfer.fnal.gov
+%endif
+%global collector_port %{default_collector_port}
+%configure_probeconfig_pre -d dCache-storage -m dcache-storage -M 600
 (m&\bVDTSetupFile\b& or m&\bUserVOMapFile\b&) and next; # Skip, not needed
 m&^/>& and print <<EOF;
     DBHostName="localhost"
@@ -945,7 +976,15 @@ Contributed by Andrei Baranovski of the OSG storage team.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
-%configure_probeconfig_pre -d gridftp-transfer -m gridftp-transfer -M 600 -h %{dcache_collector} -p %{dcache_port}
+%if %{itb}
+  %global osg_collector %{default_osg_collector}
+  %global fnal_collector %{default_fnal_collector}
+%else
+  %global osg_collector gratia-osg-transfer.opensciencegrid.org
+  %global fnal_collector gratia-fermi-transfer.fnal.gov
+%endif
+%global collector_port %{default_collector_port}
+%configure_probeconfig_pre -d gridftp-transfer -m gridftp-transfer -M 600
 %configure_probeconfig_post
 
 perl -wapi.bak -e 's&^python &%{pexec} &g' \
@@ -977,6 +1016,22 @@ fi
 %endif # noarch
 
 %changelog
+* Wed Feb  4 2009 Christopher Green <greenc@fnal.gov> - 1.02.1-5
+- Correct soaphost configs.
+
+* Wed Feb  4 2009 Christopher Green <greenc@fnal.gov> - 1.02.1-4
+- Correct soaphost configs.
+
+* Wed Feb  4 2009 Christopher Green <greenc@fnal.gov> - 1.02.1-3
+- Correct soaphost configs.
+
+* Wed Feb  4 2009 Christopher Green <greenc@fnal.gov> - 1.02.1-2
+- Correct soaphost configs.
+
+* Wed Feb  4 2009 Christopher Green <greenc@fnal.gov> - 1.02.1-1
+- Update to main release no.
+- Update gridftp-transfer to v0.3 for bugfix from Andrei.
+
 * Tue Jan 20 2009 Christopher Green <greenc@fnal.gov> - 1.00.5g-1
 - Fix problem with walltime patch.
 
