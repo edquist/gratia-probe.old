@@ -16,6 +16,7 @@ __responseMatcherURLCheck = re.compile(r'Unknown Command: URL', re.IGNORECASE)
 __responseMatcherErrorCheck = re.compile(r'Error report</title', re.IGNORECASE)
 __certinfoLocalJobIdMunger = re.compile(r'(?P<ID>\d+(?:\.\d+)*)')
 __certinfoJobManagerExtractor = re.compile(r'gratia_certinfo_(?P<JobManager>(?:[^\d_][^_]*))')
+__certRejection = "Error: The certificate has been rejected by the Gratia Collector!";
 __lrms = None
 
 # FQAN now in production: switch should remain for now however.
@@ -389,7 +390,7 @@ __connection = None
 __connected = False
 __connectionError = False
 __connectionRetries = 0
-
+__certificateRejected = False
 
 def RegisterReporterLibrary(name,version):
     "Register the library named 'name' with version 'version'"
@@ -485,10 +486,11 @@ def __connect():
     global __connection
     global __connected
     global __connectionError
+    global __certificateRejected
     global __connectionRetries
     global __retryDelay
     global __last_retry_time
-
+    
     if __connectionError:
         __disconnect()
         __connectionError = False
@@ -496,7 +498,7 @@ def __connect():
             current_time = time.time()
             if not __last_retry_time: # Set time but do not reset failures
                 __last_retry_time = current_time
-                return
+                return __connected;
             if (current_time - __last_retry_time) > __retryDelay:
                 __last_retry_time = current_time
                 DebugPrint(1, "Retry connection after ", __retryDelay, "s")
@@ -515,21 +517,20 @@ def __connect():
             __connection.connect()
             DebugPrint(1,"Connection via HTTP to: " + Config.get_SOAPHost())
             #print "Using POST protocol"
-        elif Config.get_UseSSL() == 1 and Config.get_UseGratiaCertificates() == 0:
-            __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
-                                                   cert_file = Config.get_CertificateFile(),
-                                                   key_file = Config.get_KeyFile())
-            __connection.connect()
-            DebugPrint(1, "Connected via HTTPS to: " + Config.get_SSLHost())
-            #print "Using SSL protocol"
-        else:
+        else: 
+            # assert(Config.get_UseSSL() == 1)
+            if Config.get_UseGratiaCertificates() == 0:
+               pr_cert_file = Config.get_CertificateFile()
+               pr_key_file = Config.get_KeyFile()            
+            else:
+               pr_cert_file = Config.get_GratiaCertificateFile()
+               pr_key_file = Config.get_GratiaKeyFile()
+               
             DebugPrint(4, "DEBUG: Attempting to connect to HTTPS")
             try:
-                DebugPrint(4, "DEBUG: Requesting HTTPS connection")
-                __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
-                                                       cert_file = Config.get_GratiaCertificateFile(),
-                                                       key_file = Config.get_GratiaKeyFile())
-                DebugPrint(4, "DEBUG: Requesting HTTPS connection: OK")
+                 __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
+                                                        cert_file = pr_cert_file,
+                                                        key_file = pr_key_file)
             except Exception, e:
                 DebugPrint(0, "ERROR: could not initialize HTTPS connection")
                 DebugPrintTraceback()
@@ -541,7 +542,7 @@ def __connect():
                 DebugPrint(4, "DEBUG: Connect: OK")
             except Exception, e:
                 DebugPrint(4, "DEBUG: Connect: FAILED")
-                DebugPrint(0, "Error: caught exception " + str(e) + "Trying to connect to HTTPS")
+                DebugPrint(0, "Error: While trying to connect to HTTPS, caught exception " + str(e))
                 DebugPrintTraceback()
                 __connectionError = True
                 return __connected
@@ -590,6 +591,7 @@ def __disconnect():
 def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
     global __connection
     global __connectionError
+    global __certificateRejected
     global __connectionRetries
     global __urlencode_records
 
@@ -699,6 +701,10 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
                 # caller. There will be no infinite recursion because
                 # __url_records has been reset
                 response = __sendUsageXML(meterId, recordXml)
+            elif ( responseString == __certRejection ):
+                __connectionError = True
+                __certificateRejected = True
+                response = Response(-1, responseString)               
             else:
                 response = Response(-1, responseString)
         if responseString != None and \
@@ -738,7 +744,7 @@ def SendStatus(meterId):
 
         queryString = __encodeData("handshake", "probename=" + meterId);
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
-            response = Response(0,"Status message not support in SOAP mode")
+            response = Response(0,"Status message not supported in SOAP mode")
 
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
             __connection.request("POST", Config.get_CollectorService(), queryString);
