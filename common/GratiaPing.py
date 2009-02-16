@@ -1,6 +1,6 @@
 #!/bin/env python
 
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id$
+#@(#)gratia/probe/common:$HeadURL$:$Id$
 
 import getopt,sys
 import Gratia

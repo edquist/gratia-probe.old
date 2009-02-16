@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id$
+#@(#)gratia/probe/common:$HeadURL$:$Id$
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO

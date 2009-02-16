@@ -1,4 +1,4 @@
-#@(#)gratia/probe/psacct:$Name: not supported by cvs2svn $:$Id$
+#@(#)gratia/probe/psacct:$HeadURL $:$Id$
 
 #
 # Author:  Tim Byrne
