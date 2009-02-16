@@ -112,28 +112,3 @@ fi
 
 exit 0
 
-#==================================================================
-# CVS Log
-# $Log: not supported by cvs2svn $
-# Revision 1.5  2007/09/10 20:17:14  greenc
-# Update SPEC file.
-#
-# Improve redirection of non-managed output.
-#
-# Revision 1.4  2007/06/15 23:48:08  greenc
-# Fix silly problem
-#
-# Revision 1.3  2007/05/25 23:34:56  greenc
-# New utilities GetProbeConfigAttribute.py and DebugPrint.py.
-#
-# Cron scripts now check for EnableProbe attribute in config -- if present
-# and 0, probe will not be invoked and log entry will be made.
-#
-# Fix fragility in spec file using "global" macro.
-#
-# Revision 1.2  2007/03/08 18:24:34  greenc
-# Match VDT renaming of sge.py to sge_meter.py.
-#
-# Revision 1.1  2007/01/30 19:32:13  greenc
-# New probe for SGE. Related changes to package and build scripts.
-#
