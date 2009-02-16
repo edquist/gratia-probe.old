@@ -4,7 +4,7 @@
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
 # $Id$
-# Full Path: $Source: /var/tmp/move/gratia/probe/pbs-lsf/pbs-lsf_meter.cron.sh,v $
+# Full Path: $HeadURL$
 ###################################################################
 function check_if_running {
   # Need to be sure there is not one of these running already

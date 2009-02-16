@@ -4,7 +4,7 @@
 #   files for OSG accounting data collection.
 
 # $Id$
-# Full Path: $Source: /var/tmp/move/gratia/probe/sge/sge_meter.cron.sh,v $
+# Full Path: $HeadURL$
 
 Logger='/usr/bin/logger -s -t sge_meter'
 

@@ -3,7 +3,7 @@
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
 # $Id$
-# Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.pl,v $
+# Full Path: $HeadURL$
 #
 # Revision History:
 #     5 Nov 2005 - Initial concept

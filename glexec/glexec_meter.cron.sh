@@ -4,7 +4,7 @@
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
 # $Id$
-# Full Path: $Source: /var/tmp/move/gratia/probe/glexec/glexec_meter.cron.sh,v $
+# Full Path: $HeadURL$
 ###################################################################
 PGM=$(basename $0)
 Logger="/usr/bin/logger -s -t $PGM"
