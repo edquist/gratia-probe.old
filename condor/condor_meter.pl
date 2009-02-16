@@ -2,8 +2,8 @@
 #
 # condor_meter.pl - Prototype for an OSG Accouting 'meter' for Condor
 #       By Ken Schumacher <kschu@fnal.gov> Began 5 Nov 2005
-# $Id$
-# Full Path: $HeadURL$
+# $Id: condor_meter.pl 3002 2009-02-16 16:34:04Z pcanal $
+# Full Path: $HeadURL: https://gratia.svn.sourceforge.net/svnroot/gratia/trunk/probe/condor/condor_meter.pl $
 #
 # Revision History:
 #     5 Nov 2005 - Initial concept
@@ -27,8 +27,8 @@ sub create_unique_id(\%);
 
 my $progname = "condor_meter.pl";
 my $prog_version = '%%%RPMVERSION%%%';
-my $prog_revision = '$Revision$ '; # SVN Version number
-$prog_revision =~ s&\$Revision(?::\s*)?(.*)\$$&$1&;
+my $prog_revision = '$Revision: 1.32 $ '; # CVS Version number
+$prog_revision =~ s&\$Revision(?::\s*)?(.*?)\s*\$$&$1&;
 $prog_revision or $prog_revision = "unknown";
 
 #$true = 1; $false = 0;
