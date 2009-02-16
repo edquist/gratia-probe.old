@@ -426,6 +426,19 @@ def ExtractCvsRevisionFromFile(file):
         pipe.close()
     return result
 
+def ExtractSvnRevision(revision):
+    # Extra the numerical information from the SVN keyword:
+    # $Revision\: $
+    return revision.split("$")[1].split(":")[1].strip()
+
+def ExtractSvnRevisionFromFile(file):
+    pipe = os.popen(r"sed -ne 's/.*\$Revision\: \([^$][^$]*\)\$.*$/\1/p' " + file)
+    result = None
+    if pipe !=  None:
+        result = string.strip(pipe.readline())
+        pipe.close()
+    return result
+
 def Initialize(customConfig = "ProbeConfig"):
     "This function initializes the Gratia metering engine"
     "We connect/register with the collector and load"
@@ -1146,7 +1159,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision$")
+        rev = ExtractSvnRevision("$Revision$")
 
         self.ReporterLibrary("Gratia",rev);
 

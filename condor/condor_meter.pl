@@ -27,7 +27,7 @@ sub create_unique_id(\%);
 
 my $progname = "condor_meter.pl";
 my $prog_version = '%%%RPMVERSION%%%';
-my $prog_revision = '$Revision$ '; # CVS Version number
+my $prog_revision = '$Revision$ '; # SVN Version number
 $prog_revision =~ s&\$Revision(?::\s*)?(.*)\$$&$1&;
 $prog_revision or $prog_revision = "unknown";
 

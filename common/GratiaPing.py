@@ -36,7 +36,7 @@ if __name__ == '__main__':
                         sys.exit(0)
 
         rev = "$Revision$"
-        Gratia.RegisterReporter("GratiaPing.py",Gratia.ExtractCvsRevision(rev))
+        Gratia.RegisterReporter("GratiaPing.py",Gratia.ExtractSvnRevision(rev))
 
         Gratia.Initialize()
 

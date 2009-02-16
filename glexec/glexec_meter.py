@@ -143,7 +143,7 @@ def send_one(el,
 #
 
 def main():
-    rev =  Gratia.ExtractCvsRevision("$Revision$")
+    rev =  Gratia.ExtractSvnRevision("$Revision$")
     Gratia.RegisterReporter("glexec_meter.py", str(rev) + " (tag %%%RPMVERSION%%%)")
     Gratia.Initialize()
     sitename=Gratia.Config.get_SiteName()
