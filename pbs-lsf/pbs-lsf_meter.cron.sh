@@ -3,7 +3,7 @@
 # pbs-lsfr_meter.cron.sh - Shell script used with cron to parse PBS and LSF
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: pbs-lsf_meter.cron.sh,v 1.10 2008-09-08 21:40:51 greenc Exp $
+# $Id$
 # Full Path: $Source: /var/tmp/move/gratia/probe/pbs-lsf/pbs-lsf_meter.cron.sh,v $
 ###################################################################
 function check_if_running {

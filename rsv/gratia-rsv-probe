@@ -2,7 +2,7 @@ eval '(exit $?0)' && eval 'exec perl -S $0 ${1+"$@"}'
   && eval 'exec perl -S $0 $argv:q'
   if 0;
 ########################################################################
-# $Id: gratia-rsv-probe,v 1.2 2008-12-19 19:16:20 greenc Exp $
+# $Id$
 #
 # Check if Gratia probe installation is operating nominally.
 #
@@ -195,7 +195,7 @@ sub normal_exit {
 
 
 sub Pre_Initialize_Probe {
-  $o{'revision'} = '$Revision: 1.2 $';
+  $o{'revision'} = '$Revision$';
 
   $o{'helpIntro'} = <<'EOF';
 Probe to check whether Gratia probes are configured and operating.

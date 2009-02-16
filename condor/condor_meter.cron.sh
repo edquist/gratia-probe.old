@@ -3,7 +3,7 @@
 # condor_meter.cron.sh - Shell script used with cron to parse Condor log 
 #   files for OSG accounting data collection.
 #      By Ken Schumacher <kschu@fnal.gov>  Began 5 April 2006
-# $Id: condor_meter.cron.sh,v 1.6 2008-09-08 21:40:50 greenc Exp $
+# $Id$
 # Full Path: $Source: /var/tmp/move/gratia/probe/condor/condor_meter.cron.sh,v $
 
 Logger='/usr/bin/logger -s -t condor_meter'

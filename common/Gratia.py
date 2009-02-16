@@ -1,4 +1,4 @@
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: Gratia.py,v 1.100 2009-01-14 00:59:05 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id$
 
 import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
@@ -1146,7 +1146,7 @@ class ProbeDetails(Record):
         self.ProbeDetails = []
 
         # Extract the revision number
-        rev = ExtractCvsRevision("$Revision: 1.100 $")
+        rev = ExtractCvsRevision("$Revision$")
 
         self.ReporterLibrary("Gratia",rev);
 

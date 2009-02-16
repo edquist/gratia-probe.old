@@ -1,4 +1,4 @@
-#@(#)gratia/probe/psacct:$Name: not supported by cvs2svn $:$Id: PSACCTProbeLib.py,v 1.8 2007-02-23 16:42:58 pcanal Exp $
+#@(#)gratia/probe/psacct:$Name: not supported by cvs2svn $:$Id$
 
 #
 # Author:  Tim Byrne

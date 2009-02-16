@@ -3,7 +3,7 @@
 # glexec_meter.cron.sh - Shell script used with cron to parse glexec
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
-# $Id: glexec_meter.cron.sh,v 1.7 2008-09-08 21:40:50 greenc Exp $
+# $Id$
 # Full Path: $Source: /var/tmp/move/gratia/probe/glexec/glexec_meter.cron.sh,v $
 ###################################################################
 PGM=$(basename $0)

@@ -53,7 +53,7 @@ def GetRecord(jobid = 0):
         return r
 
 if __name__ == '__main__': 
-        rev = "$Revision: 1.1 $"
+        rev = "$Revision$"
         Gratia.RegisterReporterLibrary("samplemeter.py",Gratia.ExtractCvsRevision(rev))
         
         Gratia.Initialize()

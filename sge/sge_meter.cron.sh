@@ -3,7 +3,7 @@
 # sge_meter.cron.sh - Shell script used with cron to parse sge log 
 #   files for OSG accounting data collection.
 
-# $Id: sge_meter.cron.sh,v 1.6 2008-09-08 21:40:51 greenc Exp $
+# $Id$
 # Full Path: $Source: /var/tmp/move/gratia/probe/sge/sge_meter.cron.sh,v $
 
 Logger='/usr/bin/logger -s -t sge_meter'

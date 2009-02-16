@@ -1,6 +1,6 @@
 #!/bin/env python
 
-#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id: GratiaPing.py,v 1.2 2008-10-16 21:24:08 greenc Exp $
+#@(#)gratia/probe/common:$Name: not supported by cvs2svn $:$Id$
 
 import getopt,sys
 import Gratia
@@ -35,7 +35,7 @@ if __name__ == '__main__':
                         Usage()
                         sys.exit(0)
 
-        rev = "$Revision: 1.2 $"
+        rev = "$Revision$"
         Gratia.RegisterReporter("GratiaPing.py",Gratia.ExtractCvsRevision(rev))
 
         Gratia.Initialize()

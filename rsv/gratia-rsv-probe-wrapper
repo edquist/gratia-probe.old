@@ -2,7 +2,7 @@ eval '(exit $?0)' && eval 'exec perl -S $0 ${1+"$@"}'
   && eval 'exec perl -S $0 $argv:q'
   if 0;
 ########################################################################
-# $Id: gratia-rsv-probe-wrapper,v 1.1 2008-12-19 20:11:02 greenc Exp $
+# $Id$
 #
 # Execute gratia-rsv-probe for all found probes.
 #

@@ -1,4 +1,4 @@
-#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id: Metric.py,v 1.11 2008-02-22 17:25:44 pcanal Exp $
+#@(#)gratia/probe/metric:$Name: not supported by cvs2svn $:$Id$
 
 ## Updated by Arvind Gopu, Indiana University (http://peart.ucs.indiana.edu)
 ## More Updates by Arvind Gopu 2007-10-19
