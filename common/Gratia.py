@@ -265,7 +265,7 @@ class ProbeConfiguration:
                                        filehandle.read(), re.DOTALL)
                     filehandle.close()
                     if mapMatch: self.__UserVOMapFile = mapMatch.group(1)
-                except IOError, e:
+                except IOError:
                     pass
             else: # Last ditch guess
                 vdttop = self.__findVDTTop()
@@ -787,7 +787,7 @@ def LogToFile(message):
     "Write a message to the Gratia log file"
 
     global LogFileIsWriteable
-    file = None
+    current_file = None
     filename = "none"
 
     try:
@@ -803,10 +803,10 @@ def LogToFile(message):
             os.chmod(filename, 0755)
 
         # Open/Create a log file for today's date
-        file = open(filename, 'a')
+        current_file = open(filename, 'a')
 
         # Append the message to the log file
-        file.write(message + "\n")
+        current_file.write(message + "\n")
 
         LogFileIsWriteable = True
     except:
@@ -815,11 +815,12 @@ def LogToFile(message):
             print "Gratia: Unable to log to file:  ", filename, " ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1]
         LogFileIsWriteable = False
 
-    if file != None:
+    if current_file != None:
         # Close the log file
-        file.close()
+        current_file.close()
 
 def LogToSyslog(level, message) :
+    global LogFileIsWriteable
     import syslog
     if (level == -1) : syslevel = syslog.LOG_ERR
     else:
@@ -865,7 +866,7 @@ def RemoveOldFiles(nDays = 31, globexp = None):
 # Parameters
 #   nDays - remove file older than 'nDays' (default 31)
 #
-def RemoveOldBackups(self, probeConfig, nDays = 31):
+def RemoveOldBackups(nDays = 31):
     backupDir = Config.get_PSACCTBackupFileRepository()
     DebugPrint(1, " Removing Gratia data backup files older than ", nDays, " days from " , backupDir)
     RemoveOldFiles(nDays, os.path.join(backupDir, "*.log"))
@@ -877,7 +878,6 @@ def RemoveOldLogs(nDays = 31):
 
 def RemoveOldJobData(nDays = 31):
     dataDir = Config.get_DataFolder()
-    cutoff = time.time() - nDays * 24 * 3600
     DebugPrint(1, "Removing incomplete data files older than ", nDays, " days from " , dataDir)
     RemoveOldFiles(nDays, os.path.join(dataDir, "gratia_certinfo_*"))
     RemoveOldFiles(nDays, os.path.join(dataDir, "gratia_condor_log*"))
@@ -983,8 +983,8 @@ def SearchOutstandingRecord():
 
     fragment = FilenameProbeCollectorFragment()
 
-    for dir in BackupDirList:
-        path = os.path.join(dir,"gratiafiles")
+    for current_dir in BackupDirList:
+        path = os.path.join(current_dir,"gratiafiles")
         path = os.path.join(path,"r*."+Config.get_GratiaExtension())
         files = glob.glob(path) + glob.glob(path + "__*")
         for f in files:
@@ -997,13 +997,13 @@ def SearchOutstandingRecord():
 
     DebugPrint(1,"List of Outstanding records: ",OutstandingRecord.keys())
 
-def GenerateFilename(dir):
+def GenerateFilename(current_dir):
     "Generate a filename of the for gratia/r$UNIQUE.$pid.gratia.xml"
-    "in the directory 'dir'"
+    "in the directory 'current_dir'"
     filename = "r."+str(RecordPid)+ \
                "."+FilenameProbeCollectorFragment()+ \
                "."+Config.get_GratiaExtension() + "__XXXXXXXXXX"
-    filename = os.path.join(dir,filename)
+    filename = os.path.join(current_dir,filename)
     mktemp_pipe = os.popen("mktemp -q \"" + filename + "\"");
     if mktemp_pipe != None:
         filename = mktemp_pipe.readline()
@@ -1029,22 +1029,22 @@ def OpenNewRecordFile(DirIndex):
     # The file name will be rUNIQUE.$pid.gratia.xml
     DebugPrint(3,"Open request: ",DirIndex)
     index = 0
-    for dir in BackupDirList:
+    for current_dir in BackupDirList:
         index = index + 1
-        if index <= DirIndex or not os.path.exists(dir):
+        if index <= DirIndex or not os.path.exists(current_dir):
             continue
-        DebugPrint(3,"Open request: looking at ",dir)
-        dir = os.path.join(dir,"gratiafiles")
-        if not os.path.exists(dir):
+        DebugPrint(3,"Open request: looking at ",current_dir)
+        current_dir = os.path.join(current_dir,"gratiafiles")
+        if not os.path.exists(current_dir):
             try:
-                Mkdir(dir)
+                Mkdir(current_dir)
             except:
                 continue
-        if not os.path.exists(dir):
+        if not os.path.exists(current_dir):
             continue
-        if not os.access(dir,os.W_OK): continue
+        if not os.access(current_dir,os.W_OK): continue
         try:
-            filename = GenerateFilename(dir)
+            filename = GenerateFilename(current_dir)
             DebugPrint(1,"Creating file:",filename)
             f = open(filename,'w')
             DirIndex = index
@@ -1151,7 +1151,7 @@ class Record(object):
 class ProbeDetails(Record):
 #    ProbeDetails
 
-    def __init__(self, config):
+    def __init__(self):
         # Initializer
         super(self.__class__,self).__init__()
         DebugPrint(0,"Creating a ProbeDetails record "+TimeToString())
@@ -1519,7 +1519,7 @@ class UsageRecord(Record):
 def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
     "Check for and fill in suitable values for important attributes"
 
-    if not xmlDoc.documentElement: return 0 # Major problem
+    if not xmlDoc.documentElement: return # Major problem
 
     if external:
         # Local namespace
@@ -1774,14 +1774,14 @@ def CheckXmlDoc(xmlDoc,external,resourceType = None):
         content = content + checker(xmlDoc,external,resourceType)
     return content
 
-def Handshake(resetRetries = False):
+def Handshake():
     global Config
     global __connection
     global __connectionError
     global __connectionRetries
     global failedHandshakes
 
-    h = ProbeDetails(Config)
+    h = ProbeDetails()
 
     if __connectionError:
         # We are not currently connected, the SendHandshake
@@ -1795,6 +1795,7 @@ def Handshake(resetRetries = False):
             failedHandshakes -= 1 # Take a Mulligan
             result = SendHandshake(h)
 
+    return result
 
 def SendHandshake(record):
     global successfulHandshakes
@@ -1847,6 +1848,10 @@ def SendHandshake(record):
     if response.get_code() == 0:
         DebugPrint(1, 'Response indicates success, ')
         successfulHandshakes += 1
+        if (connectionProblem):
+            # Reprocess failed records before attempting more new ones
+            SearchOutstandingRecord()
+            Reprocess()
     else:
         DebugPrint(1, 'Response indicates failure, ')
         failedHandshakes += 1
@@ -1913,7 +1918,6 @@ def Send(record):
 
         dirIndex = 0
         success = False
-        ind = 0
         f = 0
 
         DebugPrint(4, "DEBUG: Back up record to send")
@@ -1979,13 +1983,14 @@ def Send(record):
             else:
                 DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
 
+        DebugPrint(0, responseString)
+        DebugPrint(0, "***********************************************************")
+
         if (connectionProblem) and (response.get_code() == 0):
             # Reprocess failed records before attempting more new ones
             SearchOutstandingRecord()
             Reprocess()
 
-        DebugPrint(0, responseString)
-        DebugPrint(0, "***********************************************************")
         return responseString
     except Exception, e:
         DebugPrint (0, "ERROR: " + str(e) + " exception caught while processing record ")
@@ -2066,7 +2071,6 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
 
         dirIndex = 0
         success = False
-        ind = 0
         f = 0
 
         while not success:
@@ -2283,7 +2287,7 @@ def UpdateOrInsertElement(xmlDoc, parent, namespace, prefix, tag, value):
         node = xmlDoc.createElementNS(namespace, prefix + tag)
         textNode = xmlDoc.createTextNode(value)
         node.appendChild(textNode)
-        recordElement.appendChild(node)
+        parent.appendChild(node)
 
 def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     "Check the contents of the UserIdentity block and extend if necessary"
@@ -2428,6 +2432,7 @@ def getUsageRecords(xmlDoc):
 # Check Python version number against requirements
 def pythonVersionRequire(major, minor = 0, micro = 0,
                          releaseLevel = "final", serial = 0):
+    result = False
     if not 'version_info' in dir(sys):
         if major < 2: # Unlikely
             return True
@@ -2438,31 +2443,32 @@ def pythonVersionRequire(major, minor = 0, micro = 0,
                          "candidate" : 2,
                          "final": 3 }
     if major > sys.version_info[0]:
-        return False
+        result = False
     elif major < sys.version_info[0]:
-        return True
+        result = True
     elif minor > sys.version_info[1]:
-        return False
+        result = False
     elif minor < sys.version_info[1]:
-        return True
+        result = True
     elif micro > sys.version_info[2]:
-        return False
+        result = False
     elif micro < sys.version_info[2]:
-        return True
+        result = True
     else:
         try:
             releaseLevelIndex = releaseLevelsDir[string.lower(releaseLevel)]
             releaseCompareIndex = releaseLevelsDir[string.lower(sys.version_info[3])]
-        except KeyError, e:
-            return False
+        except KeyError:
+            result = False
         if releaseLevelIndex > releaseCompareIndex:
-            return False
+            result = False
         elif releaseLevelIndex < releaseCompareIndex:
-            return True
+            result = True
         elif serial > sys.version_info[4]:
-            return False
+            result = False
         else:
-            return True
+            result = True
+    return result
 
 def safeEncodeXML(xmlDoc):
     if (pythonVersionRequire(2,3)):
@@ -2567,8 +2573,8 @@ def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
     certInfo['DN'] = FixDN(certInfo['DN']) # "Standard" slash format
     # First, find a KeyInfo node if it is there
     DebugPrint(4, "DEBUG: looking for KeyInfo node")
-    keyInfoNS = 'http://www.w3.org/2000/09/xmldsig#';
-    keyInfoNode = GetNode(userIdentityNode.getElementsByTagNameNS(keyInfoNS, 'KeyInfo'))
+    #    keyInfoNS = 'http://www.w3.org/2000/09/xmldsig#';
+    #    keyInfoNode = GetNode(userIdentityNode.getElementsByTagNameNS(keyInfoNS, 'KeyInfo'))
     DNnode = GetNode(userIdentityNode.getElementsByTagNameNS(namespace, 'DN'))
     if DNnode and DNnode.firstChild: # Override
         DebugPrint(4, "DEBUG: overriding DN from certInfo")
@@ -2644,7 +2650,7 @@ def readCertInfo(localJobId, probeName):
         certinfo_files = glob.glob(Config.get_DataFolder() + 'gratia_certinfo_*_' + localJobId + '*')
         if certinfo_files == None or len(certinfo_files) == 0:
             DebugPrint(4, "readCertInfo: could not find certinfo files matching localJobId " + str(localJobId))
-            return # No files
+            return None# No files
 
         if len(certinfo_files) == 1:
             fileMatch = __certinfoJobManagerExtractor.search(certinfo_files[0])
@@ -2653,6 +2659,7 @@ def readCertInfo(localJobId, probeName):
                 DebugPrint(4, "readCertInfo: (1) saving jobManager " +
                            fileMatch.group(1) + " for future reference")
 
+    result = None
     for certinfo in certinfo_files:
         found = 0 # Keep track of whether to return info for this file.
         result = None
@@ -2699,9 +2706,9 @@ def readCertInfo(localJobId, probeName):
             DebugPrint(0, 'ERROR: certinfo file ' + certinfo +
                        ' does not contain one valid GratiaCertInfo node')
 
-    if result != None:
-        return result
-    DebugPrint(0, 'ERROR: unable to find valid certinfo file for job ' + localJobId)
+    if result == None:
+        DebugPrint(0, 'ERROR: unable to find valid certinfo file for job ' + localJobId)
+    return result
 
 def GetNode(nodeList, nodeIndex = 0):
     if (nodeList == None) or (nodeList.length <= nodeIndex): return None
