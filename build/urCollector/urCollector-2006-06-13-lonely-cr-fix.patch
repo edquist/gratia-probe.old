@@ -1,0 +1,38 @@
+--- ./urCollector.pl~	2009-03-02 11:47:33.000000000 -0600
++++ ./urCollector.pl	2009-03-02 11:47:22.000000000 -0600
+@@ -706,29 +706,34 @@
+ 
+ 			my @fields = split(/\"/, $line);
+ 			my $fld;
++                        my $foundsomething = 0;
+ 			foreach $fld (@fields) {
+               next if ($fld =~ /^\s*$/o); # spaces in between
+               if ($fld =~ /^userDN=(.*)$/o) {
+ 				$userDN = $1;
+ 				print "userDN=$userDN; ";
++                                $foundsomething = 1;
+               } elsif ($fld =~ /^userFQAN=(.*)$/o) {
+ 				my $fqan = $1;
+                 if (! $fqan =~ /^\s*$/o) {
+ 				    push (@userFQANs, $fqan);
+ 				}
+ 				print "userFQAN=$fqan; ";
++                                $foundsomething = 1;
+               } elsif ($fld =~ /^ceID=(.*)$/o) {
+ 				$ceID = $1;
+ 				print "ceID=$ceID; ";
++                                $foundsomething = 1;
+               } elsif ($fld =~ /^jobID=(.*)$/o) {
+ 				$jobID = $1;
+ 				print "jobID=$jobID; ";
++                                $foundsomething = 1;
+ 				if ($jobID eq "none" || $jobID eq "NONE") {
+ 				    $jobID = "";
+ 				}
+ 			    }
+ 			}
+-			print "\n";
++			print "\n" if $foundsomething;
+ 
+ 			# check that we have the minimum info:
+ 			if ($ceID eq "") {
