@@ -41,8 +41,11 @@ sed -e 's/\/$//g' \
   ####################################
   # Clean up
   #
-  # CVS directories
-  find . -type d -name 'CVS' -exec rm -rf \{\} \; -prune 
+  ####################################
+  # Files ignored by subversion
+  find . -type d ! \( -name .svn -prune \) -print | while read dir; do
+    ( cd "$dir" ; rm -f `svn propget svn:ignore 2>/dev/null` )
+  done
   # Backup files
   find . \( -name '*~' -o -name '.#*' \) -exec rm -f \{\} \; 
   # Files referenced by .cvignore
@@ -50,6 +53,8 @@ sed -e 's/\/$//g' \
     cat ${cvsignore} | ( cd `dirname $cvsignore`; rm -f `cat` )
     rm -f ${cvsignore}
   done
+  # CVS and subversion directories
+  find . -type d \( -name 'CVS' -o -name '.svn' \) -exec rm -rf \{\} \; -prune 
   ####################################
   cd "${TMP}"
   # Make tar file
