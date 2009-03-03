@@ -108,7 +108,7 @@ diff -u -r -N tmp/urCollector/Configuration.pm ./urCollector/Configuration.pm
 +####################################
 +# Initialization / executable code
 +####################################
-+$configFilePath = "$URCOLLECTOR_LOC/etc/urCollector.conf";
++$configFilePath = "$URCOLLECTOR_LOC/urCollector.conf";
 +
 +%configValues =
 +(
