@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.02.1
-Release: 5
+Version: 1.02.1a
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -100,6 +100,8 @@ Patch7: urCollector-2006-06-13-tac-race.patch
 Patch8: urCollector-2006-06-13-parser-improve.patch
 Patch9: urCollector-2006-06-13-mppwidth.patch
 Patch10: urCollector-2006-06-13-walltime.patch
+Patch11: urCollector-2006-06-13-libexec-fix.patch
+Patch12: urCollector-2006-06-13-lonely-cr-fix.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -125,6 +127,8 @@ cd urCollector-%{urCollector_version}
 %patch -P 8 -b .parser-improve
 %patch -P 9 -b .mppwidth
 %patch -P 10 -b .walltime
+%patch -P 11 -b .libexec
+%patch -P 12 -b .lonely-cr
 %setup -q -D -T -a 9
 %endif
 %setup -q -D -T -a 5
@@ -202,8 +206,6 @@ cd SQLAlchemy-%{sqlalchemy_version}
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
   done
   cd "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf"
-  %{__ln_s} . etc
-  %{__ln_s} . libexec 
   cd - >/dev/null
 
    # Get urCollector software
@@ -308,8 +310,6 @@ This product includes software developed by The EU EGEE Project
 %{default_prefix}/probe/pbs-lsf/urCollector.pl
 %{default_prefix}/probe/pbs-lsf/urCollector/Common.pm
 %{default_prefix}/probe/pbs-lsf/urCollector/Configuration.pm
-%{default_prefix}/probe/pbs-lsf/etc
-%{default_prefix}/probe/pbs-lsf/libexec
 %{default_prefix}/probe/pbs-lsf/test/pbs-logdir/
 %{default_prefix}/probe/pbs-lsf/test/lsf-logdir/
 %config(noreplace) %{default_prefix}/probe/pbs-lsf/urCollector.conf
@@ -1016,6 +1016,11 @@ fi
 %endif # noarch
 
 %changelog
+* Mon Mar  2 2009 Christopher Green <greenc@fnal.gov> - 1.02.1a-1
+- Do not create etc and libexec links.
+- Add patches to remove reliance on existance of etc and libexec links.
+- Fix multiple pychecker problems in Gratia.py.
+
 * Wed Feb  4 2009 Christopher Green <greenc@fnal.gov> - 1.02.1-5
 - Correct soaphost configs.
 
