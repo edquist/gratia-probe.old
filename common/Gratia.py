@@ -2196,7 +2196,7 @@ def __ResourceTool(action, xmlDoc, usageRecord, namespace, prefix, key, value = 
             elif action == "ReadValues" and resource.firstChild:
                 foundValues.append(resource.firstChild.data)
 
-    if action == "ReadValues":
+    if action == "ReadValues" or action == "ReadFirst":
         return foundValues # Done, no updating necessary
 
     # Found
