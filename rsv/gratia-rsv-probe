@@ -90,6 +90,7 @@ unless (checkProbeDirs()) {
   normal_exit();
 }
 
+my ($run_me_root, $probeconfig_problems);
 my $soaphost = getProbeConfigAttribute("SOAPHost");
 my $probename = getProbeConfigAttribute("MeterName");
 my $sitename = getProbeConfigAttribute("SiteName");
@@ -115,10 +116,13 @@ if ($probe_in_cron != 1) {
 } elsif ($enabled ne "1") {
   setCritical();
   $m_gratia{detailsData} = "Probe $probename has EnableProbe not set to 1.";
+  $run_me_root = 1;
+  $probeconfig_problems = 1;
   normal_exit();
 } elsif ($probename =~ m&(?:generic|unknown)&i) {
   setCritical();
   $m_gratia{detailsData} = "MeterName $probename appears to be generic.";
+  $probeconfig_problems = 1;
   normal_exit();
 }
 
@@ -129,6 +133,7 @@ my $num_colons = $#colon_split;
 if ($num_colons != 1) {
   setWarning();
   $m_gratia{detailsData} = "Not one and only one \`:' in MeterName $probename.";
+  $probeconfig_problems = 1;
 }
 
 ################################
@@ -138,7 +143,12 @@ if ((!$sitename) or $sitename =~ m&(?:generic|unknown)&i) {
   add_to_details(<<EOF);
 Configured SiteName "$sitename" is empty or generic.
 EOF
+  $probeconfig_problems = 1;
 }
+
+################################
+# Any checks specific to the probe type
+probe_specific_checks();
 
 ################################
 # Check last contact time with Gratia server.
@@ -146,9 +156,11 @@ my $probe_contact_check =
   `wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?probename=$probename'`;
 chomp $probe_contact_check;
 
-$probe_contact_check =~ s&^last-contact=([^\s]+)\s+([^\s]+)$&${1}T${2}Z&;
+$probe_contact_check =~ s&^last-contact=([^\s]+)\s+([^\s]+?)\|$&${1}T${2}Z&;
+$probe_contact_check = ParseDate($probe_contact_check);
 
-my $cmpDate = DateCalc("today", "- 1 hour");
+my $cmpDateHour = DateCalc("today", "- 1 hour");
+my $cmpDateDay = DateCalc("today", "- 1 day");
 my $probe_seen_by_soaphost;
 if (!$probe_contact_check) {
   setUnknown();
@@ -157,14 +169,24 @@ Gratia server $soaphost not responding to obtain last contact details.
 EOF
 } elsif ($probe_contact_check eq "last-contact=never") {
   setCritical();
+  $run_me_root =1;
   add_to_details(<<EOF);
 Gratia server $soaphost has never seen probe $probename.
 EOF
   normal_exit();
-} elsif (Date_Cmp($probe_contact_check, $cmpDate) < 1) {
+} elsif (Date_Cmp($probe_contact_check, $cmpDateDay) < 1) {
+  setCritical();
+  $run_me_root =1;
+  add_to_details(<<EOF);
+Probe $probename has not been seen by Gratia collector $soaphost in >1d.
+Last contact time = $probe_contact_check
+EOF
+} elsif (Date_Cmp($probe_contact_check, $cmpDateHour) < 1) {
   setWarning();
+  $run_me_root =1;
   add_to_details(<<EOF);
 Probe $probename has not been seen by Gratia collector $soaphost in >1h.
+Last contact time = $probe_contact_check
 EOF
 } else {
   $probe_seen_by_soaphost = 1;
@@ -174,22 +196,19 @@ EOF
 # Cross-check locally configured site name matches Gratia server sitename.
 if ($probe_seen_by_soaphost) {
   my $probe_site_check =
-    system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^$probename: last-contact' >/dev/null 2>&1") == 0;
+    system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^probename=$probename|last-contact=' >/dev/null 2>&1") == 0;
 
   if (!$probe_site_check) {
     setWarning();
     add_to_details(<<EOF);
 Probe $probename not found in check of probes reporting to $soaphost from $sitename.
+Check Collector SiteName translation on $soaphost
 EOF
   }
 }
 
 ################################
 # Check log file for jobs reported.
-
-################################
-# Any checks specific to the probe type
-probe_specific_checks();
 
 # Set final status if we make it.
 $m_gratia{metricStatus} = "OK"
@@ -205,8 +224,23 @@ sub add_to_details {
                                    join("\n", @_));
 }
 
+sub runMeRoot {
+  add_to_details(<<EOF);
+Run tests as root for more diagnostic details, especially if you have a
+WARNING or CRITICAL status.
+EOF
+}
+
+sub probeConfigProblems {
+  add_to_details(<<EOF);
+Please check ProbeConfig for problems.
+EOF
+}
+
 sub normal_exit {
   return if $o{test} and not $_[0];
+  probeConfigProblems() if $probeconfig_problems;
+  runMeRoot() if $run_me_root;
   ## Print metric, and we're all done!
   &OSG_RSV_Probe_Base::Print_Summary_Metric_Results (\%o,\%m_gratia);
   exit (&OSG_RSV_Probe_Base::Get_Probe_Exit_Value(\%o,\%m_gratia));
@@ -260,16 +294,17 @@ sub probe_check_condor() {
   if ($status == 0) {
     # Make sure we're not suffering from alias problems.
     chomp $cmd_output;
-    $cmd_output =~ s&/$&& if $cmd_output;
-    $cmd_output = `(cd "$cmd_output" >/dev/null 2>&1 && /bin/pwd)`;
+    $cmd_output = `(cd "$cmd_output" >/dev/null 2>&1 && /bin/pwd)`
+      if $cmd_output;
     chomp $cmd_output;
   }
   if ($status == 127 or $cmd_output =~ m&command not found&) {
     setUknown();
     add_to_details(<<EOF);
 Unable to find condor_config_val command: could not check for presence
-of PER_JOB_HISTORY_DIR attribute
+of PER_JOB_HISTORY_DIR attribute in condor schedd configuration.
 $cmd_output
+Please check manually.
 EOF
     return 0;
   } elsif ($cmd_output =~ m&^Not defined:&i or $status != 0 or not $cmd_output) {
@@ -303,6 +338,7 @@ sub probe_check_pbs_lsf {
     setCritical();
     add_to_details(<<EOF);
 Error loading urCollector::Configuration: $@
+Major probe installation problem.
 EOF
     normal_exit();
   }
@@ -312,6 +348,7 @@ EOF
     setCritical();
     add_to_details(<<EOF);
 Error reading $URCOLLECTOR_LOC/urCollector.conf: $@
+Please check urCollector.conf file for errors.
 EOF
     normal_exit();
   }
@@ -320,6 +357,7 @@ EOF
     setCritical();
     add_to_details(<<EOF);
 Unrecognized lrmsType $urCollector::Configuration::configValues{lrmsType} in urCollector.conf
+Please check urCollector.conf file for errors.
 EOF
     normal_exit();
   }
@@ -329,12 +367,15 @@ EOF
     setCritical();
     add_to_details(<<EOF);
 Mismatch between probeType $probeType and configured lrmsType $urCollector::Configuration::configValues{lrmsType} in urCollector.conf.
+Please check urCollector.conf file for errors.
 EOF
     normal_exit();
   }
   unless ($is_root) { # Can't do these unless we're root.
+    $run_me_root = 1;
     add_to_details(<<EOF);
-Remaining checks on $urCollector::Configuration::configValues{lrmsType} require root privilege: please re-run this probe from the command line as root:
+Remaining checks on $urCollector::Configuration::configValues{lrmsType}
+require root privilege.
 EOF
     add_to_details(join(" ", $0, @ARGV));
     return;
