@@ -49,6 +49,8 @@ GetOptions(
           )
   or &OSG_RSV_Probe_Base::Print_Usage(\%o,\%m_gratia) && exit 1;
 
+my $is_root = not $<; # Are we running as root?
+
 ## Set initial metrics
 &Set_Metric();
 
@@ -82,37 +84,51 @@ unless (grep m&^\Q$ENV{VDT_LOCATION}/gratia/probe/common\E$&, @PYTHONPATH) {
   $ENV{PYTHONPATH} = join(":", @PYTHONPATH);
 }
 
-my $probeConfig_cmd = <<EOF;
-cd "$ENV{VDT_LOCATION}/gratia/probe/$probeType"; ../common/GetProbeConfigAttribute.py
-EOF
+# Check directories
+unless (checkProbeDirs()) {
+  setUnknown();
+  normal_exit();
+}
+
 my $soaphost = getProbeConfigAttribute("SOAPHost");
 my $probename = getProbeConfigAttribute("MeterName");
 my $sitename = getProbeConfigAttribute("SiteName");
 my $enabled = getProbeConfigAttribute("EnableProbe");
+my $datafolder = getProbeConfigAttribute("DataFolder");
+$datafolder =~ s&/$&&;
+my $real_datafolder = `(cd "$datafolder" >/dev/null 2>&1 && /bin/pwd)`;
+chomp $real_datafolder;
 
-my @colon_split = split /:/, $probename;
-my $num_colons = $#colon_split;
-
-my $probe_in_cron = system("crontab -l | grep -e '^\\s*[^#].*gratia/probe/$probeType/' >/dev/null 2>&1") == 0;
+my $probe_in_cron = system("crontab -l 2>/dev/null| grep -e '^\\s*[^#].*gratia/probe/$probeType/' >/dev/null 2>&1") == 0;
 
 ################################
 # Check some basic critical stuff
 if ($probe_in_cron != 1) {
-  setCritical();
-  $m_gratia{detailsData} = "Probe $probename is not listed in crontab.";
-  normal_exit();
+  if ($is_root) {
+    setCritical();
+    $m_gratia{detailsData} = "Probe $probename is not listed in crontab.";
+    normal_exit();
+  } else {
+    setUnknown();
+    $m_gratia{detailsData} = "Not root: cannot examine crontab";
+  }
 } elsif ($enabled ne "1") {
   setCritical();
   $m_gratia{detailsData} = "Probe $probename has EnableProbe not set to 1.";
-  normal_exit();
-} elsif ($num_colons != 1) {
-  setCritical();
-  $m_gratia{detailsData} = "Not one and only one \`:' in MeterName $probename.";
   normal_exit();
 } elsif ($probename =~ m&(?:generic|unknown)&i) {
   setCritical();
   $m_gratia{detailsData} = "MeterName $probename appears to be generic.";
   normal_exit();
+}
+
+#################################
+# Check format of MeterName
+my @colon_split = split /:/, $probename;
+my $num_colons = $#colon_split;
+if ($num_colons != 1) {
+  setWarning();
+  $m_gratia{detailsData} = "Not one and only one \`:' in MeterName $probename.";
 }
 
 ################################
@@ -135,7 +151,7 @@ $probe_contact_check =~ s&^last-contact=([^\s]+)\s+([^\s]+)$&${1}T${2}Z&;
 my $cmpDate = DateCalc("today", "- 1 hour");
 my $probe_seen_by_soaphost;
 if (!$probe_contact_check) {
-  setWarning();
+  setUnknown();
   add_to_details(<<EOF);
 Gratia server $soaphost not responding to obtain last contact details.
 EOF
@@ -169,6 +185,9 @@ EOF
 }
 
 ################################
+# Check log file for jobs reported.
+
+################################
 # Any checks specific to the probe type
 probe_specific_checks();
 
@@ -192,7 +211,6 @@ sub normal_exit {
   &OSG_RSV_Probe_Base::Print_Summary_Metric_Results (\%o,\%m_gratia);
   exit (&OSG_RSV_Probe_Base::Get_Probe_Exit_Value(\%o,\%m_gratia));
 }
-
 
 sub Pre_Initialize_Probe {
   $o{'revision'} = '$Revision$';
@@ -221,18 +239,67 @@ sub setWarning {
     $m_gratia{metricStatus} eq "CRITICAL";
 }
 
+sub setUnknown {
+  $m_gratia{metricStatus} = "UNKNOWN" unless
+    $m_gratia{metricStatus} eq "CRITICAL";
+}
+
 sub probe_specific_checks {
   if ($probeType =~ m&(?:pbs|pbs-lsf|lsf)&i) {
     # PBS / LSF probe checks
     probe_check_pbs_lsf();
+  } elsif ($probeType eq "condor") {
+    probe_check_condor();
   }
+}
+
+sub probe_check_condor() {
+  my $get_condor_config_cmd = ". $ENV{VDT_LOCATION}/setup.sh; condor_config_val PER_JOB_HISTORY_DIR";
+  my $cmd_output = `$get_condor_config_cmd 2>&1`;
+  my $status = $?;
+  if ($status == 0) {
+    # Make sure we're not suffering from alias problems.
+    chomp $cmd_output;
+    $cmd_output =~ s&/$&& if $cmd_output;
+    $cmd_output = `(cd "$cmd_output" >/dev/null 2>&1 && /bin/pwd)`;
+    chomp $cmd_output;
+  }
+  if ($status == 127 or $cmd_output =~ m&command not found&) {
+    setUknown();
+    add_to_details(<<EOF);
+Unable to find condor_config_val command: could not check for presence
+of PER_JOB_HISTORY_DIR attribute
+$cmd_output
+EOF
+    return 0;
+  } elsif ($cmd_output =~ m&^Not defined:&i or $status != 0 or not $cmd_output) {
+    setWarning();
+    add_to_details(<<EOF);
+PER_JOB_HISTORY_DIR apparently not set in condor_config or condor_config_val
+not operating as expected. Please ensure it is set to "$datafolder" in
+condor_config or the schedd machine's local configuration.
+EOF
+      return 0;
+  } else {
+    if ($status == 0 and $cmd_output ne $datafolder) {
+      setWarning();
+      add_to_details(<<EOF);
+PER_JOB_HISTORY_DIR is apparently set to "$cmd_output"
+in condor_config. It should be set to
+"$datafolder" as specified in ProbeConfig.
+Please rectify in condor_config or the schedd machine's local configuration.
+EOF
+      return 0;
+    }
+  }
+  return 1;
 }
 
 sub probe_check_pbs_lsf {
   my $URCOLLECTOR_LOC = "$ENV{VDT_LOCATION}/gratia/probe/$probeType";
   push @INC, $URCOLLECTOR_LOC;
   eval "require urCollector::Configuration";
-  if ($@) {                     # FAILED
+  if ($@) {                     # FAILED to load configuration module
     setCritical();
     add_to_details(<<EOF);
 Error loading urCollector::Configuration: $@
@@ -241,13 +308,22 @@ EOF
   }
   eval
     urCollector::Configuration::parseConf("$URCOLLECTOR_LOC/urCollector.conf");
-  if ($@) {                     # FAILED
+  if ($@) {                     # FAILED to parse configuration
     setCritical();
     add_to_details(<<EOF);
 Error reading $URCOLLECTOR_LOC/urCollector.conf: $@
 EOF
     normal_exit();
   }
+  # Check LRMS type setting
+  if ($urCollector::Configuration::configValues{lrmsType} !~ m&(?:pbs|lsf)&i) {
+    setCritical();
+    add_to_details(<<EOF);
+Unrecognized lrmsType $urCollector::Configuration::configValues{lrmsType} in urCollector.conf
+EOF
+    normal_exit();
+  }
+  # Check LRMS type matches probe type
   if ($probeType ne "pbs-lsf" and
       $urCollector::Configuration::configValues{lrmsType} ne $probeType) {
     setCritical();
@@ -255,6 +331,13 @@ EOF
 Mismatch between probeType $probeType and configured lrmsType $urCollector::Configuration::configValues{lrmsType} in urCollector.conf.
 EOF
     normal_exit();
+  }
+  unless ($is_root) { # Can't do these unless we're root.
+    add_to_details(<<EOF);
+Remaining checks on $urCollector::Configuration::configValues{lrmsType} require root privilege: please re-run this probe from the command line as root:
+EOF
+    add_to_details(join(" ", $0, @ARGV));
+    return;
   }
   if ($urCollector::Configuration::configValues{lrmsType} eq "pbs") {
     my $dir = $urCollector::Configuration::configValues{pbsAcctLogDir};
@@ -299,12 +382,46 @@ No log file $dir/lsb.events.
 Check lsfAcctLogDir in urCollector.conf and contents of $dir.
 EOF
     }
+  }
+}
+
+sub checkProbeDirs {
+  my $probe_dir = "$ENV{VDT_LOCATION}/gratia/probe/$probeType";
+  return (checkDirReadable($probe_dir, "$probeType probe directory") and
+          checkFileReadable("$probe_dir/ProbeConfig"));
+}
+
+sub checkDirReadable {
+  my ($dir, $description) = @_;
+  if (-d $dir and -r $dir) {
+    return 1;
   } else {
-    setCritical();
     add_to_details(<<EOF);
-Unrecognized lrmsType $urCollector::Configuration::configValues{lrmsType} in urCollector.conf
+DirectoryCheck: $dir ($description) does not exist or is not readable.
 EOF
-    normal_exit();
+    if (not $is_root) {
+      add_to_details(<<EOF);
+DirectoryCheck: Re-run as root?
+EOF
+    }
+    return 0;
+  }
+}
+
+sub checkFileReadable {
+  my ($file, $description) = @_;
+  if (-f $file and -r $file) {
+    return 1;
+  } else {
+    add_to_details(<<EOF);
+FileCheck: $file ($description) does not exist or is not readable.
+EOF
+    if (not $is_root) {
+      add_to_details(<<EOF);
+FileCheck: Re-run as root?
+EOF
+    }
+    return 0;
   }
 }
 
