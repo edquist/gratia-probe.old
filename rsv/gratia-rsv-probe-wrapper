@@ -8,6 +8,8 @@ eval '(exit $?0)' && eval 'exec perl -S $0 ${1+"$@"}'
 #
 ########################################################################
 
+####################################
+# Preamble
 use strict;
 
 use Getopt::Long;
@@ -21,8 +23,8 @@ my $prog_name = basename $0;
 my %options = ();
 my @excludes = ();
 
+# Make a spirited attempt to find where our libraries, etc are.
 BEGIN {
-  # Make a spirited attempt to find where our libraries, etc are.
   if (-l $0) {
     $script_top_dir = dirname(readlink($0));
   } else {
@@ -30,8 +32,13 @@ BEGIN {
   }
 }
 
+####################################
+# Main program
+
+# Configure option handling.
 Getopt::Long::Configure(qw(no_ignore_case bundling require_order));
 
+# Process options.
 GetOptions(\%options,
            "test|t",
            "exclude-probe|exclude|e=s@" => \@excludes,
@@ -71,6 +78,7 @@ if (scalar @cmd_options) {
 
 push @cmd, "-p" unless grep m&^-p$&, @cmd;
 
+# Execute probe once per probe directory.
 while (my $dir = readdir DIR) {
   next unless -d "$probedir/$dir";
   next if $dir =~ m&^\.+$&;
