@@ -14,6 +14,7 @@ use strict;
 use Getopt::Long;
 use OSG_RSV_Probe_Base;
 use Date::Manip;
+use File::Basename;
 
 ######## Global variables go here ################################
 our %o;                         ## Global hash to store "our" details i.e script's details
@@ -97,6 +98,7 @@ my $sitename = getProbeConfigAttribute("SiteName");
 my $enabled = getProbeConfigAttribute("EnableProbe");
 my $datafolder = getProbeConfigAttribute("DataFolder");
 $datafolder =~ s&/$&&;
+my $workingfolder = getProbeConfigAttribute("WorkingFolder");
 my $real_datafolder = `(cd "$datafolder" >/dev/null 2>&1 && /bin/pwd)`;
 chomp $real_datafolder;
 
@@ -107,21 +109,21 @@ my $probe_in_cron = system("crontab -l 2>/dev/null| grep -e '^\\s*[^#].*gratia/p
 if ($probe_in_cron != 1) {
   if ($is_root) {
     setCritical();
-    $m_gratia{detailsData} = "Probe $probename is not listed in crontab.";
+    $m_gratia{detailsData} = "Probe $probename is not listed in crontab.\n";
     normal_exit();
   } else {
     setUnknown();
-    $m_gratia{detailsData} = "Not root: cannot examine crontab";
+    $m_gratia{detailsData} = "Not root: cannot examine crontab.\n";
   }
 } elsif ($enabled ne "1") {
   setCritical();
-  $m_gratia{detailsData} = "Probe $probename has EnableProbe not set to 1.";
+  $m_gratia{detailsData} = "Probe $probename has EnableProbe not set to 1.\n";
   $run_me_root = 1;
   $probeconfig_problems = 1;
   normal_exit();
 } elsif ($probename =~ m&(?:generic|unknown)&i) {
   setCritical();
-  $m_gratia{detailsData} = "MeterName $probename appears to be generic.";
+  $m_gratia{detailsData} = "MeterName $probename appears to be generic.\n";
   $probeconfig_problems = 1;
   normal_exit();
 }
@@ -149,6 +151,15 @@ EOF
 ################################
 # Any checks specific to the probe type
 probe_specific_checks();
+
+################################
+# Check size of reprocessing queue
+my $npending = `(cd "$workingfolder/gratiafiles" >/dev/null 2>&1 && ls -1 | wc -l)`;
+chomp $npending;
+add_to_details("$npending files waiting to be re-sent to $soaphost\n");
+if ($npending > 1000) {
+  setWarning();
+}
 
 ################################
 # Check last contact time with Gratia server.
@@ -181,6 +192,7 @@ EOF
 Probe $probename has not been seen by Gratia collector $soaphost in >1d.
 Last contact time = $probe_contact_check
 EOF
+  normal_exit();
 } elsif (Date_Cmp($probe_contact_check, $cmpDateHour) < 1) {
   setWarning();
   $run_me_root =1;
@@ -220,15 +232,22 @@ normal_exit(1);
 # Subroutines
 ########################################################################
 sub add_to_details {
-  $m_gratia{detailsData} = sprintf("$m_gratia{detailsData}\n%s",
-                                   join("\n", @_));
+  $m_gratia{detailsData} = sprintf("$m_gratia{detailsData}%s",
+                                   join("", @_));
 }
 
 sub runMeRoot {
   add_to_details(<<EOF);
 Run tests as root for more diagnostic details, especially if you have a
 WARNING or CRITICAL status.
+Manual invocation:
 EOF
+  my $dir=dirname($0);
+  if ($dir eq ".") {
+    $dir=`/bin/pwd`;
+    chomp $dir;
+  }
+  add_to_details(sprintf("cd %s && ./%s -p ${probeType}\n", $dir, basename($0)));
 }
 
 sub probeConfigProblems {
@@ -374,12 +393,11 @@ EOF
   unless ($is_root) { # Can't do these unless we're root.
     $run_me_root = 1;
     add_to_details(<<EOF);
-Remaining checks on $urCollector::Configuration::configValues{lrmsType}
-require root privilege.
+Remaining checks on $urCollector::Configuration::configValues{lrmsType} require root privilege.
 EOF
-    add_to_details(join(" ", $0, @ARGV));
     return;
   }
+  # Check log directory
   if ($urCollector::Configuration::configValues{lrmsType} eq "pbs") {
     my $dir = $urCollector::Configuration::configValues{pbsAcctLogDir};
     my $date = UnixDate("today", "%Y%m%d");
@@ -422,6 +440,13 @@ EOF
 No log file $dir/lsb.events.
 Check lsfAcctLogDir in urCollector.conf and contents of $dir.
 EOF
+    }
+    # Check PBS files waiting to be converted to Gratia files
+    my $npending = `(cd "$workingfolder/urCollector" >/dev/null 2>&1 && ls -1 | wc -l)`;
+    chomp $npending;
+    add_to_details("$npending XML files waiting to be sent to $soaphost\n");
+    if ($npending > 2000) {
+      setWarning();
     }
   }
 }
