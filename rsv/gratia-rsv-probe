@@ -162,6 +162,14 @@ if ($npending > 1000) {
 }
 
 ################################
+# Check number of files in data area.
+my $ndata = `(cd "$datafolder" >/dev/null 2>&1 && ls -1 | wc -l)`;
+add_to_details("$ndata files in $datafolder\n");
+if ($ndata > 10000) {
+  setWarning();
+}
+
+################################
 # Check last contact time with Gratia server.
 my $probe_contact_check =
   `wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?probename=$probename'`;
