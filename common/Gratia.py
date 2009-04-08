@@ -2537,10 +2537,11 @@ def VOfromUser(user):
     return __UserVODictionary.get(user, None)
 
 def __encodeData(messageType, xmlData):
+    probename = Config.get_MeterName()
     if messageType[0:3] == "URL":
-        return urllib.urlencode([("command" , messageType), ("arg1", xmlData)]);
+        return urllib.urlencode([("command" , messageType), ("arg1", xmlData), ("from",probename)]);
     else:
-        return "command=" + messageType + "&arg1=" + xmlData
+        return "command=" + messageType + "&arg1=" + xmlData + "&from=" + probename
 
 def verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix):
     " Use localJobID and probeName to find cert info file and insert info into XML record"
