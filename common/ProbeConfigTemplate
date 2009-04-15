@@ -6,10 +6,13 @@
     SSLHost="gratia-osg.fnal.gov:8443" 
     SSLCollectorService="/gratia-servlets/rmi"
     SSLRegistrationHost="gratia-osg.fnal.gov:8880"
-    SSLRegistrationService="/gratia-security/security"
+    RegistrationService="/gratia-registration/register"
 
-    GratiaCertificateFile="gratia.hostcert.pem"
-    GratiaKeyFile="gratia.hostkey.pem"
+    CertificateFile="/etc/grid-security/hostcert.pem"
+    KeyFile="/etc/grid-security/hostkey.pem"
+
+    GratiaCertificateFile="MAGIC_VDT_LOCATION/gratia/var/cert/gratia.probecert.pem"
+    GratiaKeyFile="MAGIC_VDT_LOCATION/gratia/var/cert/gratia.probekey.pem"
 
     SOAPHost="gratia-osg.fnal.gov:8880" 
     CollectorService="/gratia-servlets/rmi" 
@@ -22,8 +25,6 @@
     LogLevel="2"
     DebugLevel="0" 
     GratiaExtension="gratia.xml"
-    CertificateFile="/etc/grid-security/hostcert.pem"
-    KeyFile="/etc/grid-security/hostkey.pem"
 
     VDTSetupFile="MAGIC_VDT_LOCATION/setup.sh"
     UserVOMapFile="MAGIC_VDT_LOCATION/monitoring/grid3-user-vo-map.txt"

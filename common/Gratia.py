@@ -8,6 +8,7 @@ import atexit
 import urllib
 import xml.sax.saxutils
 import exceptions
+from OpenSSL import crypto
 
 quiet = 0
 Config = None
@@ -106,14 +107,71 @@ class ProbeConfiguration:
     def get_SSLCollectorService(self):
         return self.__getConfigAttribute('SSLCollectorService')
 
-    def get_SSLRegistrationService(self):
-        return self.__getConfigAttribute('SSLRegistrationService')
+    def get_RegistrationService(self):
+        result = self.__getConfigAttribute('RegistrationService')
+        if (result == None or result == ''):
+           return "/gratia-registration/register"
+        else: 
+           return result
+
+    def __createCertificateFile(self,keyfile,certfile):
+        # Get a fresh certificate.
+
+        #if (False):
+        #  cakey = createKeyPair(crypto.TYPE_RSA, 1024)
+        #  careq = createCertRequest(cakey, CN='Certificate Authority')
+        #  cacert = createCertificate(careq, (careq, cakey), 0, (0, 60*60*24*365*1)) # one year
+        #  open(keyfile, 'w').write(crypto.dump_privatekey(crypto.FILETYPE_PEM, cakey))
+        #  open(certfile, 'w').write(crypto.dump_certificate(crypto.FILETYPE_PEM, cacert))
+        #  return True
+        #else:
+          # Download it from the server.
+          qconnection = httplib.HTTPConnection(self.get_SSLRegistrationHost())
+          qconnection.connect()
+
+          queryString = urllib.urlencode([("command" , "request"),("from",self.get_MeterName()),("arg1","not really")]);
+          headers = {"Content-type": "application/x-www-form-urlencoded"}
+          qconnection.request("POST", self.get_RegistrationService(), queryString, headers)
+          responseString = qconnection.getresponse().read()
+          resplist = responseString.split(':')
+          if ( len(resplist)==3 and resplist[0] == "ok" ):
+             # We good the info, let's store it
+             #cert = crypto.load_certificate(crypto.FILETYPE_PEM,resplist[1])
+             #key = crypto.load_privatekey(crypto.FILETYPE_PEM,resplist[1])
+             open(keyfile, 'w').write(resplist[2])
+             open(certfile, 'w').write(resplist[1])
+             # We could do
+             os.chmod(keyfile,0600)
+          else:
+             DebugPrint(4, "DEBUG: Connect: FAILED")
+             DebugPrint(0, "Error: while getting new certificate: " + responseString)
+             DebugPrintTraceback()
+             __connectionError = True
+             return False  
+          return True
 
     def get_GratiaCertificateFile(self):
-        return self.__getConfigAttribute('GratiaCertificateFile')
+        filename = self.__getConfigAttribute('GratiaCertificateFile')
+        if (filename == None or filename == ''):
+           filename = os.path.join(self.get_WorkingFolder(),"gratia.probecert.pem")
+        try:
+           f = open(filename,'r')
+           cert = crypto.load_certificate(crypto.FILETYPE_PEM, f.read())
+           if (cert.has_expired()):
+               if (not self.__createCertificateFile(self.get_GratiaKeyFile(),filename)):
+                  return None
+        except IOError,i:
+           # If we can not read it, let get a new one.
+           if (not self.__createCertificateFile(self.get_GratiaKeyFile(),filename)):
+              return None
+        
+        return filename
 
     def get_GratiaKeyFile(self):
-        return self.__getConfigAttribute('GratiaKeyFile')
+        filename =  self.__getConfigAttribute('GratiaKeyFile')
+        if (filename == None or filename == ''):
+           filename = os.path.join(self.get_WorkingFolder(),"gratia.probekey.pem")  
+        return filename
 
     def setMeterName(self,name):
         self.__MeterName = name
@@ -468,6 +526,72 @@ def Initialize(customConfig = "ProbeConfig"):
         # Attempt to reprocess any outstanding records
         Reprocess()
 
+
+##
+## Certificate handling routine
+##
+def createKeyPair(type, bits):
+    """
+    Create a public/private key pair.
+
+    Arguments: type - Key type, must be one of TYPE_RSA and TYPE_DSA
+               bits - Number of bits to use in the key
+    Returns:   The public/private key pair in a PKey object
+    """
+    pkey = crypto.PKey()
+    pkey.generate_key(type, bits)
+    return pkey
+
+def createCertRequest(pkey, digest="md5", **name):
+    """
+    Create a certificate request.
+
+    Arguments: pkey   - The key to associate with the request
+               digest - Digestion method to use for signing, default is md5
+               **name - The name of the subject of the request, possible
+                        arguments are:
+                          C     - Country name
+                          ST    - State or province name
+                          L     - Locality name
+                          O     - Organization name
+                          OU    - Organizational unit name
+                          CN    - Common name
+                          emailAddress - E-mail address
+    Returns:   The certificate request in an X509Req object
+    """
+    req = crypto.X509Req()
+    subj = req.get_subject()
+    for (key,value) in name.items():
+        setattr(subj, key, value)
+    req.set_pubkey(pkey)
+    req.sign(pkey, digest)
+    return req
+
+def createCertificate(req, (issuerCert, issuerKey), serial, (notBefore, notAfter), digest="md5"):
+    """
+    Generate a certificate given a certificate request.
+
+    Arguments: req        - Certificate reqeust to use
+               issuerCert - The certificate of the issuer
+               issuerKey  - The private key of the issuer
+               serial     - Serial number for the certificate
+               notBefore  - Timestamp (relative to now) when the certificate
+                            starts being valid
+               notAfter   - Timestamp (relative to now) when the certificate
+                            stops being valid
+               digest     - Digest method to use for signing, default is md5
+    Returns:   The signed certificate in an X509 object
+    """
+    cert = crypto.X509()
+    cert.set_serial_number(serial)
+    cert.gmtime_adj_notBefore(notBefore)
+    cert.gmtime_adj_notAfter(notAfter)
+    cert.set_issuer(issuerCert.get_subject())
+    cert.set_subject(req.get_subject())
+    cert.set_pubkey(req.get_pubkey())
+    cert.sign(issuerKey, digest)
+    return cert
+
 ##
 ## escapeXML
 ##
@@ -538,7 +662,12 @@ def __connect():
             else:
                pr_cert_file = Config.get_GratiaCertificateFile()
                pr_key_file = Config.get_GratiaKeyFile()
-               
+            
+            if (pr_cert_file == None):
+                DebugPrint(0, "Error: While trying to connect to HTTPS, no valid local certificate.")
+                __connectionError = True           
+                return __connected
+
             DebugPrint(4, "DEBUG: Attempting to connect to HTTPS")
             try:
                  __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
@@ -728,7 +857,8 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
     except SystemExit:
         raise
     except:
-        DebugPrint(0,'Failed to send xml to web service:  ', sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1])
+        DebugPrint(0,'Failed to send xml to web service due to an error of type "', sys.exc_info()[0], '": ', sys.exc_info()[1])
+        DebugPrintTraceback(1)
         # Upon a connection error, we will stop to try to reprocess but will continue to
         # try sending
         __connectionError = True
@@ -771,7 +901,9 @@ def SendStatus(meterId):
     except SystemExit:
         raise
     except:
-        DebugPrint(0,'Failed to send status update to web service:  ', sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1])
+        DebugPrint(0,'Failed to send xml to web service due to an error of type "', sys.exc_info()[0], '": ', sys.exc_info()[1])
+        DebugPrintTraceback(1)
+
         # Upon a connection error, we will stop to try to reprocess but will continue to
         # try sending
         __connectionError = True
