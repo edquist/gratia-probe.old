@@ -135,13 +135,24 @@ class ProbeConfiguration:
           responseString = qconnection.getresponse().read()
           resplist = responseString.split(':')
           if ( len(resplist)==3 and resplist[0] == "ok" ):
-             # We good the info, let's store it
+             # We received the info, let's store it
              #cert = crypto.load_certificate(crypto.FILETYPE_PEM,resplist[1])
              #key = crypto.load_privatekey(crypto.FILETYPE_PEM,resplist[1])
+
+             # First create any sub-directory if needed.
+             
+             dir = os.path.dirname(keyfile)
+             if dir!='' and os.path.exists(dir) == 0:
+                Mkdir(dir)
+             dir = os.path.dirname(certfile)
+             if dir!='' and os.path.exists(dir) == 0:
+                Mkdir(dir)
+
+             # and then save the pem files
              open(keyfile, 'w').write(resplist[2])
              open(certfile, 'w').write(resplist[1])
              # We could do
-             os.chmod(keyfile,0600)
+             # os.chmod(keyfile,0600)
           else:
              DebugPrint(4, "DEBUG: Connect: FAILED")
              DebugPrint(0, "Error: while getting new certificate: " + responseString)
