@@ -697,6 +697,9 @@ def __connect():
     global __retryDelay
     global __last_retry_time
     
+    #__connectionError = True
+    #return __connected
+    
     if __connectionError:
         __disconnect()
         __connectionError = False
@@ -1976,7 +1979,7 @@ def ProcessBundle(bundle):
     for item in bundle.content:
         if __connectionError:
             # Fail record without attempting to send.
-            failedBundleProcessCount += 1
+            failedBundleCount += 1
             continue
 
         xmlData = None
@@ -1995,14 +1998,14 @@ def ProcessBundle(bundle):
            except:
               DebugPrint(1, 'Processing bundle failure: unable to read file' + filename)
               responseString = responseString + '\nUnable to read from ' + filename
-              failedBundleProcessCount += 1
+              failedBundleCount += 1
               continue
 
         if not xmlData:
             DebugPrint(1, 'Processing bundle failure: ' + filename +
                        ' was empty: skip send')
             responseString = responseString + '\nEmpty file ' + filename + ': XML not sent'
-            failedBundleProcessCount += 1
+            failedBundleCount += 1
             continue
         
         xmlData = __xmlintroRemove.sub('',xmlData)
