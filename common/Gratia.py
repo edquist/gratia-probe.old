@@ -211,6 +211,11 @@ class ProbeConfiguration:
             result = self.__getConfigAttribute('ProbeName')
             if (result == None or result == ''):
                 result = self.__getConfigAttribute('MeterName')
+            elif (result == "generic"):
+                # If ProbeName has not been changed, maybe MeterName has been
+                mresult = self.__getConfigAttribute('MeterName')
+                if (mresult != None and mresult != ''):
+                   result = mresult
             if (result == None or result == ''):
                 self.setProbeName(genDefaultProbeName())
                 DebugPrint(0, "INFO: ProbeName not specified in " +

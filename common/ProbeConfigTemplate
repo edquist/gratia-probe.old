@@ -23,6 +23,8 @@
     ProbeName="generic" 
     SiteName="Generic Site"
     Grid="OSG"
+    Comments2="MeterName is deprecated, use ProbeName instead (But MeterName will be used if ProbeName is not set or is set to 'generic')"
+    MeterName="generic"
     
     LogLevel="2"
     DebugLevel="0" 
