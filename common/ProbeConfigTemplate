@@ -1,48 +1,55 @@
 <ProbeConfiguration 
-    UseSSL="0" 
 
-    UseGratiaCertificates="0"
-
-    SSLHost="gratia-osg.fnal.gov:8443" 
-    SSLCollectorService="/gratia-servlets/rmi"
-    SSLRegistrationHost="gratia-osg.fnal.gov:8880"
-    RegistrationService="/gratia-registration/register"
-
-    CertificateFile="/etc/grid-security/hostcert.pem"
-    KeyFile="/etc/grid-security/hostkey.pem"
-
-    Comments0="If no directory is specified the gratia certificate file will be created in 'WorkingFolder'/certs."
-    GratiaCertificateFile="gratia.probecert.pem"
-    GratiaKeyFile="gratia.probekey.pem"
+    Title1="Collector Information"
 
     SOAPHost="gratia-osg.fnal.gov:8880" 
+    SSLHost="gratia-osg.fnal.gov:8443" 
+    SSLRegistrationHost="gratia-osg.fnal.gov:8880"
+
     CollectorService="/gratia-servlets/rmi" 
-    UseSoapProtocol="0"
-    
-    Comments1="ProbeName used to be spelled 'MeterName'"
+    SSLCollectorService="/gratia-servlets/rmi"
+    RegistrationService="/gratia-registration/register"
+
+    Title2="Probe information and functional configuration"
+
     ProbeName="generic" 
+       Comments0="ProbeName used to be spelled 'MeterName'"
     SiteName="Generic Site"
     Grid="OSG"
-    Comments2="MeterName is deprecated, use ProbeName instead (But MeterName will be used if ProbeName is not set or is set to 'generic')"
-    MeterName="generic"
-    
+    SuppressUnknownVORecords="0"
+    SuppressNoDNRecords="0"
+    SuppressGridLocalRecords="0"
+    EnableProbe="0"
+
+    Title3="Tuning parameter"
+
+    MaxPendingFiles="100000"
+    UseSyslog="0"
+
     LogLevel="2"
     DebugLevel="0" 
+    LogRotate="31"
     GratiaExtension="gratia.xml"
+
+    Title4="Authentication Configuration"
+
+    UseSSL="0" 
+    CertificateFile="/etc/grid-security/hostcert.pem"
+    KeyFile="/etc/grid-security/hostkey.pem"
+    UseGratiaCertificates="0"
+       Comments1="If no directory is specified the gratia certificate file will be created in 'WorkingFolder'/certs."
+    GratiaCertificateFile="gratia.probecert.pem"
+    GratiaKeyFile="gratia.probekey.pem"
+    
+
+    Title5="File and directory location"
 
     VDTSetupFile="MAGIC_VDT_LOCATION/setup.sh"
     UserVOMapFile="MAGIC_VDT_LOCATION/monitoring/grid3-user-vo-map.txt"
     GridftpLogDir="MAGIC_VDT_LOCATION/globus/var/log"
 
-    MaxPendingFiles="100000"
     DataFolder="MAGIC_VDT_LOCATION/gratia/var/data/"
     WorkingFolder="MAGIC_VDT_LOCATION/gratia/var/tmp"
     LogFolder="MAGIC_VDT_LOCATION/gratia/var/logs/"
-    LogRotate="31"
-    UseSyslog="0"
-    SuppressUnknownVORecords="0"
-    SuppressNoDNRecords="0"
-    SuppressGridLocalRecords="0"
-    EnableProbe="0"
 
 />
