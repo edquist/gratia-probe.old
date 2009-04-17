@@ -44,7 +44,7 @@ def disconnect_at_exit():
 class ProbeConfiguration:
     __doc = None
     __configname = "ProbeConfig"
-    __MeterName = None
+    __ProbeName = None
     __SiteName = None
     __Grid = None
     __DebugLevel = None
@@ -134,7 +134,7 @@ class ProbeConfiguration:
           qconnection = httplib.HTTPConnection(self.get_SSLRegistrationHost())
           qconnection.connect()
 
-          queryString = urllib.urlencode([("command" , "request"),("from",self.get_MeterName()),("arg1","not really")]);
+          queryString = urllib.urlencode([("command" , "request"),("from",self.get_ProbeName()),("arg1","not really")]);
           headers = {"Content-type": "application/x-www-form-urlencoded"}
           qconnection.request("POST", self.get_RegistrationService(), queryString, headers)
           responseString = qconnection.getresponse().read()
@@ -198,19 +198,27 @@ class ProbeConfiguration:
         return self.__get_fullpath_cert(filename)
 
     def setMeterName(self,name):
-        self.__MeterName = name
+        self.__ProbeName = name
 
-    def get_MeterName(self):
-        if (self.__MeterName == None):
-            result = self.__getConfigAttribute('MeterName')
+    def getMeterName(self,name):
+        return self.get_ProbeName(name)
+
+    def setProbeName(self,name):
+        self.__ProbeName = name
+
+    def get_ProbeName(self):
+        if (self.__ProbeName == None):
+            result = self.__getConfigAttribute('ProbeName')
             if (result == None or result == ''):
-                self.setMeterName(genDefaultMeterName())
-                DebugPrint(0, "INFO: MeterName not specified in " +
+                result = self.__getConfigAttribute('MeterName')
+            if (result == None or result == ''):
+                self.setProbeName(genDefaultProbeName())
+                DebugPrint(0, "INFO: ProbeName not specified in " +
                            self.__configname + ": defaulting to " +
-                           self.__MeterName)
+                           self.__ProbeName)
             else:
-                self.setMeterName(result)
-        return self.__MeterName
+                self.setProbeName(result)
+        return self.__ProbeName
 
     def get_Grid(self):
         if (self.__Grid == None):
@@ -1187,7 +1195,7 @@ def GenerateFilename(current_dir):
 
 def FilenameProbeCollectorFragment():
     "Generate a filename fragment based on the collector destination"
-    fragment = Config.get_MeterName()
+    fragment = Config.get_ProbeName()
     if fragment: fragment += '_'
     if Config.get_UseSSL() == "1":
         fragment += Config.get_SSLHost()
@@ -1247,7 +1255,7 @@ class Record(object):
         # parameter
         DebugPrint(0,"Creating a Record "+TimeToString())
         self.XmlData = []
-        self.__ProbeName = Config.get_MeterName()
+        self.__ProbeName = Config.get_ProbeName()
         self.__SiteName = Config.get_SiteName()
         self.__Grid = Config.get_Grid()
         self.RecordData = []
@@ -1699,7 +1707,7 @@ def StandardCheckXmldoc(xmlDoc,recordElement,external,prefix):
         ProbeNameNodes = recordElement.getElementsByTagNameNS(namespace, 'ProbeName')
         if not ProbeNameNodes:
             node = xmlDoc.createElementNS(namespace, prefix + 'ProbeName')
-            textNode = xmlDoc.createTextNode(Config.get_MeterName())
+            textNode = xmlDoc.createTextNode(Config.get_ProbeName())
             node.appendChild(textNode)
             recordElement.appendChild(node)
         elif ProbeNameNodes.length > 1:
@@ -1917,7 +1925,7 @@ def Reprocess():
             continue
 
         # Send the xml to the collector for processing
-        response = __sendUsageXML(Config.get_MeterName(), xmlData)
+        response = __sendUsageXML(Config.get_ProbeName(), xmlData)
         DebugPrint(1, 'Reprocess Response:  ' + response.get_message())
         responseString = responseString + '\nReprocessed ' + failedRecord + ':  ' + response.get_message()
 
@@ -2008,7 +2016,7 @@ def SendHandshake(record):
     # Attempt to send the record to the collector. Note that this must
     # be sent currently as an update, not as a handshake (cf unused
     # SendStatus() call)
-    response = __sendUsageXML(Config.get_MeterName(), usageXmlString)
+    response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
     responseString = response.get_message()
 
     DebugPrint(0, 'Response code:  ' + str(response.get_code()))
@@ -2125,7 +2133,7 @@ def Send(record):
         connectionProblem = (__connectionRetries > 0) or (__connectionError)
 
         # Attempt to send the record to the collector
-        response = __sendUsageXML(Config.get_MeterName(), usageXmlString)
+        response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
         responseString = response.get_message()
 
         DebugPrint(0, 'Response code:  ' + str(response.get_code()))
@@ -2288,7 +2296,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
         messageType = "URLEncodedUpdate"
 
         # Attempt to send the record to the collector
-        response = __sendUsageXML(Config.get_MeterName(), usageXmlString, messageType)
+        response = __sendUsageXML(Config.get_ProbeName(), usageXmlString, messageType)
 
         DebugPrint(0, 'Response code:  ' + str(response.get_code()))
         DebugPrint(0, 'Response message:  ' + response.get_message())
@@ -2708,7 +2716,7 @@ def VOfromUser(user):
     return __UserVODictionary.get(user, None)
 
 def __encodeData(messageType, xmlData):
-    probename = Config.get_MeterName()
+    probename = Config.get_ProbeName()
     if messageType[0:3] == "URL":
         return urllib.urlencode([("command" , messageType), ("arg1", xmlData), ("from",probename)]);
     else:
@@ -2902,7 +2910,7 @@ def DebugPrintTraceback(debugLevel = 4):
     DebugPrint(4, "In traceback print (1)")
     DebugPrint(debugLevel, message)
 
-def genDefaultMeterName():
+def genDefaultProbeName():
     f = os.popen("hostname -f")
     meterName = "auto:" + f.read().strip()
     f.close()

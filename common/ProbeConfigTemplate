@@ -11,14 +11,16 @@
     CertificateFile="/etc/grid-security/hostcert.pem"
     KeyFile="/etc/grid-security/hostkey.pem"
 
-    GratiaCertificateFile="MAGIC_VDT_LOCATION/gratia/var/cert/gratia.probecert.pem"
-    GratiaKeyFile="MAGIC_VDT_LOCATION/gratia/var/cert/gratia.probekey.pem"
+    Comments0="If no directory is specified the gratia certificate file will be created in 'WorkingFolder'/certs."
+    GratiaCertificateFile="gratia.probecert.pem"
+    GratiaKeyFile="gratia.probekey.pem"
 
     SOAPHost="gratia-osg.fnal.gov:8880" 
     CollectorService="/gratia-servlets/rmi" 
     UseSoapProtocol="0"
     
-    MeterName="generic" 
+    Comments1="ProbeName used to be spelled 'MeterName'"
+    ProbeName="generic" 
     SiteName="Generic Site"
     Grid="OSG"
     
