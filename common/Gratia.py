@@ -126,6 +126,11 @@ class ProbeConfiguration:
         #  return True
         #else:
           # Download it from the server.
+          
+          # Try this only once per run
+          if (isCertrequestRejected()): 
+             return False
+          
           qconnection = httplib.HTTPConnection(self.get_SSLRegistrationHost())
           qconnection.connect()
 
@@ -157,23 +162,31 @@ class ProbeConfiguration:
              DebugPrint(4, "DEBUG: Connect: FAILED")
              DebugPrint(0, "Error: while getting new certificate: " + responseString)
              DebugPrintTraceback()
-             __connectionError = True
+             setCertrequestRejected()
              return False  
           return True
+
+    def __get_fullpath_cert(self, filename):
+        dir = os.path.dirname(filename)
+        if dir!='' or dir == None:
+           return filename
+        return os.path.join(os.path.join(self.get_WorkingFolder(),"certs"),filename)
 
     def get_GratiaCertificateFile(self):
         filename = self.__getConfigAttribute('GratiaCertificateFile')
         if (filename == None or filename == ''):
-           filename = os.path.join(self.get_WorkingFolder(),"gratia.probecert.pem")
+           filename = "gratia.probecert.pem"
+        filename = self.__get_fullpath_cert(filename)
+        keyfile = self.get_GratiaKeyFile()
         try:
            f = open(filename,'r')
            cert = crypto.load_certificate(crypto.FILETYPE_PEM, f.read())
-           if (cert.has_expired()):
-               if (not self.__createCertificateFile(self.get_GratiaKeyFile(),filename)):
+           if (cert.has_expired() or os.path.exists(keyfile) == 0 ):
+               if (not self.__createCertificateFile(keyfile,filename)):
                   return None
         except IOError,i:
            # If we can not read it, let get a new one.
-           if (not self.__createCertificateFile(self.get_GratiaKeyFile(),filename)):
+           if (not self.__createCertificateFile(keyfile,filename)):
               return None
         
         return filename
@@ -181,8 +194,8 @@ class ProbeConfiguration:
     def get_GratiaKeyFile(self):
         filename =  self.__getConfigAttribute('GratiaKeyFile')
         if (filename == None or filename == ''):
-           filename = os.path.join(self.get_WorkingFolder(),"gratia.probekey.pem")  
-        return filename
+           filename = "gratia.probekey.pem"
+        return self.__get_fullpath_cert(filename)
 
     def setMeterName(self,name):
         self.__MeterName = name
@@ -460,6 +473,17 @@ __connected = False
 __connectionError = False
 __connectionRetries = 0
 __certificateRejected = False
+__certrequestRejected = False
+
+def isCertrequestRejected():
+    global __certrequestRejected
+    return __certrequestRejected
+
+def setCertrequestRejected():
+    global __certrequestRejected
+    global __connectionError
+    __connectionError = True
+    __certrequestRejected = True
 
 def RegisterReporterLibrary(name,version):
     "Register the library named 'name' with version 'version'"
@@ -694,6 +718,10 @@ def __connect():
                 __connection.connect()
                 DebugPrint(4, "DEBUG: Connect: OK")
             except Exception, e:
+                #if Config.get_UseGratiaCertificates() != 0 and e[0]==1 and e[1]=="error:14094416:SSL routines:SSL3_READ_BYTES:sslv3 alert certificate unknown":
+                  # The certificate is not known, possibly the server 'forgot' about it.
+                #  print e[0]
+                #  print e[1]
                 DebugPrint(4, "DEBUG: Connect: FAILED")
                 DebugPrint(0, "Error: While trying to connect to HTTPS, caught exception " + str(e))
                 DebugPrintTraceback()
