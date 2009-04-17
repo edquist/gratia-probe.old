@@ -23,6 +23,7 @@
 
     Title3="Tuning parameter"
 
+    BundleSize="20"
     MaxPendingFiles="100000"
     UseSyslog="0"
 

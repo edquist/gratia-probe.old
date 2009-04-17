@@ -17,6 +17,7 @@ __responseMatcherURLCheck = re.compile(r'Unknown Command: URL', re.IGNORECASE)
 __responseMatcherErrorCheck = re.compile(r'Error report</title', re.IGNORECASE)
 __certinfoLocalJobIdMunger = re.compile(r'(?P<ID>\d+(?:\.\d+)*)')
 __certinfoJobManagerExtractor = re.compile(r'gratia_certinfo_(?P<JobManager>(?:[^\d_][^_]*))')
+__xmlintroRemove = re.compile(r'<\?xml[^>]*\?>') 
 __certRejection = "Error: The certificate has been rejected by the Gratia Collector!";
 __lrms = None
 
@@ -24,6 +25,10 @@ __lrms = None
 DN_FQAN_DISABLED = False
 
 def disconnect_at_exit():
+    if (BundleSize > 1 and CurrentBundle.nItems > 0):
+       responseString = ProcessBundle(CurrentBundle)
+       DebugPrint(0, responseString)
+       DebugPrint(0, "***********************************************************")
     __disconnect()
     if Config:
         try:
@@ -37,8 +42,10 @@ def disconnect_at_exit():
     DebugPrint(0, "                          new records failed: " + str(failedSendCount))
     DebugPrint(0, "                          records reprocessed successfully: " + str(successfulReprocessCount))
     DebugPrint(0, "                          reprocessed records failed: " + str(failedReprocessCount))
-    DebugPrint(0, "                          handshake records sent successfuly: " + str(successfulHandshakes))
+    DebugPrint(0, "                          handshake records sent successfully: " + str(successfulHandshakes))
     DebugPrint(0, "                          handshake records failed: " + str(failedHandshakes))
+    DebugPrint(0, "                          bundle of records sent successfully: " + str(successfulBundleCount))
+    DebugPrint(0, "                          bundle of records failed: " + str(failedBundleCount))
     DebugPrint(1, "End-of-execution disconnect ...")
 
 class ProbeConfiguration:
@@ -418,6 +425,13 @@ class ProbeConfiguration:
                 return False
         else:
             return True # If the config entry is missing, default to true
+    
+    def get_BundleSize(self):
+        global BundleSize
+        result = self.__getConfigAttribute("BundleSize")
+        if result:
+           BundleSize = int(result)
+        return BundleSize
 
 class Event:
     _xml = ""
@@ -476,6 +490,8 @@ MaxConnectionRetries = 2
 MaxFilesToReprocess = 100000
 XmlRecordCheckers = []
 HandshakeReg = []
+CurrentBundle = None
+BundleSize = 0
 
 # Instantiate a global connection object so it can be reused for
 # the lifetime of the server Instantiate a 'connected' flag as
@@ -553,6 +569,8 @@ def Initialize(customConfig = "ProbeConfig"):
     "yet been sent"
 
     global Config
+    global BundleSize
+    global CurrentBundle
     if len(BackupDirList) == 0:
         # This has to be the first thing done (DebugPrint uses
         # the information
@@ -562,6 +580,9 @@ def Initialize(customConfig = "ProbeConfig"):
 
         # Initialize cleanup function.
         atexit.register(disconnect_at_exit)
+        
+        BundleSize = Config.get_BundleSize()
+        CurrentBundle = Bundle()
 
         Handshake()
 
@@ -731,10 +752,6 @@ def __connect():
                 __connection.connect()
                 DebugPrint(4, "DEBUG: Connect: OK")
             except Exception, e:
-                #if Config.get_UseGratiaCertificates() != 0 and e[0]==1 and e[1]=="error:14094416:SSL routines:SSL3_READ_BYTES:sslv3 alert certificate unknown":
-                  # The certificate is not known, possibly the server 'forgot' about it.
-                #  print e[0]
-                #  print e[1]
                 DebugPrint(4, "DEBUG: Connect: FAILED")
                 DebugPrint(0, "Error: While trying to connect to HTTPS, caught exception " + str(e))
                 DebugPrintTraceback()
@@ -944,7 +961,6 @@ def SendStatus(meterId):
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
             __connection.request("POST", Config.get_CollectorService(), queryString);
             responseString = __connection.getresponse().read()
-            print responseString
             response = Response(-1, responseString)
         else:
             __connection.request("POST", Config.get_SSLCollectorService(), queryString);
@@ -1889,6 +1905,157 @@ successfulReprocessCount = 0
 successfulHandshakes = 0
 failedHandshakes = 0
 failedReprocessCount = 0
+successfulBundleCount = 0
+failedBundleCount = 0
+
+#
+# Bundle class
+#
+class Bundle:
+   nRecords = 0
+   nHandshakes = 0
+   nReprocessed = 0
+   nItems = 0
+   content = []
+         
+   def addHandshake(self, xmlData):
+      self.content.append( ['',xmlData] )
+      self.nHandshakes += 1
+      self.nItems += 1
+      return self.checkAndSend("Handshake added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+
+   def addRecord(self, filename, xmlData):
+      self.content.append( [filename,xmlData] )
+      self.nRecords += 1
+      self.nItems += 1
+      return self.checkAndSend("Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+
+   def addReprocess(self, filename, xmlData):
+      self.content.append( [filename,xmlData] )
+      self.nReprocessed += 1
+      self.nItems += 1
+      return self.checkAndSend("Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+
+   def checkAndSend(self,defaultmsg):
+      # Check if the bundle is full, if it is, do the
+      # actuall sending!
+      if (self.nItems >= BundleSize):
+         return ProcessBundle(self)
+      else:
+         return defaultmsg
+         
+   def clear(self):
+      self.nRecords = 0
+      self.nHandshakes = 0
+      self.nItems = 0
+      self.content = []
+      self.nReprocessed = 0
+
+#
+# ProcessBundle
+#
+#  Loops through all the bundled records and attempts to send them.
+#
+def ProcessBundle(bundle):
+    global failedSendCount
+    global suppressedCount
+    global successfulSendCount
+    global successfulReprocessCount
+    global successfulHandshakes
+    global failedHandshakes
+    global failedReprocessCount
+    global successfulBundleCount
+    global failedBundleCount
+    global BundleSize
+
+    responseString = ""
+
+    # Loop through and try to send any outstanding records
+    bundleData =  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" \
+                  "<RecordEnvelope>\n"
+    for item in bundle.content:
+        if __connectionError:
+            # Fail record without attempting to send.
+            failedBundleProcessCount += 1
+            continue
+
+        xmlData = None
+
+        filename = item[0]
+        xmlData = item[1]
+        
+        DebugPrint(1, 'Processing bundle file: ' + filename)
+        
+        if ( xmlData == ''):
+           # Read the contents of the file into a string of xml
+           try:
+              in_file = open(filename,"r")
+              xmlData = in_file.read()
+              in_file.close()
+           except:
+              DebugPrint(1, 'Processing bundle failure: unable to read file' + filename)
+              responseString = responseString + '\nUnable to read from ' + filename
+              failedBundleProcessCount += 1
+              continue
+
+        if not xmlData:
+            DebugPrint(1, 'Processing bundle failure: ' + filename +
+                       ' was empty: skip send')
+            responseString = responseString + '\nEmpty file ' + filename + ': XML not sent'
+            failedBundleProcessCount += 1
+            continue
+        
+        xmlData = __xmlintroRemove.sub('',xmlData)
+
+        bundleData = bundleData + xmlData + "\n";
+        #if (len(bundleData)==0):
+        #  bundleData = xmlData
+        #else:
+        #  bundleData = bundleData + '|' + xmlData
+    bundleData = bundleData + "</RecordEnvelope>"
+    # Send the xml to the collector for processing
+    response = __sendUsageXML(Config.get_ProbeName(), bundleData, "multiupdate")
+    DebugPrint(1, 'Processing bundle Response:  ' + response.get_message())
+    if (response.get_message() == "Error: Unknown Command: multiupdate or Invalid Arg Count: 1"):
+       DebugPrint(0, "Collector is too old to handle 'bundles', reverting to sending individual records.")
+       BundleSize = 0
+       bundle.clear()
+       if (bundle.nHandshakes > 0):
+          Handshake()
+       else:
+          SearchOutstandingRecord()
+          Reprocess()
+       return "Bundling has been canceled."
+
+    responseString = 'Processed bundle with ' + str(bundle.nItems) + ' records:  ' + response.get_message()
+
+    # Determine if the call succeeded, and remove the file if it did
+    if response.get_code() == 0:
+       successfulSendCount += bundle.nRecords
+       successfulHandshakes += bundle.nHandshakes
+       successfulReprocessCount += bundle.nReprocessed
+       successfulBundleCount += 1
+       for item in bundle.content:
+          filename = item[0]
+          if (filename != ''):
+             os.remove(filename)
+    else:
+       DebugPrint(1, 'Response indicates failure, the following files will not be deleted:')
+       for item in bundle.content:
+          filename = item[0]
+          if (filename != ''):
+             DebugPrint(1, '   ' + filename)
+       failedSendCount += bundle.nRecords
+       failedHandshakes += bundle.nHandshakes
+       failedReprocessCount += bundle.nReprocessed
+       failedBundleCount += 1
+       
+    bundle.clear()
+
+    #if responseString != "":
+    #    DebugPrint(0, responseString)
+
+    return responseString
 
 #
 # Reprocess
@@ -1898,6 +2065,7 @@ failedReprocessCount = 0
 def Reprocess():
     global successfulReprocessCount
     global failedReprocessCount
+       
     responseString = ""
 
     # Loop through and try to send any outstanding records
@@ -1929,21 +2097,31 @@ def Reprocess():
             failedReprocessCount += 1
             continue
 
-        # Send the xml to the collector for processing
-        response = __sendUsageXML(Config.get_ProbeName(), xmlData)
-        DebugPrint(1, 'Reprocess Response:  ' + response.get_message())
-        responseString = responseString + '\nReprocessed ' + failedRecord + ':  ' + response.get_message()
-
-        # Determine if the call succeeded, and remove the file if it did
-        if response.get_code() == 0:
-            successfulReprocessCount += 1
-            os.remove(failedRecord)
-            del OutstandingRecord[failedRecord]
+        if (BundleSize > 1):
+           # Delay the sending until we have 'bundleSize' records.
+           response = CurrentBundle.addReprocess(failedRecord,xmlData)
+           DebugPrint(1, response)
+           if (len(responseString)!=0): 
+              responseString = responseString + '\n' 
+           responseString = responseString + 'Reprocessed ' + failedRecord + ':  ' + response
         else:
-            if __connectionError:
-                DebugPrint(1,
-                           "Connection problems: reprocessing suspended; new record processing shall continue")
-            failedReprocessCount += 1
+            # Send the xml to the collector for processing
+            response = __sendUsageXML(Config.get_ProbeName(), xmlData)
+            DebugPrint(1, 'Reprocess Response:  ' + response.get_message())
+            if (len(responseString)!=0): 
+               responseString = responseString + '\n' 
+            responseString = responseString + 'Reprocessed ' + failedRecord + ':  ' + response.get_message()
+
+            # Determine if the call succeeded, and remove the file if it did
+            if response.get_code() == 0:
+                successfulReprocessCount += 1
+                os.remove(failedRecord)
+                del OutstandingRecord[failedRecord]
+            else:
+                if __connectionError:
+                    DebugPrint(1,
+                               "Connection problems: reprocessing suspended; new record processing shall continue")
+                failedReprocessCount += 1
 
     if responseString != "":
         DebugPrint(0, responseString)
@@ -2018,27 +2196,31 @@ def SendHandshake(record):
 
     connectionProblem = (__connectionRetries > 0) or (__connectionError)
 
-    # Attempt to send the record to the collector. Note that this must
-    # be sent currently as an update, not as a handshake (cf unused
-    # SendStatus() call)
-    response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
-    responseString = response.get_message()
-
-    DebugPrint(0, 'Response code:  ' + str(response.get_code()))
-    DebugPrint(0, 'Response message:  ' + response.get_message())
-
-    # Determine if the call was successful based on the response
-    # code.  Currently, 0 = success
-    if response.get_code() == 0:
-        DebugPrint(1, 'Response indicates success, ')
-        successfulHandshakes += 1
-        if (connectionProblem):
-            # Reprocess failed records before attempting more new ones
-            SearchOutstandingRecord()
-            Reprocess()
+    if (BundleSize > 1):
+       # Delay the sending until we have 'bundleSize' records.
+       responseString = CurrentBundle.addHandshake(usageXmlString)
     else:
-        DebugPrint(1, 'Response indicates failure, ')
-        failedHandshakes += 1
+       # Attempt to send the record to the collector. Note that this must
+       # be sent currently as an update, not as a handshake (cf unused
+       # SendStatus() call)
+       response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
+       responseString = response.get_message()
+
+       DebugPrint(0, 'Response code:  ' + str(response.get_code()))
+       DebugPrint(0, 'Response message:  ' + response.get_message())
+
+       # Determine if the call was successful based on the response
+       # code.  Currently, 0 = success
+       if response.get_code() == 0:
+          DebugPrint(1, 'Response indicates success, ')
+          successfulHandshakes += 1
+          if (connectionProblem):
+             # Reprocess failed records before attempting more new ones
+             SearchOutstandingRecord()
+             Reprocess()
+       else:
+          DebugPrint(1, 'Response indicates failure, ')
+          failedHandshakes += 1
 
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
@@ -2137,40 +2319,44 @@ def Send(record):
 
         connectionProblem = (__connectionRetries > 0) or (__connectionError)
 
-        # Attempt to send the record to the collector
-        response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
-        responseString = response.get_message()
-
-        DebugPrint(0, 'Response code:  ' + str(response.get_code()))
-        DebugPrint(0, 'Response message:  ' + response.get_message())
-
-        # Determine if the call was successful based on the response
-        # code.  Currently, 0 = success
-        if response.get_code() == 0:
-            DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
-            successfulSendCount += 1
-            os.remove(f.name)
+        if (BundleSize > 1 and f.name != "<stdout>"):
+           # Delay the sending until we have 'bundleSize' records.
+           responseString = CurrentBundle.addRecord(f.name, usageXmlString)
         else:
-            failedSendCount += 1
-            if (f.name == "<stdout>"):
-                DebugPrint(0, 'Record send failed and no backup made: record lost!')
-                responseString += "\nFatal: failed record lost!"
-                match = re.search(r'^<(?:[^:]*:)?RecordIdentity.*/>$', usageXmlString, re.MULTILINE)
-                if match:
+           # Attempt to send the record to the collector
+           response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
+           responseString = response.get_message()
+
+           DebugPrint(0, 'Response code:  ' + str(response.get_code()))
+           DebugPrint(0, 'Response message:  ' + response.get_message())
+
+           # Determine if the call was successful based on the response
+           # code.  Currently, 0 = success
+           if response.get_code() == 0:
+              DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+              successfulSendCount += 1
+              os.remove(f.name)
+           else:
+              failedSendCount += 1
+              if (f.name == "<stdout>"):
+                 DebugPrint(0, 'Record send failed and no backup made: record lost!')
+                 responseString += "\nFatal: failed record lost!"
+                 match = re.search(r'^<(?:[^:]*:)?RecordIdentity.*/>$', usageXmlString, re.MULTILINE)
+                 if match:
                     DebugPrint(0, match.group(0))
                     responseString += "\n", match.group(0)
-                match = re.search(r'^<(?:[^:]*:)?GlobalJobId.*/>$', usageXmlString, re.MULTILINE)
-                if match:
+                 match = re.search(r'^<(?:[^:]*:)?GlobalJobId.*/>$', usageXmlString, re.MULTILINE)
+                 if match:
                     DebugPrint(0, match.group(0))
                     responseString += "\n", match.group(0)
-                responseString += "\n" + usageXmlString
-            else:
-                DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
+                 responseString += "\n" + usageXmlString
+              else:
+                 DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
 
         DebugPrint(0, responseString)
         DebugPrint(0, "***********************************************************")
 
-        if (connectionProblem) and (response.get_code() == 0):
+        if (connectionProblem) and (CurrentBundle.nItems==0) and (response.get_code() == 0):
             # Reprocess failed records before attempting more new ones
             SearchOutstandingRecord()
             Reprocess()
@@ -2295,26 +2481,30 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
             usageXmlString = usageXmlString + line
         DebugPrint(3, 'UsageXml:  ' + usageXmlString)
 
-        # If XMLFiles can ever be anything else than Update messages,
-        # then one should be able to deduce messageType from the root
-        # element of the XML.
-        messageType = "URLEncodedUpdate"
-
-        # Attempt to send the record to the collector
-        response = __sendUsageXML(Config.get_ProbeName(), usageXmlString, messageType)
-
-        DebugPrint(0, 'Response code:  ' + str(response.get_code()))
-        DebugPrint(0, 'Response message:  ' + response.get_message())
-
-        # Determine if the call was successful based on the
-        # response code.  Currently, 0 = success
-        if response.get_code() == 0:
-            DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
-            successfulSendCount += 1
-            os.remove(f.name)
+        if (BundleSize > 1 and f.name != "<stdout>"):
+           # Delay the sending until we have 'bundleSize' records.
+           responseString = CurrentBundle.addRecord(f.name, usageXmlString)
         else:
-            failedSendCount += 1
-            DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
+           # If XMLFiles can ever be anything else than Update messages,
+           # then one should be able to deduce messageType from the root
+           # element of the XML.
+           messageType = "URLEncodedUpdate"
+
+           # Attempt to send the record to the collector
+           response = __sendUsageXML(Config.get_ProbeName(), usageXmlString, messageType)
+
+           DebugPrint(0, 'Response code:  ' + str(response.get_code()))
+           DebugPrint(0, 'Response message:  ' + response.get_message())
+
+           # Determine if the call was successful based on the
+           # response code.  Currently, 0 = success
+           if response.get_code() == 0:
+              DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+              successfulSendCount += 1
+              os.remove(f.name)
+           else:
+              failedSendCount += 1
+              DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
 
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
