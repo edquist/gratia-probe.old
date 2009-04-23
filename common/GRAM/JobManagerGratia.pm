@@ -6,10 +6,12 @@ require Exporter;
 use Globus::Core::Paths;
 use XML::Simple;
 
-use vars qw(@ISA @EXPORT);
+use vars qw(@ISA @EXPORT $DEBUG);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(&gratia_save_cert_info);
+
+$DEBUG = 0;
 
 my $xmls = new XML::Simple();
 
@@ -31,19 +33,26 @@ if (-x $proxy_info_cmd) {
 
 sub gratia_save_cert_info {
   return unless $proxy_info_cmd;
+  my $used_backup = 0;
   my ($jobmanager, $job_id) = @_;
   $job_id = job_identifier($job_id);
   my $jobmanager_name = ref $jobmanager;
   $jobmanager_name =~ s&^.*::&&;
   return if $jobmanager_name eq 'fork'; # Don't save info for non-managed fork jobs.
   my $env = "$ENV{VDT_LOCATION}";
+  my $tmp_env;
   unless ($env) {
     $env = "$ENV{GLOBUS_LOCATION}";
-    $env = ($env)?"$env/..":($ENV{TMPDIR} || "/var/tmp");
+    if ($env) {
+      $env = "$env/..";
+    } else {
+      $env = ($ENV{TMPDIR} || "/var/tmp");
+      $tmp_env = 1;
+    }
   }
   my $log_dir = sprintf("%s/%s",
                         $env,
-                        "gratia/var/data/");
+                        $tmp_env?'/':"gratia/var/data/");
   my $gratia_filename = sprintf("gratia_certinfo_%s_%s",
                                 $jobmanager_name,
                                 $job_id);
@@ -65,6 +74,7 @@ sub gratia_save_cert_info {
     $vo = $proxy_info[0] || "";
     $fqan = $proxy_info[2] || "";
   } else { # Try grid proxy instead
+    $used_backup = 1;
     @proxy_info = split /\n/, `$backup_proxy_info_cmd 2>/dev/null`;
     $identity = $proxy_info[0] || "";
   }
@@ -89,6 +99,25 @@ sub gratia_save_cert_info {
       $xmls->escape_value($fqan) if $fqan;
   print GRATIA_CERTINFO "</GratiaCertInfo>\n";
   close(GRATIA_CERTINFO);
+  if ($DEBUG) {
+    my $debug_log = sprintf("%s/%s%s",
+                            $env,
+                            $tmp_env?'/':"gratia/var/logs/",
+                            "certinfo_debug.log");
+    if (open(DEBUG_OUT, ">>$debug_log")) {
+      print DEBUG_OUT scalar localtime(),
+        " JobManagerGratia ($jobmanager_name:$job_id): ",
+          "proxy info cmd = ",
+            ($used_backup?$backup_proxy_info_cmd:$proxy_info_cmd),
+              "\n";
+      print DEBUG_OUT scalar localtime(),
+        " JobManagerGratia ($jobmanager_name:$job_id): ",
+        "Gratia file name = $log_dir$gratia_filename\n";
+      print DEBUG_OUT scalar localtime(),
+        " JobManagerGratia ($jobmanager_name:$job_id): ",
+        "(identity, vo, fqan) = (\"$identity\", \"$vo\", \"$fqan\")\n";
+    }
+  }
 }
 
 sub job_identifier {
