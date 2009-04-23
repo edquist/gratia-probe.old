@@ -2,6 +2,8 @@
 
     Title1="Collector Information"
 
+    CollectorHost="gratia-osg.fnal.gov:8880"
+       Comments0="SOAPHost is now replaced with CollectorHost"
     SOAPHost="gratia-osg.fnal.gov:8880" 
     SSLHost="gratia-osg.fnal.gov:8443" 
     SSLRegistrationHost="gratia-osg.fnal.gov:8880"
@@ -13,7 +15,7 @@
     Title2="Probe information and functional configuration"
 
     ProbeName="generic" 
-       Comments0="ProbeName used to be spelled 'MeterName'"
+       Comments1="ProbeName used to be spelled 'MeterName'"
     SiteName="Generic Site"
     Grid="OSG"
     SuppressUnknownVORecords="0"
@@ -38,7 +40,7 @@
     CertificateFile="/etc/grid-security/hostcert.pem"
     KeyFile="/etc/grid-security/hostkey.pem"
     UseGratiaCertificates="0"
-       Comments1="If no directory is specified the gratia certificate file will be created in 'WorkingFolder'/certs."
+       Comments2="If no directory is specified the gratia certificate file will be created in 'WorkingFolder'/certs."
     GratiaCertificateFile="gratia.probecert.pem"
     GratiaKeyFile="gratia.probekey.pem"
     

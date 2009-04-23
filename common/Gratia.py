@@ -51,6 +51,7 @@ def disconnect_at_exit():
 class ProbeConfiguration:
     __doc = None
     __configname = "ProbeConfig"
+    __CollectorHost = None
     __ProbeName = None
     __SiteName = None
     __Grid = None
@@ -106,7 +107,20 @@ class ProbeConfiguration:
         return self.__getConfigAttribute('SSLRegistrationHost')
 
     def get_SOAPHost(self):
-        return self.__getConfigAttribute('SOAPHost')
+        return self.get_CollectorHost()
+        
+    def get_CollectorHost(self):
+        if (self.__CollectorHost != None):
+           return self.__CollectorHost
+        coll = self.__getConfigAttribute('CollectorHost')
+        soap = self.__getConfigAttribute('SOAPHost')
+        if ( coll == "gratia-osg.fnal.gov:8880" and (soap != None and soap != "gratia-osg.fnal.gov:8880") ):
+           self.__CollectorHost = soap
+        elif ( coll != None ):
+           self.__CollectorHost = coll
+        else:
+           self.__CollectorHost = soap
+        return self.__CollectorHost
 
     def get_CollectorService(self):
         return self.__getConfigAttribute('CollectorService')
