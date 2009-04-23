@@ -21,9 +21,6 @@ __xmlintroRemove = re.compile(r'<\?xml[^>]*\?>')
 __certRejection = "Error: The certificate has been rejected by the Gratia Collector!";
 __lrms = None
 
-# FQAN now in production: switch should remain for now however.
-DN_FQAN_DISABLED = False
-
 def disconnect_at_exit():
     if (BundleSize > 1 and CurrentBundle.nItems > 0):
        responseString = ProcessBundle(CurrentBundle)
@@ -3065,11 +3062,6 @@ def readCertInfo(localJobId, probeName):
         # Next, find the correct information and send it back.
         certinfo_nodes = certinfo_doc.getElementsByTagName('GratiaCertInfo')
         if certinfo_nodes.length == 1:
-            if (DN_FQAN_DISABLED):
-                DebugPrint(4, "readCertInfo: removing " + str(certinfo))
-                os.remove(certinfo) # Clean up.
-                continue
-
             if len(certinfo_files) == 1:
                 found = 1 # Only had one candidate -- use it
             else:
