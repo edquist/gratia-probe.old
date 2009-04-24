@@ -6,6 +6,7 @@ import traceback
 import re, fileinput
 import atexit
 import urllib
+import ProxyUtil
 import xml.sax.saxutils
 import exceptions
 from OpenSSL import crypto
@@ -111,9 +112,9 @@ class ProbeConfiguration:
            return self.__CollectorHost
         coll = self.__getConfigAttribute('CollectorHost')
         soap = self.__getConfigAttribute('SOAPHost')
-        if ( coll == "gratia-osg.fnal.gov:8880" and (soap != None and soap != "gratia-osg.fnal.gov:8880") ):
+        if ( coll == "gratia-osg.fnal.gov:8880" and (soap and soap != "gratia-osg.fnal.gov:8880") ):
            self.__CollectorHost = soap
-        elif ( coll != None ):
+        elif ( coll ):
            self.__CollectorHost = coll
         else:
            self.__CollectorHost = soap
@@ -149,7 +150,8 @@ class ProbeConfiguration:
           if (isCertrequestRejected()): 
              return False
           
-          qconnection = httplib.HTTPConnection(self.get_SSLRegistrationHost())
+          qconnection = ProxyUtil.HTTPConnection(self.get_SSLRegistrationHost(),
+                                                 http_proxy = ProxyUtil.findHTTPProxy())
           qconnection.connect()
 
           queryString = urllib.urlencode([("command" , "request"),("from",self.get_ProbeName()),("arg1","not really")]);
@@ -729,11 +731,14 @@ def __connect():
 
     if (not __connected) and (__connectionRetries <= MaxConnectionRetries):
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
+            if (ProxyUtil.findHTPProxy()):
+                DebugPrint(0, 'WARNING: http_proxy is set but not supported when UseSoapProtocol is set to 1')
             __connection = httplib.HTTP(Config.get_SOAPHost())
             DebugPrint(1, 'Connected via HTTP to:  ' + Config.get_SOAPHost())
             #print "Using SOAP protocol"
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
-            __connection = httplib.HTTPConnection(Config.get_SOAPHost())
+            __connection = ProxyUtil.HTTPConnection(Config.get_SOAPHost(),
+                                                    http_proxy = ProxyUtil.findHTTPProxy())
             __connection.connect()
             DebugPrint(1,"Connection via HTTP to: " + Config.get_SOAPHost())
             #print "Using POST protocol"
@@ -753,9 +758,10 @@ def __connect():
 
             DebugPrint(4, "DEBUG: Attempting to connect to HTTPS")
             try:
-                 __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
-                                                        cert_file = pr_cert_file,
-                                                        key_file = pr_key_file)
+                 __connection = ProxyUtil.HTTPSConnection(Config.get_SSLHost(),
+                                                          cert_file = pr_cert_file,
+                                                          key_file = pr_key_file,
+                                                          http_proxy = ProxyUtil.findHTTPSProxy())
             except Exception, e:
                 DebugPrint(0, "ERROR: could not initialize HTTPS connection")
                 DebugPrintTraceback()
