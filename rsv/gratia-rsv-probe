@@ -10,242 +10,228 @@ eval '(exit $?0)' && eval 'exec perl -S $0 ${1+"$@"}'
 ########################################################################
 
 use strict;
-
-use Getopt::Long;
-use OSG_RSV_Probe_Base;
-use Date::Manip;
+use RSVProbeBase;
 use File::Basename;
+use Date::Manip;
 
-######## Global variables go here ################################
-our %o;                         ## Global hash to store "our" details i.e script's details
-our %m_gratia;                  ## Store metric details.
-our $probeType;                 ## Type of probe.
 
-## Defaults needed even before global Initialize_Probe() is called 
-##  (for listing the metrics in automated systems, usage info, etc.)
-&Pre_Initialize_Probe ();
+######## Retrieve Global variables ################################
+## And alias to RSV::Probe_Base variables
+our %o;         *o         = \%RSVProbeBase::o;      
+our %metric;    *metric    = \%RSVProbeBase::metric;
+my ($is_root, $run_me_root, $probeconfig_problems, $soaphost, $probename, $sitename, $enabled, $datafolder, $datafolder, $workingfolder, $real_datafolder, $probe_in_cron);
 
-####################################
-# Set parsing options
-Getopt::Long::Configure(qw(no_ignore_case bundling require_order));
 
-####################################
-# Process command line arguments.
-GetOptions(
-           "uri|u=s"                   => \$o{'serviceUri'},
-           "metric|m=s" 	       => \$o{'metric'},
-           "virtual-organization|v=s"  => \$o{'virtualorganization|v'},
-           "timeout|t=i"               => \$o{'timeout'},
-           "list-metric|l"             => \$o{'listmetric'},
-	   "vdt-location=s"            => \$o{'VDT_LOCATION_LOCAL'},
-	   "print-local-time"          => \$o{'printLocalTimezone'},
-           "probe-type|p=s"            => \$probeType,
-           "generate-gratia-script|ggs"=> \$o{'generateGratiaScript'},
-           "gratia-script-loc|gsl=s"   => \$o{'gratiaLocationDir'},
-           "gratia-config-file|gmpcf=s"=> \$o{'gratiaMetricProbeConfigFile'},
-           "python-loc=s"              => \$o{'pythonToUse'},
-           "version"                   => \$o{'version'},
-           "test|T"                    => \$o{'test'},
-           "help|h"                    => \$o{'help'},
-          )
-  or &OSG_RSV_Probe_Base::Print_Usage(\%o,\%m_gratia) && exit 1;
+&RSVProbeBase::Init();
+&RSVProbeBase::Run();
 
-my $is_root = not $<; # Are we running as root?
+################################################################################
+## Main Program ends ##
+################################################################################
 
-## Set initial metrics
-&Set_Metric();
 
-if (${probeType}) {
-  $m_gratia{metricName} = "net.sf.gratia.probe.${probeType}";
-} else {
-  $m_gratia{metricName} = "net.sf.gratia.probe.none";
+################################################################################
+## Local Sub-Routines
+################################################################################
+
+sub Init {
+
+  &RSVProbeBase::Set_MultiMetric ("true");
+
+  ## &RSVProbeBase::Set_MetricName ("net.sf.gratia.probe.none");
+
+  ## Pass "status" or "performance" depending on metric type
+  &RSVProbeBase::Set_MetricType ("status");
+  &RSVProbeBase::Set_ServiceType ("OSG-CE");
+  &RSVProbeBase::Set_ServiceVersion (">= OSG CE 1.0.0");
+  &RSVProbeBase::Set_ProbeType ("OSG-CE");
+
+  ## Define this value from RCS/SVN version
+  &RSVProbeBase::Set_ProbeRevision ('3079'); ## ('$Revision$');
+  &RSVProbeBase::Set_ProbeSpecVersion ("0.91");
+
+  ## Basic intro for the probe; This string will be used by Print_Usage ()
+  &RSVProbeBase::Set_ProbeHelpIntro 
+    ("Probe to check whether Gratia probes are configured and operating. ");
+
+  ## Additional options to print in Usage info used by Print_Usage ()
+  ## &RSVProbeBase::Set_ProbeHelpOptions ("-p,--probe-type <condor|pbs|sge..>    Required option. Probe expected in $VDT_LOCATION/gratia/probe/<probe-type>");
+
+  ## Uncomment if you want additional command line options
+  ## &RSVProbeBase::Extra_CLI_Option ("probe-type|p=s","probeType");
+
+  ## Uncomment if you do not want detailsData to be trimmed to $o{'detailsDataMaxLength}
+  ## &RSVProbeBase::Set_DetailsDataTrim ("False");
 }
 
-## Initialize our (probe's) hash with commands, etc.
-%o = %{&OSG_RSV_Probe_Base::Initialize_Probe (\%o)};
 
-## Process serviceURI for hostName, etc.; copy stuff from %o to metric hash
-%m_gratia = %{&OSG_RSV_Probe_Base::Initialize_Metric(\%o, \%m_gratia)};
+sub Run {
 
-## Process some simple options, and exit if they're specified after acting
-##  i.e. --help or -l type arguments
-&OSG_RSV_Probe_Base::Process_Informational_Arguments (\%o, \%m_gratia);
+  &Process_Multi_Metrics ();
 
-unless (${probeType}) {
-  print STDERR
-    "Probe name (condor, pbs, etc) must be specified with -p option!\n";
-  &OSG_RSV_Probe_Base::Print_Usage(\%o,\%m_gratia);
-  exit 1;
-}
-####################################
-# Start tests
-my @PYTHONPATH = split /:/, $ENV{PYTHONPATH};
-unless (grep m&^\Q$ENV{VDT_LOCATION}/gratia/probe/common\E$&, @PYTHONPATH) {
-  push @PYTHONPATH, "$ENV{VDT_LOCATION}/gratia/probe/common";
-  $ENV{PYTHONPATH} = join(":", @PYTHONPATH);
-}
+  $is_root = not $<;		# Are we running as root?
 
-# Check directories
-unless (checkProbeDirs()) {
-  setUnknown();
-  normal_exit();
-}
-
-my ($run_me_root, $probeconfig_problems);
-my $soaphost = getProbeConfigAttribute("SOAPHost");
-my $probename = getProbeConfigAttribute("MeterName");
-my $sitename = getProbeConfigAttribute("SiteName");
-my $enabled = getProbeConfigAttribute("EnableProbe");
-my $datafolder = getProbeConfigAttribute("DataFolder");
-$datafolder =~ s&/$&&;
-my $workingfolder = getProbeConfigAttribute("WorkingFolder");
-my $real_datafolder = `(cd "$datafolder" >/dev/null 2>&1 && /bin/pwd)`;
-chomp $real_datafolder;
-
-my $probe_in_cron = system("crontab -l 2>/dev/null| grep -e '^\\s*[^#].*gratia/probe/$probeType/' >/dev/null 2>&1") == 0;
-
-################################
-# Check some basic critical stuff
-if ($probe_in_cron != 1) {
-  if ($is_root) {
-    setCritical();
-    $m_gratia{detailsData} = "Probe $probename is not listed in crontab.\n";
-    normal_exit();
-  } else {
-    setUnknown();
-    $m_gratia{detailsData} = "Not root: cannot examine crontab.\n";
+  ####################################
+  # Start tests
+  my @PYTHONPATH = split /:/, $ENV{PYTHONPATH};
+  unless (grep m&^\Q$ENV{VDT_LOCATION}/gratia/probe/common\E$&, @PYTHONPATH) {
+    push @PYTHONPATH, "$ENV{VDT_LOCATION}/gratia/probe/common";
+    $ENV{PYTHONPATH} = join(":", @PYTHONPATH);
   }
-} elsif ($enabled ne "1") {
-  setCritical();
-  $m_gratia{detailsData} = "Probe $probename has EnableProbe not set to 1.\n";
-  $run_me_root = 1;
-  $probeconfig_problems = 1;
-  normal_exit();
-} elsif ($probename =~ m&(?:generic|unknown)&i) {
-  setCritical();
-  $m_gratia{detailsData} = "MeterName $probename appears to be generic.\n";
-  $probeconfig_problems = 1;
-  normal_exit();
-}
 
-#################################
-# Check format of MeterName
-my @colon_split = split /:/, $probename;
-my $num_colons = $#colon_split;
-if ($num_colons != 1) {
-  setWarning();
-  $m_gratia{detailsData} = "Not one and only one \`:' in MeterName $probename.";
-  $probeconfig_problems = 1;
-}
+  # Check directories
+  unless (checkProbeDirs()) {
+    setUnknown();
+    normal_exit();
+  }
 
-################################
-# Check sitename configuration.
-if ((!$sitename) or $sitename =~ m&(?:generic|unknown)&i) {
-  setWarning();
-  add_to_details(<<EOF);
+  $soaphost = getProbeConfigAttribute("SOAPHost");
+  $probename = getProbeConfigAttribute("MeterName");
+  $sitename = getProbeConfigAttribute("SiteName");
+  $enabled = getProbeConfigAttribute("EnableProbe");
+  $datafolder = getProbeConfigAttribute("DataFolder");
+  $datafolder =~ s&/$&&;
+  $workingfolder = getProbeConfigAttribute("WorkingFolder");
+  $real_datafolder = `(cd "$datafolder" >/dev/null 2>&1 && /bin/pwd)`;
+  chomp $real_datafolder;
+
+  $probe_in_cron = system("crontab -l 2>/dev/null| grep -e '^\\s*[^#].*gratia/probe/" . $o{'gratiaProbeTypes'}{&RSVProbeBase::Get_MetricName ()} ."/' >/dev/null 2>&1") == 0;
+
+  ################################
+  # Check some basic critical stuff
+  if ($probe_in_cron != 1) {
+    if ($is_root) {
+      setCritical();
+      &RSVProbeBase::Set_DetailsData ("Probe $probename is not listed in crontab.\n");
+      normal_exit();
+    } else {
+      setUnknown();
+      &RSVProbeBase::Set_DetailsData ("Not root: cannot examine crontab.\n");
+    }
+  } elsif ($enabled ne "1") {
+    setCritical();
+    &RSVProbeBase::Set_DetailsData ("Probe $probename has EnableProbe not set to 1.\n");
+    $run_me_root = 1;
+    $probeconfig_problems = 1;
+    normal_exit();
+  } elsif ($probename =~ m&(?:generic|unknown)&i) {
+    setCritical();
+    &RSVProbeBase::Set_DetailsData ("MeterName $probename appears to be generic.\n");
+    $probeconfig_problems = 1;
+    normal_exit();
+  }
+
+  #################################
+  # Check format of MeterName
+  my @colon_split = split /:/, $probename;
+  my $num_colons = $#colon_split;
+  if ($num_colons != 1) {
+    setWarning();
+    &RSVProbeBase::Set_DetailsData ("Not one and only one \`:' in MeterName $probename.");
+    $probeconfig_problems = 1;
+  }
+
+  ################################
+  # Check sitename configuration.
+  if ((!$sitename) or $sitename =~ m&(?:generic|unknown)&i) {
+    setWarning();
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 Configured SiteName "$sitename" is empty or generic.
 EOF
-  $probeconfig_problems = 1;
-}
+    $probeconfig_problems = 1;
+  }
 
-################################
-# Any checks specific to the probe type
-probe_specific_checks();
+  ################################
+  # Any checks specific to the probe type
+  probe_specific_checks();
 
-################################
-# Check size of reprocessing queue
-my $npending = `(cd "$workingfolder/gratiafiles" >/dev/null 2>&1 && ls -1 | wc -l)`;
-chomp $npending;
-add_to_details("$npending files waiting to be re-sent to $soaphost\n");
-if ($npending > 1000) {
-  setWarning();
-}
+  ################################
+  # Check size of reprocessing queue
+  my $npending = `(cd "$workingfolder/gratiafiles" >/dev/null 2>&1 && ls -1 | wc -l)`;
+  chomp $npending;
+  &RSVProbeBase::Append_DetailsData ("$npending files waiting to be re-sent to $soaphost\n");
+  if ($npending > 1000) {
+    setWarning();
+  }
 
-################################
-# Check number of files in data area.
-my $ndata = `(cd "$datafolder" >/dev/null 2>&1 && ls -1 | wc -l)`;
-add_to_details("$ndata files in $datafolder\n");
-if ($ndata > 10000) {
-  setWarning();
-}
+  ################################
+  # Check number of files in data area.
+  my $ndata = `(cd "$datafolder" >/dev/null 2>&1 && ls -1 | wc -l)`;
+  &RSVProbeBase::Append_DetailsData ("$ndata files in $datafolder\n");
+  if ($ndata > 10000) {
+    setWarning();
+  }
 
-################################
-# Check last contact time with Gratia server.
-my $probe_contact_check =
-  `wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?probename=$probename'`;
-chomp $probe_contact_check;
+  ################################
+  # Check last contact time with Gratia server.
+  my $probe_contact_check =
+    `wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?probename=$probename'`;
+  chomp $probe_contact_check;
 
-$probe_contact_check =~ s&^last-contact=([^\s]+)\s+([^\s]+?)\|$&${1}T${2}Z&;
-$probe_contact_check = ParseDate($probe_contact_check);
+  $probe_contact_check =~ s&^last-contact=([^\s]+)\s+([^\s]+?)\|$&${1}T${2}Z&;
+  $probe_contact_check = ParseDate($probe_contact_check);
 
-my $cmpDateHour = DateCalc("today", "- 1 hour");
-my $cmpDateDay = DateCalc("today", "- 1 day");
-my $probe_seen_by_soaphost;
-if (!$probe_contact_check) {
-  setUnknown();
-  add_to_details(<<EOF);
+  my $cmpDateHour = DateCalc("today", "- 1 hour");
+  my $cmpDateDay = DateCalc("today", "- 1 day");
+  my $probe_seen_by_soaphost;
+  if (!$probe_contact_check) {
+    setUnknown();
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 Gratia server $soaphost not responding to obtain last contact details.
 EOF
-} elsif ($probe_contact_check eq "last-contact=never") {
-  setCritical();
-  $run_me_root =1;
-  add_to_details(<<EOF);
+  } elsif ($probe_contact_check eq "last-contact=never") {
+    setCritical();
+    $run_me_root =1;
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 Gratia server $soaphost has never seen probe $probename.
 EOF
-  normal_exit();
-} elsif (Date_Cmp($probe_contact_check, $cmpDateDay) < 1) {
-  setCritical();
-  $run_me_root =1;
-  add_to_details(<<EOF);
+    normal_exit();
+  } elsif (Date_Cmp($probe_contact_check, $cmpDateDay) < 1) {
+    setCritical();
+    $run_me_root =1;
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 Probe $probename has not been seen by Gratia collector $soaphost in >1d.
 Last contact time = $probe_contact_check
 EOF
-  normal_exit();
-} elsif (Date_Cmp($probe_contact_check, $cmpDateHour) < 1) {
-  setWarning();
-  $run_me_root =1;
-  add_to_details(<<EOF);
+    normal_exit();
+  } elsif (Date_Cmp($probe_contact_check, $cmpDateHour) < 1) {
+    setWarning();
+    $run_me_root =1;
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 Probe $probename has not been seen by Gratia collector $soaphost in >1h.
 Last contact time = $probe_contact_check
 EOF
-} else {
-  $probe_seen_by_soaphost = 1;
-}
+  } else {
+    $probe_seen_by_soaphost = 1;
+  }
 
-################################
-# Cross-check locally configured site name matches Gratia server sitename.
-if ($probe_seen_by_soaphost) {
-  my $probe_site_check =
-    system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^probename=$probename|last-contact=' >/dev/null 2>&1") == 0;
+  ################################
+  # Cross-check locally configured site name matches Gratia server sitename.
+  if ($probe_seen_by_soaphost) {
+    my $probe_site_check =
+      system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^probename=$probename|last-contact=' >/dev/null 2>&1") == 0;
 
-  if (!$probe_site_check) {
-    setWarning();
-    add_to_details(<<EOF);
+    if (!$probe_site_check) {
+      setWarning();
+      &RSVProbeBase::Append_DetailsData (<<EOF);
 Probe $probename not found in check of probes reporting to $soaphost from $sitename.
 Check Collector SiteName translation on $soaphost
 EOF
+    }
   }
+
+  ################################
+  # Check log file for jobs reported.
+
+  # Set final status if we make it.
+  &RSVProbeBase::Set_Summary_Metric_Results (0, "") if ($metric{metricStatus} eq "UNKNOWN");
+
+  normal_exit(1);
 }
 
-################################
-# Check log file for jobs reported.
-
-# Set final status if we make it.
-$m_gratia{metricStatus} = "OK"
-  if ($m_gratia{metricStatus} eq "UNKNOWN");
-
-normal_exit(1);
-
-########################################################################
-# Subroutines
-########################################################################
-sub add_to_details {
-  $m_gratia{detailsData} = sprintf("$m_gratia{detailsData}%s",
-                                   join("", @_));
-}
 
 sub runMeRoot {
-  add_to_details(<<EOF);
+  &RSVProbeBase::Append_DetailsData (<<EOF);
 Run tests as root for more diagnostic details, especially if you have a
 WARNING or CRITICAL status.
 Manual invocation:
@@ -255,11 +241,11 @@ EOF
     $dir=`/bin/pwd`;
     chomp $dir;
   }
-  add_to_details(sprintf("cd %s && ./%s -p ${probeType}\n", $dir, basename($0)));
+  &RSVProbeBase::Append_DetailsData (sprintf("cd %s && ./%s -p ". $o{'gratiaProbeTypes'}{&RSVProbeBase::Get_MetricName ()} ."\n", $dir, basename($0)));
 }
 
 sub probeConfigProblems {
-  add_to_details(<<EOF);
+  &RSVProbeBase::Append_DetailsData (<<EOF);
 Please check ProbeConfig for problems.
 EOF
 }
@@ -269,47 +255,29 @@ sub normal_exit {
   probeConfigProblems() if $probeconfig_problems;
   runMeRoot() if $run_me_root;
   ## Print metric, and we're all done!
-  &OSG_RSV_Probe_Base::Print_Summary_Metric_Results (\%o,\%m_gratia);
-  exit (&OSG_RSV_Probe_Base::Get_Probe_Exit_Value(\%o,\%m_gratia));
+  &RSVProbeBase::Print_Metric ();
 }
 
-sub Pre_Initialize_Probe {
-  $o{'revision'} = '$Revision$';
-
-  $o{'helpIntro'} = <<'EOF';
-Probe to check whether Gratia probes are configured and operating.
-EOF
-  $o{'helpOptions'} = <<'EOF';
- --probe-type <condor|pbs|...>    Required option. Probe expected in $VDT_LOCATION/gratia/probe/<probe-type>
- -p <condor|pbs|sge|...>          Short form of --probe-type.
-EOF
-}
-
-sub Set_Metric {
-  $m_gratia{'metricType'} = "status";
-  $m_gratia{'serviceType'} = "Gratia probes";
-  $m_gratia{'serviceVersion'} = ">= OSG CE 0.6.0";
-}
 
 sub setCritical {
-  $m_gratia{metricStatus} = "CRITICAL";
+  &RSVProbeBase::Set_MetricStatus ("CRITICAL");
 }
 
 sub setWarning {
-  $m_gratia{metricStatus} = "WARNING" unless
-    $m_gratia{metricStatus} eq "CRITICAL";
+  &RSVProbeBase::Set_MetricStatus ("WARNING") unless
+    &RSVProbeBase::Get_MetricStatus () eq "CRITICAL";
 }
 
 sub setUnknown {
-  $m_gratia{metricStatus} = "UNKNOWN" unless
-    $m_gratia{metricStatus} eq "CRITICAL";
+  &RSVProbeBase::Set_MetricStatus ("UNKNOWN") unless
+    &RSVProbeBase::Get_MetricStatus () eq "CRITICAL";
 }
 
 sub probe_specific_checks {
-  if ($probeType =~ m&(?:pbs|pbs-lsf|lsf)&i) {
+  if ($o{'gratiaProbeTypes'}{&RSVProbeBase::Get_MetricName ()} =~ m&(?:pbs|pbs-lsf|lsf)&i) {
     # PBS / LSF probe checks
     probe_check_pbs_lsf();
-  } elsif ($probeType eq "condor") {
+  } elsif ($o{'gratiaProbeTypes'}{&RSVProbeBase::Get_MetricName ()} eq "condor") {
     probe_check_condor();
   }
 }
@@ -327,7 +295,7 @@ sub probe_check_condor() {
   }
   if ($status == 127 or $cmd_output =~ m&command not found&) {
     setUknown();
-    add_to_details(<<EOF);
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 Unable to find condor_config_val command: could not check for presence
 of PER_JOB_HISTORY_DIR attribute in condor schedd configuration.
 $cmd_output
@@ -336,16 +304,16 @@ EOF
     return 0;
   } elsif ($cmd_output =~ m&^Not defined:&i or $status != 0 or not $cmd_output) {
     setWarning();
-    add_to_details(<<EOF);
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 PER_JOB_HISTORY_DIR apparently not set in condor_config or condor_config_val
 not operating as expected. Please ensure it is set to "$datafolder" in
 condor_config or the schedd machine's local configuration.
 EOF
-      return 0;
+    return 0;
   } else {
     if ($status == 0 and $cmd_output ne $datafolder) {
       setWarning();
-      add_to_details(<<EOF);
+      &RSVProbeBase::Append_DetailsData (<<EOF);
 PER_JOB_HISTORY_DIR is apparently set to "$cmd_output"
 in condor_config. It should be set to
 "$datafolder" as specified in ProbeConfig.
@@ -358,12 +326,12 @@ EOF
 }
 
 sub probe_check_pbs_lsf {
-  my $URCOLLECTOR_LOC = "$ENV{VDT_LOCATION}/gratia/probe/$probeType";
+  my $URCOLLECTOR_LOC = "$ENV{VDT_LOCATION}/gratia/probe/". $o{'gratiaProbeTypes'}{&RSVProbeBase::Get_MetricName ()};
   push @INC, $URCOLLECTOR_LOC;
   eval "require urCollector::Configuration";
   if ($@) {                     # FAILED to load configuration module
     setCritical();
-    add_to_details(<<EOF);
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 Error loading urCollector::Configuration: $@
 Major probe installation problem.
 EOF
@@ -373,7 +341,7 @@ EOF
     urCollector::Configuration::parseConf("$URCOLLECTOR_LOC/urCollector.conf");
   if ($@) {                     # FAILED to parse configuration
     setCritical();
-    add_to_details(<<EOF);
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 Error reading $URCOLLECTOR_LOC/urCollector.conf: $@
 Please check urCollector.conf file for errors.
 EOF
@@ -382,25 +350,25 @@ EOF
   # Check LRMS type setting
   if ($urCollector::Configuration::configValues{lrmsType} !~ m&(?:pbs|lsf)&i) {
     setCritical();
-    add_to_details(<<EOF);
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 Unrecognized lrmsType $urCollector::Configuration::configValues{lrmsType} in urCollector.conf
 Please check urCollector.conf file for errors.
 EOF
     normal_exit();
   }
   # Check LRMS type matches probe type
-  if ($probeType ne "pbs-lsf" and
-      $urCollector::Configuration::configValues{lrmsType} ne $probeType) {
+  if ($o{'gratiaProbeTypes'}{&RSVProbeBase::Get_MetricName ()} ne "pbs-lsf" and
+      $urCollector::Configuration::configValues{lrmsType} ne $o{'gratiaProbeTypes'}{&RSVProbeBase::Get_MetricName ()}) {
     setCritical();
-    add_to_details(<<EOF);
-Mismatch between probeType $probeType and configured lrmsType $urCollector::Configuration::configValues{lrmsType} in urCollector.conf.
+    &RSVProbeBase::Append_DetailsData (<<EOF);
+Mismatch between probeType " . $o{'gratiaProbeTypes'}{&RSVProbeBase::Get_MetricName ()} . " and configured lrmsType $urCollector::Configuration::configValues{lrmsType} in urCollector.conf.
 Please check urCollector.conf file for errors.
 EOF
     normal_exit();
   }
-  unless ($is_root) { # Can't do these unless we're root.
+  unless ($is_root) {		# Can't do these unless we're root.
     $run_me_root = 1;
-    add_to_details(<<EOF);
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 Remaining checks on $urCollector::Configuration::configValues{lrmsType} require root privilege.
 EOF
     return;
@@ -411,7 +379,7 @@ EOF
     my $date = UnixDate("today", "%Y%m%d");
     if (not -d $dir) {
       setCritical();
-      add_to_details(<<EOF);
+      &RSVProbeBase::Append_DetailsData (<<EOF);
 Configured PBS log directory $dir does not exist.
 Check pbsAcctLogDir in urCollector.conf.
 EOF
@@ -421,14 +389,14 @@ EOF
     chomp $nfiles;
     if (!$nfiles) {
       setCritical();
-      add_to_details(<<EOF);
+      &RSVProbeBase::Append_DetailsData (<<EOF);
 No files found in configured PBS log directory $dir.
 Check pbsAcctLogDir in urCollector.conf.
 EOF
       normal_exit();
     } elsif ((not -e "$dir/$date") and (not -e "$dir/$date.gz")) {
       setWarning();
-      add_to_details(<<EOF);
+      &RSVProbeBase::Append_DetailsData (<<EOF);
 Configured PBS log directory $dir does not contain entries for today.
 Check pbsAcctLogDir in urCollector.conf and contents of $dir.
 EOF
@@ -437,14 +405,14 @@ EOF
     my $dir = $urCollector::Configuration::configValues{lsfAcctLogDir};
     if (not -d $dir) {
       setCritical();
-      add_to_details(<<EOF);
+      &RSVProbeBase::Append_DetailsData (<<EOF);
 Configured LSF log directory $dir does not exist.
 Check lsfAcctLogDir in urCollector.conf.
 EOF
       normal_exit();
     } elsif (not -e "$dir/lsb.events") {
       setWarning();
-      add_to_details(<<EOF);
+      &RSVProbeBase::Append_DetailsData (<<EOF);
 No log file $dir/lsb.events.
 Check lsfAcctLogDir in urCollector.conf and contents of $dir.
 EOF
@@ -452,7 +420,7 @@ EOF
     # Check PBS files waiting to be converted to Gratia files
     my $npending = `(cd "$workingfolder/urCollector" >/dev/null 2>&1 && ls -1 | wc -l)`;
     chomp $npending;
-    add_to_details("$npending XML files waiting to be sent to $soaphost\n");
+    &RSVProbeBase::Append_DetailsData ("$npending XML files waiting to be sent to $soaphost\n");
     if ($npending > 2000) {
       setWarning();
     }
@@ -460,8 +428,8 @@ EOF
 }
 
 sub checkProbeDirs {
-  my $probe_dir = "$ENV{VDT_LOCATION}/gratia/probe/$probeType";
-  return (checkDirReadable($probe_dir, "$probeType probe directory") and
+  my $probe_dir = "$ENV{VDT_LOCATION}/gratia/probe/". $o{'gratiaProbeTypes'}{&RSVProbeBase::Get_MetricName ()};
+  return (checkDirReadable($probe_dir, $o{'gratiaProbeTypes'}{&RSVProbeBase::Get_MetricName ()}." probe directory") and
           checkFileReadable("$probe_dir/ProbeConfig"));
 }
 
@@ -470,11 +438,11 @@ sub checkDirReadable {
   if (-d $dir and -r $dir) {
     return 1;
   } else {
-    add_to_details(<<EOF);
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 DirectoryCheck: $dir ($description) does not exist or is not readable.
 EOF
     if (not $is_root) {
-      add_to_details(<<EOF);
+      &RSVProbeBase::Append_DetailsData (<<EOF);
 DirectoryCheck: Re-run as root?
 EOF
     }
@@ -487,11 +455,11 @@ sub checkFileReadable {
   if (-f $file and -r $file) {
     return 1;
   } else {
-    add_to_details(<<EOF);
+    &RSVProbeBase::Append_DetailsData (<<EOF);
 FileCheck: $file ($description) does not exist or is not readable.
 EOF
     if (not $is_root) {
-      add_to_details(<<EOF);
+      &RSVProbeBase::Append_DetailsData (<<EOF);
 FileCheck: Re-run as root?
 EOF
     }
@@ -501,7 +469,7 @@ EOF
 
 sub getProbeConfigAttribute {
   my $probeConfig_cmd = <<EOF;
-( cd "$ENV{VDT_LOCATION}/gratia/probe/$probeType"; ../common/GetProbeConfigAttribute.py %s )
+( cd "$ENV{VDT_LOCATION}/gratia/probe/$o{'gratiaProbeTypes'}{&RSVProbeBase::Get_MetricName ()}"; ../common/GetProbeConfigAttribute.py %s )
 EOF
 
   my @results = ();
@@ -519,8 +487,76 @@ EOF
   }
 }
 
-__END__
 
+
+################################################################################
+##
+##  Process_Informational_Arguments ()
+##
+## OUTPUT:
+##  None
+##
+## RETURNS:
+##  None
+## 
+################################################################################
+
+sub Process_Multi_Metrics {
+
+  &discoverProbesToTest();
+
+  ## Additional details for this multi-metric probe
+  ##$o{'gratiaProbeTypes'}{'org.osg.batch.jobmanager-default-status'} = "jobmanager";
+
+  ## Do above step for each metric possible
+  if (defined ($o{'listmetric'})) {
+    foreach my $metric_name (sort keys %{$o{'gratiaProbeTypes'}}) {
+      &RSVProbeBase::Set_MetricName($metric_name);
+      ## Should automating tools run this probe on above probeType by default?
+      #if ($metric_name =~ /default/) {
+      &RSVProbeBase::Set_EnableByDefault("true");
+      #    }
+
+      ## Unix cron type metric interval
+      &RSVProbeBase::Set_MetricInterval (int(rand(60)). " * * * *");
+      &RSVProbeBase::List_Summary_Metric();
+    }
+    exit 0;
+  }
+}
+
+sub discoverProbesToTest {
+  my $prog_name = basename $0;
+
+  unless ($ENV{VDT_LOCATION}) {
+    print STDERR "$prog_name: VDT_LOCATION is not set!\n";
+    exit(1);
+  }
+  my $probedir = "$ENV{VDT_LOCATION}/gratia/probe";
+
+  unless (-d $probedir) {
+    print STDERR "$prog_name: no directory $ENV{VDT_LOCATION}/gratia/probe!\n";
+    exit(1);
+    }
+
+    unless (opendir(DIR, $probedir)) {
+      print STDERR "$prog_name: unable to open directory for $ENV{VDT_LOCATION}/gratia/probe!\n";
+      exit(1);
+    }
+
+    # Execute probe once per probe directory.
+    while (my $dir = readdir DIR) {
+      next unless -d "$probedir/$dir";
+      next if $dir =~ m&^\.+$&;
+      next if $dir =~ m&^(?:rsv|test|common)$&;
+      # next if grep m&^\Q$dir\E$&, @excludes;
+      $o{'gratiaProbeTypes'}{'org.osg.gratia.'.$dir} = $dir;
+      &RSVProbeBase::Verbose ("Assigning probeType to hash \$o{'gratiaProbeTypes'}{'org.osg.gratia.'.$dir}=[$o{'gratiaProbeTypes'}{'org.osg.gratia.'.$dir}]\n");
+    }
+  closedir(DIR);
+}
+
+__END__
 ### Local Variables:
 ### mode: cperl
 ### End:
