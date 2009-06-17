@@ -259,10 +259,10 @@ EOF
     $dir=`/bin/pwd`;
     chomp $dir;
   }
-  &RSVProbeBase::Append_DetailsData (sprintf("cd %s && ./%s -p %s\n",
+  &RSVProbeBase::Append_DetailsData (sprintf("(cd %s && ./%s -m %s)\n",
                                              $dir,
                                              basename($0),
-                                             $current_gratia_probe_type));
+                                             &RSVProbeBase::Get_MetricName()));
 }
 
 sub probeConfigProblems {
