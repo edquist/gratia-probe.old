@@ -130,12 +130,15 @@ sub Run {
 
   # Do we have the correct permissions on the datafolder?
   my (@rdf_stat) = stat $real_datafolder;
-  if ($rdf_stat[2] != 041777) {
-    setCritical();
-    &RSVProbeBase::Append_DetailsData(sprintf("%s (found %05o, wanted %05o).",
-                           "Data folder $real_datafolder does not have correct permissions\.n",
-                           $rdf_stat[2],
-                           041777));
+  if ($current_gratia_probe_type =~ m&^(?:sge|pbs|lsf|pbs-lsf|condor)&i) {
+    if ($rdf_stat[2] != 041777) {
+      setCritical();
+      &RSVProbeBase::Append_DetailsData
+        (sprintf("%s (found %05o, wanted %05o).",
+                 "Data folder $real_datafolder does not have correct permissions.\n",
+                 $rdf_stat[2],
+                 041777));
+    }
   }
 
   #################################
@@ -185,8 +188,7 @@ EOF
   my $probe_contact_check =
     `wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?probename=$probename'`;
   chomp $probe_contact_check;
-
-  $probe_contact_check =~ s&^last-contact=([^\s]+)\s+([^\s]+?)\|$&${1}T${2}Z&;
+  $probe_contact_check =~ s&^last-contact=([^\s]+)\s+([^\s]+?)\|?$&${1}T${2}Z&;
   $probe_contact_check = ParseDate($probe_contact_check);
   my $last_contact_string = UnixDate($probe_contact_check, "%Y-%m-%d %T %Z");
   my $cmpDateHour = DateCalc("today", "- 1 hour");
@@ -196,6 +198,7 @@ EOF
     setUnknown();
     &RSVProbeBase::Append_DetailsData (<<EOF);
 Gratia server $soaphost not responding to obtain last contact details.
+wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?probename=$probename'
 EOF
   } elsif ($probe_contact_check eq "last-contact=never") {
     setCritical();
@@ -227,7 +230,7 @@ EOF
   # Cross-check locally configured site name matches Gratia server sitename.
   if ($probe_seen_by_soaphost) {
     my $probe_site_check =
-      system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^probename=$probename|last-contact=' >/dev/null 2>&1") == 0;
+      system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^$probename\[|:][ 	]*last-contact=' >/dev/null 2>&1") == 0;
 
     if (!$probe_site_check) {
       setWarning();
