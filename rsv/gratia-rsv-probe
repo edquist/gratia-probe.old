@@ -230,7 +230,7 @@ EOF
   # Cross-check locally configured site name matches Gratia server sitename.
   if ($probe_seen_by_soaphost) {
     my $probe_site_check =
-      system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^$probename\[|:][ 	]*last-contact=' >/dev/null 2>&1") == 0;
+      system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^(?:probename=)?$probename\[|:][ 	]*last-contact=' >/dev/null 2>&1") == 0;
 
     if (!$probe_site_check) {
       setWarning();
