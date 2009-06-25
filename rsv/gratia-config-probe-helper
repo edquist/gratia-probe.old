@@ -1,5 +1,5 @@
-eval '(exit $?0)' && eval 'exec perl -S $0 ${1+"$@"}'
-  && eval 'exec perl -S $0 $argv:q'
+eval '(exit $?0)' && eval 'exec perl -wS $0 ${1+"$@"}'
+  && eval 'exec perl -wS $0 $argv:q'
   if 0;
 
 use strict;
@@ -9,17 +9,19 @@ use Date::Manip;
 
 
 ######## Retrieve Global variables ################################
-## And alias to RSV::Probe_Base variables
 our %o;
-our %metric; 
-my ($is_root, $run_me_root, $probeconfig_problems, $soaphost, $probename,
+our %metric;
+# Set $run_me_root to 1 if conditions arise such that we should give
+# local probe run instructions in the event of a problem. Set to >1 if
+# we should give local probe run instructions regardless of
+# metricStatus.
+my $run_me_root = 0;
+my ($is_root, $probeconfig_problems, $soaphost, $probename,
     $sitename, $enabled, $datafolder, $workingfolder, $real_datafolder,
     $probe_in_cron, $current_gratia_probe_type);
 
 &Init();
 &Run();
-
-
 ################################################################################
 ## Main Program ends ##
 ################################################################################
@@ -30,33 +32,77 @@ my ($is_root, $run_me_root, $probeconfig_problems, $soaphost, $probename,
 ################################################################################
 
 sub Init {
-  GetOptions(
-	     "discover"  => \$o{'discover'},
-	     "vdt-location=s"  => \$ENV{'VDT_LOCATION'},
-	     "gratia-probe-name=s"  => \$o{'gratiaProbeType'}
-	    );
+  GetOptions
+    (
+     "help|h" => \$o{'help'},
+     "discover"  => \$o{'discover'},
+     "vdt-location=s"  => \$ENV{'VDT_LOCATION'},
+     "gratia-probe-name|p=s"  => \$o{'gratiaProbeType'},
+     "human-readable|X" => \$o{'human-readable'}
+    ) or usage(1);
+  usage(1) if $o{'help'};
 }
 
+sub usage {
+  my $exit_code = shift;
+  my $prog = basename($0);
+  print STDERR <<EOF;
+Usage: $0 <options>
+
+Options:
+
+  --help
+   -h
+    This help
+
+  --discover
+    Show available probes on this system (use in conjunction with -X for
+    human-readable output.
+
+  --vdt-location <VDT_LOCATION>
+    Specify VDT_LOCATION (overrides value in environment if any).
+
+  --human-readable
+   -X
+    Produce human-readable output (default is XML).
+
+  --gratia-probe-name <probe name>
+   -p
+    Run tests for specific probe. Possible values can be ascertained
+    with --discover option.
+EOF
+  exit($exit_code);
+}
 
 sub Run {
 
   if ($o{'discover'}) {
+    ## discoverProbesToTest() will exit if called.
     &discoverProbesToTest();
   }
 
-  ## Above routine will exit if called .. else continue processing
-
   $is_root = not $<;		# Are we running as root?
+
+  # Probe type
+  $current_gratia_probe_type = gratiaProbeType();
+  unless ($current_gratia_probe_type) {
+    setCritical();
+    &appendDetailsData(<<EOF);
+Probe type must be set with -p! Run with --discover (add -X for
+human-readable output) to find possible values on this system.
+EOF
+    normal_exit()
+  }
 
   ####################################
   # Start tests
-  my @PYTHONPATH = split /:/, $ENV{PYTHONPATH};
+  my @PYTHONPATH = ();
+  @PYTHONPATH = split /:/, $ENV{PYTHONPATH} if  $ENV{PYTHONPATH};
   unless (grep m&^\Q$ENV{VDT_LOCATION}/gratia/probe/common\E$&, @PYTHONPATH) {
     push @PYTHONPATH, "$ENV{VDT_LOCATION}/gratia/probe/common";
     $ENV{PYTHONPATH} = join(":", @PYTHONPATH);
   }
 
-  $current_gratia_probe_type = gratiaProbeType();
 
   # Check directories
   unless (checkProbeDirs()) {
@@ -79,13 +125,14 @@ sub Run {
   ################################
   # Check some basic critical stuff
 
-  # Is probe in crontab?
-  if ($probe_in_cron != 1) {
+  # Is probe in crontab (if it's supposed to be)?
+  if ($current_gratia_probe_type =~
+      m&^(?:sge|pbs|lsf|pbs-lsf|condor|glexec)&i and
+      $probe_in_cron != 1) {
     if ($is_root) {
       setCritical();
       &appendDetailsData("Probe $probename is not listed in crontab.\n");
     } else {
-      setUnknown();
       &appendDetailsData("Not root: cannot examine crontab.\n");
     }
   }
@@ -170,20 +217,19 @@ EOF
   my $cmpDateDay = DateCalc("today", "- 1 day");
   my $probe_seen_by_soaphost;
   if (!$probe_contact_check) {
-    setUnknown();
     &appendDetailsData (<<EOF);
 Gratia server $soaphost not responding to obtain last contact details.
 EOF
   } elsif ($probe_contact_check eq "last-contact=never") {
     setCritical();
-    $run_me_root =1;
+    $run_me_root = 1;
     &appendDetailsData (<<EOF);
 Gratia server $soaphost has never seen probe $probename.
 EOF
     normal_exit();
   } elsif (Date_Cmp($probe_contact_check, $cmpDateDay) < 1) {
     setCritical();
-    $run_me_root =1;
+    $run_me_root = 1;
     &appendDetailsData (<<EOF);
 Probe $probename has not been seen by Gratia collector $soaphost in >1d.
 Last contact time = $last_contact_string
@@ -191,35 +237,39 @@ EOF
     normal_exit();
   } elsif (Date_Cmp($probe_contact_check, $cmpDateHour) < 1) {
     setWarning();
-    $run_me_root =1;
+    $run_me_root = 1;
     &appendDetailsData (<<EOF);
 Probe $probename has not been seen by Gratia collector $soaphost in >1h.
 Last contact time = $last_contact_string
 EOF
   } else {
     $probe_seen_by_soaphost = 1;
+    &appendDetailsData (<<EOF);
+Probe $probename has sent data to Gratia collector within the last hour.
+EOF
   }
 
   ################################
   # Cross-check locally configured site name matches Gratia server sitename.
   if ($probe_seen_by_soaphost) {
     my $probe_site_check =
-      system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^(?:probename=)?$probename\[|:][ 	]*last-contact=' >/dev/null 2>&1") == 0;
-
+      system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^\\(probename=\\)\\{0,1\\}$probename\[|:][ 	]*last-contact=' >/dev/null 2>&1") == 0;
     if (!$probe_site_check) {
       setWarning();
       &appendDetailsData (<<EOF);
 Probe $probename not found in check of probes reporting to $soaphost from $sitename.
 Check Collector SiteName translation on $soaphost
+wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^\(probename=\)\{0,1\}$probename\[|:][ 	]*last-contact='
+EOF
+    } else {
+      &appendDetailsData (<<EOF);
+Configured site name ($sitename) for probe $probename matches Gratia translation.
 EOF
     }
   }
 
   ################################
   # Check log file for jobs reported.
-
-  # Set final status if we make it.
-  $metric{metricStatus} = "OK" if ($metric{metricStatus} eq "UNKNOWN");
 
   normal_exit(1);
 }
@@ -231,16 +281,15 @@ Run tests as root for more diagnostic details, especially if you have a
 WARNING or CRITICAL status.
 Manual invocation:
 EOF
-  my $dir=dirname($0);
-  if ($dir eq ".") {
-    $dir=`/bin/pwd`;
-    chomp $dir;
-  }
-  ## agopu To GratiaTeam TODO NEED NEW TEXT -- PERHAPS WITH A DOWNLOADABLE SCRIPT
-  &appendDetailsData (sprintf("NEED NEW TEXT -- PERHAPS WITH A DOWNLOADABLE SCRIPT -agopu To GratiaTeam TODO -- (cd %s && ./%s -m %s)\n",
-                                             $dir,
-                                             basename($0),
-                                             $metric{'metricName'}));
+  my $dir = dirname($0);
+  $dir=qx^cd "$dir" && /bin/pwd^;
+  chomp $dir;
+  $dir =~ s&worker-scripts/?&&;
+  &appendDetailsData (sprintf("(cd \"%s\" && ./worker-scripts/%s --vdt-location \"%s\" -X -p %s)\n",
+                              $dir,
+                              basename($0),
+                              $ENV{'VDT_LOCATION'},
+                              $metric{'metricName'}));
 }
 
 sub probeConfigProblems {
@@ -252,9 +301,22 @@ EOF
 sub normal_exit {
   return if $o{test} and not $_[0];
   probeConfigProblems() if $probeconfig_problems;
-  runMeRoot() if ($run_me_root and not $is_root);
+  if ($run_me_root and not $is_root and
+      ($o{metricStatus} or $run_me_root > 1)) {
+    runMeRoot();
+  }
   ## Print metric, and we're all done!
-  &printWorkerScriptXml (0,"<MetricStatus>$metric{'metricStatus'}</MetricStatus><DetailsData>$metric{'detailsData'}</DetailsData>","");
+  if ($o{'human-readable'}) {
+    # Want human-readable results
+    my $statusWord = metricStatusWord();
+    &printWorkerScriptXml (0, <<EOF, "");
+STATUS: $statusWord
+DETAILS:
+$metric{'detailsData'}
+EOF
+  } else {
+    &printWorkerScriptXml (0,"\n  <MetricStatus>$metric{'metricStatus'}</MetricStatus>\n  <DetailsData>$metric{'detailsData'}</DetailsData>\n","");
+  }
 }
 
 
@@ -270,6 +332,23 @@ sub setWarning {
 sub setUnknown {
   $metric{'metricStatus'} = 3 unless ## "UNKNOWN" unless
     $metric{'metricStatus'} == 2; ## "CRITICAL";
+}
+
+sub metricStatusWord {
+  $metric{'metricStatus'} or return "";
+  my $word;
+  if (0 == $metric{'metricStatus'}) {
+    $word = "OK";
+  } elsif (1 == $metric{'metricStatus'}) {
+    $word = "WARNING";
+  } elsif (2 == $metric{'metricStatus'}) {
+    $word = "CRITICAL";
+  } elsif (3 == $metric{'metricStatus'}) {
+    $word = "UNKNOWN";
+  } else {
+    # Fallback
+    $word = $metric{'metricStatus'};
+  }
 }
 
 sub probe_specific_checks {
@@ -366,9 +445,12 @@ EOF
     normal_exit();
   }
   unless ($is_root) {		# Can't do these unless we're root.
-    $run_me_root = 1;
+    $run_me_root = 2; # Print root messagee even if we're otherwise OK.
     &appendDetailsData (<<EOF);
-Remaining checks on $urCollector::Configuration::configValues{lrmsType} require root privilege.
+Remaining checks on $urCollector::Configuration::configValues{lrmsType} require root privilege:
+  * Check existence of configured PBS or LSF log directory.
+  * Check for recent PBS batch log entries.
+  * Check pending XML files in $workingfolder/urCollector.
 EOF
     return;
   }
@@ -517,35 +599,63 @@ sub discoverProbesToTest {
   }
 
   # Execute probe once per probe directory.
-  $output = "<probes>";
+  my @dirs = ();
   while (my $dir = readdir DIR) {
     next unless -d "$probedir/$dir";
     next if $dir =~ m&^\.+$&;
     next if $dir =~ m&^(?:test|common)$&;
-    $output .= "<probe>$dir</probe>";
-    $o{'gratiaProbeTypes'}{'org.osg.gratia.'.$dir} = $dir;
+    push @dirs, $dir;
   }
-  $output .= "</probes>";
   closedir(DIR);
+  if ($o{'human-readable'}) {
+    $output = "Found probes: \n";
+    foreach my $dir (@dirs) {
+      $output = "${output}$dir\n";
+    }
+  } else {
+    $output = "<probes>\n";
+    foreach my $dir (@dirs) {
+      $output = "${output}  <probe>$dir</probe>\n";
+      $o{'gratiaProbeTypes'}{"org.osg.gratia.$dir"} = $dir;
+    }
+    $output .= "</probes>";
+  }
   &printWorkerScriptXml (0,$output,"");
 }
 
 sub tagError {
   my $string = shift;
-  return "<Error>$string</Error>";
+  return $o{'human-readable'}?"ERROR: $string":"<Error>$string</Error>";
 }
 
 ## Print exit code, stdout, stderr in format expected by RSVProbeBase perl module
 sub printWorkerScriptXml {
-  print "<?xml version=\"1.0\" encoding=\"ISO8859-1\" ?>".
-    "<WorkerScriptOutput>".
-    "<ExitCode>".$_[0] ."</ExitCode>".
-    "<StdOut>".  $_[1]. "</StdOut>".
-    "<StdErr>".  $_[2]. "</StdErr>".
-    "</WorkerScriptOutput>";
+  if ($o{'human-readable'}) {
+    my $probe_dir = probeDirPath();
+    print <<EOF;
+Exit code: $_[0]
+EOF
+    if ($current_gratia_probe_type) {
+      print <<EOF;
+Probe type: $current_gratia_probe_type
+Probe dir: $probe_dir
+Diagnostic output:
+EOF
+    }
+    print "$_[1]" if $_[1];
+    print "$_[2]" if $_[2];
+  } else {
+    print <<EOF;
+<?xml version="1.0" encoding="ISO8859-1" ?>
+<WorkerScriptOutput>
+<ExitCode>$_[0]</ExitCode>
+<StdOut>$_[1]</StdOut>
+<StdErr>$_[2]</StdErr>
+</WorkerScriptOutput>
+EOF
+  }
   exit $_[0];
 }
-
 
 __END__
 ### Local Variables:
