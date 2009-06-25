@@ -167,12 +167,12 @@ class ProbeConfiguration:
 
             # First create any sub-directory if needed.
 
-            dir = os.path.dirname(keyfile)
-            if dir!='' and os.path.exists(dir) == 0:
-                Mkdir(dir)
-            dir = os.path.dirname(certfile)
-            if dir!='' and os.path.exists(dir) == 0:
-                Mkdir(dir)
+            keydir = os.path.dirname(keyfile)
+            if keydir!='' and os.path.exists(keydir) == 0:
+                Mkdir(keydir)
+            certdir = os.path.dirname(certfile)
+            if certdir!='' and os.path.exists(certdir) == 0:
+                Mkdir(certdir)
 
             # and then save the pem files
             open(keyfile, 'w').write(resplist[2])
@@ -188,8 +188,8 @@ class ProbeConfiguration:
         return True
 
     def __get_fullpath_cert(self, filename):
-        dir = os.path.dirname(filename)
-        if dir!='' or dir == None:
+        cdir = os.path.dirname(filename)
+        if cdir!='' or cdir == None:
             return filename
         return os.path.join(os.path.join(self.get_WorkingFolder(),"certs"),filename)
 
@@ -205,7 +205,7 @@ class ProbeConfiguration:
             if (cert.has_expired() or os.path.exists(keyfile) == 0 ):
                 if (not self.__createCertificateFile(keyfile,filename)):
                     return None
-        except IOError,i:
+        except IOError:
             # If we can not read it, let get a new one.
             if (not self.__createCertificateFile(keyfile,filename)):
                 return None
@@ -221,8 +221,8 @@ class ProbeConfiguration:
     def setMeterName(self,name):
         self.__ProbeName = name
 
-    def getMeterName(self,name):
-        return self.get_ProbeName(name)
+    def getMeterName(self):
+        return self.get_ProbeName()
 
     def setProbeName(self,name):
         self.__ProbeName = name
