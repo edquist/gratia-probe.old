@@ -335,7 +335,7 @@ sub setUnknown {
 }
 
 sub metricStatusWord {
-  $metric{'metricStatus'} or return "";
+  exists $metric{'metricStatus'} or $metric{'metricStatus'} = 0;
   my $word;
   if (0 == $metric{'metricStatus'}) {
     $word = "OK";
