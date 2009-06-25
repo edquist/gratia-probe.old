@@ -150,8 +150,9 @@ class ProbeConfiguration:
           if (isCertrequestRejected()): 
              return False
           
-          qconnection = ProxyUtil.HTTPConnection(self.get_SSLRegistrationHost(),
-                                                 http_proxy = ProxyUtil.findHTTPProxy())
+          #qconnection = ProxyUtil.HTTPConnection(self.get_SSLRegistrationHost(),
+          #                                       http_proxy = ProxyUtil.findHTTPProxy())
+          qconnection = httplib.HTTPConnection(self.get_SSLRegistrationHost())
           qconnection.connect()
 
           queryString = urllib.urlencode([("command" , "request"),("from",self.get_ProbeName()),("arg1","not really")]);
@@ -731,15 +732,33 @@ def __connect():
 
     if (not __connected) and (__connectionRetries <= MaxConnectionRetries):
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
-            if (ProxyUtil.findHTPProxy()):
-                DebugPrint(0, 'WARNING: http_proxy is set but not supported when UseSoapProtocol is set to 1')
+            if (ProxyUtil.findHTTPProxy()):
+                DebugPrint(0, 'WARNING: http_proxy is set but not supported')
             __connection = httplib.HTTP(Config.get_SOAPHost())
             DebugPrint(1, 'Connected via HTTP to:  ' + Config.get_SOAPHost())
             #print "Using SOAP protocol"
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
-            __connection = ProxyUtil.HTTPConnection(Config.get_SOAPHost(),
-                                                    http_proxy = ProxyUtil.findHTTPProxy())
-            __connection.connect()
+            try:
+               if (ProxyUtil.findHTTPProxy()):
+                  DebugPrint(0, 'WARNING: http_proxy is set but not supported')
+                #__connection = ProxyUtil.HTTPConnection(Config.get_SOAPHost(),
+                #                                        http_proxy = ProxyUtil.findHTTPProxy())
+                __connection = httplib.HTTPConnection(Config.get_SOAPHost())
+            except Exception, e:
+                DebugPrint(0, "ERROR: could not initialize HTTP connection")
+                DebugPrintTraceback()
+                __connectionError = True
+                return __connected
+            try:
+                DebugPrint(4, "DEBUG: Connect")
+                __connection.connect()
+                DebugPrint(4, "DEBUG: Connect: OK")
+            except Exception, e:
+                DebugPrint(4, "DEBUG: Connect: FAILED")
+                DebugPrint(0, "Error: While trying to connect to HTTP, caught exception " + str(e))
+                DebugPrintTraceback()
+                __connectionError = True
+                return __connected
             DebugPrint(1,"Connection via HTTP to: " + Config.get_SOAPHost())
             #print "Using POST protocol"
         else: 
@@ -758,10 +777,15 @@ def __connect():
 
             DebugPrint(4, "DEBUG: Attempting to connect to HTTPS")
             try:
-                 __connection = ProxyUtil.HTTPSConnection(Config.get_SSLHost(),
-                                                          cert_file = pr_cert_file,
-                                                          key_file = pr_key_file,
-                                                          http_proxy = ProxyUtil.findHTTPSProxy())
+               if (ProxyUtil.findHTTPSProxy()):
+                  DebugPrint(0, 'WARNING: http_proxy is set but not supported when UseSoapProtocol is set to 1')
+                  #__connection = ProxyUtil.HTTPSConnection(Config.get_SSLHost(),
+                  #                                        cert_file = pr_cert_file,
+                  #                                        key_file = pr_key_file,
+                  #                                        http_proxy = ProxyUtil.findHTTPSProxy())
+                  __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
+                                                         cert_file = pr_cert_file,
+                                                         key_file = pr_key_file)
             except Exception, e:
                 DebugPrint(0, "ERROR: could not initialize HTTPS connection")
                 DebugPrintTraceback()
