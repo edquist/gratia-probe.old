@@ -1,4 +1,10 @@
-# ProxyUtil.py: taken verbatim from:
+# ProxyUtil.py -- Build on Manish Jethani's net.py to handle http_proxy and
+#                 proxy of http info.
+#
+# This file distributed under GPL v2 (see below).
+#
+# Chris Green, FNAL.
+
 #
 # net.py -- Connection, HttpProxyConnection classes
 #
@@ -23,6 +29,8 @@ import httplib
 import os
 
 from string import split, join
+from urllib import splittype, splithost # CG
+from urlparse import urlsplit # CG
 
 class Connection:  # generic tcp connection wrapper
     def __init__(self, server):
@@ -151,12 +159,20 @@ class HTTPConnection(httplib.HTTPConnection):
 
 def findHTTPProxy():
     if 'http_proxy' in os.environ:
-        return os.environ['http_proxy']
+        return process_proxy(os.environ['http_proxy'])
     else:
         return None
 
 def findHTTPSProxy():
     if 'https_proxy' in os.environ:
-        return os.environ['https_proxy']
+        return process_proxy(os.environ['https_proxy'])
     else:
         return findHTTPProxy()
+
+def process_proxy(proxy):
+    if proxy.startswith('http'):
+        nil, netloc, nil, nil, nil = urlsplit(proxy)
+        address, port = split(netloc, ':')
+    else:
+        address, port = split(proxy, ':')
+    return (address, port)
