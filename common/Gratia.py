@@ -18,15 +18,15 @@ __responseMatcherURLCheck = re.compile(r'Unknown Command: URL', re.IGNORECASE)
 __responseMatcherErrorCheck = re.compile(r'Error report</title', re.IGNORECASE)
 __certinfoLocalJobIdMunger = re.compile(r'(?P<ID>\d+(?:\.\d+)*)')
 __certinfoJobManagerExtractor = re.compile(r'gratia_certinfo_(?P<JobManager>(?:[^\d_][^_]*))')
-__xmlintroRemove = re.compile(r'<\?xml[^>]*\?>') 
+__xmlintroRemove = re.compile(r'<\?xml[^>]*\?>')
 __certRejection = "Error: The certificate has been rejected by the Gratia Collector!";
 __lrms = None
 
 def disconnect_at_exit():
     if (BundleSize > 1 and CurrentBundle.nItems > 0):
-       responseString = ProcessBundle(CurrentBundle)
-       DebugPrint(0, responseString)
-       DebugPrint(0, "***********************************************************")
+        responseString = ProcessBundle(CurrentBundle)
+        DebugPrint(0, responseString)
+        DebugPrint(0, "***********************************************************")
     __disconnect()
     if Config:
         try:
@@ -106,18 +106,18 @@ class ProbeConfiguration:
 
     def get_SOAPHost(self):
         return self.get_CollectorHost()
-        
+
     def get_CollectorHost(self):
         if (self.__CollectorHost != None):
-           return self.__CollectorHost
+            return self.__CollectorHost
         coll = self.__getConfigAttribute('CollectorHost')
         soap = self.__getConfigAttribute('SOAPHost')
         if ( coll == "gratia-osg.fnal.gov:8880" and (soap and soap != "gratia-osg.fnal.gov:8880") ):
-           self.__CollectorHost = soap
+            self.__CollectorHost = soap
         elif ( coll ):
-           self.__CollectorHost = coll
+            self.__CollectorHost = coll
         else:
-           self.__CollectorHost = soap
+            self.__CollectorHost = soap
         return self.__CollectorHost
 
     def get_CollectorService(self):
@@ -129,9 +129,9 @@ class ProbeConfiguration:
     def get_RegistrationService(self):
         result = self.__getConfigAttribute('RegistrationService')
         if (result == None or result == ''):
-           return "/gratia-registration/register"
-        else: 
-           return result
+            return "/gratia-registration/register"
+        else:
+            return result
 
     def __createCertificateFile(self,keyfile,certfile):
         # Get a fresh certificate.
@@ -144,78 +144,78 @@ class ProbeConfiguration:
         #  open(certfile, 'w').write(crypto.dump_certificate(crypto.FILETYPE_PEM, cacert))
         #  return True
         #else:
-          # Download it from the server.
-          
-          # Try this only once per run
-          if (isCertrequestRejected()): 
-             return False
-          
-          #qconnection = ProxyUtil.HTTPConnection(self.get_SSLRegistrationHost(),
-          #                                       http_proxy = ProxyUtil.findHTTPProxy())
-          qconnection = httplib.HTTPConnection(self.get_SSLRegistrationHost())
-          qconnection.connect()
+        # Download it from the server.
 
-          queryString = urllib.urlencode([("command" , "request"),("from",self.get_ProbeName()),("arg1","not really")]);
-          headers = {"Content-type": "application/x-www-form-urlencoded"}
-          qconnection.request("POST", self.get_RegistrationService(), queryString, headers)
-          responseString = qconnection.getresponse().read()
-          resplist = responseString.split(':')
-          if ( len(resplist)==3 and resplist[0] == "ok" ):
-             # We received the info, let's store it
-             #cert = crypto.load_certificate(crypto.FILETYPE_PEM,resplist[1])
-             #key = crypto.load_privatekey(crypto.FILETYPE_PEM,resplist[1])
+        # Try this only once per run
+        if (isCertrequestRejected()):
+            return False
 
-             # First create any sub-directory if needed.
-             
-             dir = os.path.dirname(keyfile)
-             if dir!='' and os.path.exists(dir) == 0:
+        #qconnection = ProxyUtil.HTTPConnection(self.get_SSLRegistrationHost(),
+        #                                       http_proxy = ProxyUtil.findHTTPProxy())
+        qconnection = httplib.HTTPConnection(self.get_SSLRegistrationHost())
+        qconnection.connect()
+
+        queryString = urllib.urlencode([("command" , "request"),("from",self.get_ProbeName()),("arg1","not really")]);
+        headers = {"Content-type": "application/x-www-form-urlencoded"}
+        qconnection.request("POST", self.get_RegistrationService(), queryString, headers)
+        responseString = qconnection.getresponse().read()
+        resplist = responseString.split(':')
+        if ( len(resplist)==3 and resplist[0] == "ok" ):
+            # We received the info, let's store it
+            #cert = crypto.load_certificate(crypto.FILETYPE_PEM,resplist[1])
+            #key = crypto.load_privatekey(crypto.FILETYPE_PEM,resplist[1])
+
+            # First create any sub-directory if needed.
+
+            dir = os.path.dirname(keyfile)
+            if dir!='' and os.path.exists(dir) == 0:
                 Mkdir(dir)
-             dir = os.path.dirname(certfile)
-             if dir!='' and os.path.exists(dir) == 0:
+            dir = os.path.dirname(certfile)
+            if dir!='' and os.path.exists(dir) == 0:
                 Mkdir(dir)
 
-             # and then save the pem files
-             open(keyfile, 'w').write(resplist[2])
-             open(certfile, 'w').write(resplist[1])
-             # We could do
-             # os.chmod(keyfile,0600)
-          else:
-             DebugPrint(4, "DEBUG: Connect: FAILED")
-             DebugPrint(0, "Error: while getting new certificate: " + responseString)
-             DebugPrintTraceback()
-             setCertrequestRejected()
-             return False  
-          return True
+            # and then save the pem files
+            open(keyfile, 'w').write(resplist[2])
+            open(certfile, 'w').write(resplist[1])
+            # We could do
+            # os.chmod(keyfile,0600)
+        else:
+            DebugPrint(4, "DEBUG: Connect: FAILED")
+            DebugPrint(0, "Error: while getting new certificate: " + responseString)
+            DebugPrintTraceback()
+            setCertrequestRejected()
+            return False
+        return True
 
     def __get_fullpath_cert(self, filename):
         dir = os.path.dirname(filename)
         if dir!='' or dir == None:
-           return filename
+            return filename
         return os.path.join(os.path.join(self.get_WorkingFolder(),"certs"),filename)
 
     def get_GratiaCertificateFile(self):
         filename = self.__getConfigAttribute('GratiaCertificateFile')
         if (filename == None or filename == ''):
-           filename = "gratia.probecert.pem"
+            filename = "gratia.probecert.pem"
         filename = self.__get_fullpath_cert(filename)
         keyfile = self.get_GratiaKeyFile()
         try:
-           f = open(filename,'r')
-           cert = crypto.load_certificate(crypto.FILETYPE_PEM, f.read())
-           if (cert.has_expired() or os.path.exists(keyfile) == 0 ):
-               if (not self.__createCertificateFile(keyfile,filename)):
-                  return None
+            f = open(filename,'r')
+            cert = crypto.load_certificate(crypto.FILETYPE_PEM, f.read())
+            if (cert.has_expired() or os.path.exists(keyfile) == 0 ):
+                if (not self.__createCertificateFile(keyfile,filename)):
+                    return None
         except IOError,i:
-           # If we can not read it, let get a new one.
-           if (not self.__createCertificateFile(keyfile,filename)):
-              return None
-        
+            # If we can not read it, let get a new one.
+            if (not self.__createCertificateFile(keyfile,filename)):
+                return None
+
         return filename
 
     def get_GratiaKeyFile(self):
         filename =  self.__getConfigAttribute('GratiaKeyFile')
         if (filename == None or filename == ''):
-           filename = "gratia.probekey.pem"
+            filename = "gratia.probekey.pem"
         return self.__get_fullpath_cert(filename)
 
     def setMeterName(self,name):
@@ -236,7 +236,7 @@ class ProbeConfiguration:
                 # If ProbeName has not been changed, maybe MeterName has been
                 mresult = self.__getConfigAttribute('MeterName')
                 if (mresult != None and mresult != ''):
-                   result = mresult
+                    result = mresult
             if (result == None or result == ''):
                 self.setProbeName(genDefaultProbeName())
                 DebugPrint(0, "INFO: ProbeName not specified in " +
@@ -439,12 +439,12 @@ class ProbeConfiguration:
                 return False
         else:
             return True # If the config entry is missing, default to true
-    
+
     def get_BundleSize(self):
         global BundleSize
         result = self.__getConfigAttribute("BundleSize")
         if result:
-           BundleSize = int(result)
+            BundleSize = int(result)
         return BundleSize
 
 class Event:
@@ -594,7 +594,7 @@ def Initialize(customConfig = "ProbeConfig"):
 
         # Initialize cleanup function.
         atexit.register(disconnect_at_exit)
-        
+
         BundleSize = Config.get_BundleSize()
         CurrentBundle = Bundle()
 
@@ -710,10 +710,10 @@ def __connect():
     global __connectionRetries
     global __retryDelay
     global __last_retry_time
-    
+
     #__connectionError = True
     #return __connected
-    
+
     if __connectionError:
         __disconnect()
         __connectionError = False
@@ -739,11 +739,11 @@ def __connect():
             #print "Using SOAP protocol"
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
             try:
-               if (ProxyUtil.findHTTPProxy()):
-                  DebugPrint(0, 'WARNING: http_proxy is set but not supported')
-                #__connection = ProxyUtil.HTTPConnection(Config.get_SOAPHost(),
-                #                                        http_proxy = ProxyUtil.findHTTPProxy())
-                __connection = httplib.HTTPConnection(Config.get_SOAPHost())
+                if (ProxyUtil.findHTTPProxy()):
+                    DebugPrint(0, 'WARNING: http_proxy is set but not supported')
+                    #__connection = ProxyUtil.HTTPConnection(Config.get_SOAPHost(),
+                    #                                        http_proxy = ProxyUtil.findHTTPProxy())
+                    __connection = httplib.HTTPConnection(Config.get_SOAPHost())
             except Exception, e:
                 DebugPrint(0, "ERROR: could not initialize HTTP connection")
                 DebugPrintTraceback()
@@ -761,31 +761,31 @@ def __connect():
                 return __connected
             DebugPrint(1,"Connection via HTTP to: " + Config.get_SOAPHost())
             #print "Using POST protocol"
-        else: 
+        else:
             # assert(Config.get_UseSSL() == 1)
             if Config.get_UseGratiaCertificates() == 0:
-               pr_cert_file = Config.get_CertificateFile()
-               pr_key_file = Config.get_KeyFile()            
+                pr_cert_file = Config.get_CertificateFile()
+                pr_key_file = Config.get_KeyFile()
             else:
-               pr_cert_file = Config.get_GratiaCertificateFile()
-               pr_key_file = Config.get_GratiaKeyFile()
-            
+                pr_cert_file = Config.get_GratiaCertificateFile()
+                pr_key_file = Config.get_GratiaKeyFile()
+
             if (pr_cert_file == None):
                 DebugPrint(0, "Error: While trying to connect to HTTPS, no valid local certificate.")
-                __connectionError = True           
+                __connectionError = True
                 return __connected
 
             DebugPrint(4, "DEBUG: Attempting to connect to HTTPS")
             try:
-               if (ProxyUtil.findHTTPSProxy()):
-                  DebugPrint(0, 'WARNING: http_proxy is set but not supported when UseSoapProtocol is set to 1')
-                  #__connection = ProxyUtil.HTTPSConnection(Config.get_SSLHost(),
-                  #                                        cert_file = pr_cert_file,
-                  #                                        key_file = pr_key_file,
-                  #                                        http_proxy = ProxyUtil.findHTTPSProxy())
-                  __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
-                                                         cert_file = pr_cert_file,
-                                                         key_file = pr_key_file)
+                if (ProxyUtil.findHTTPSProxy()):
+                    DebugPrint(0, 'WARNING: http_proxy is set but not supported when UseSoapProtocol is set to 1')
+                    #__connection = ProxyUtil.HTTPSConnection(Config.get_SSLHost(),
+                    #                                        cert_file = pr_cert_file,
+                    #                                        key_file = pr_key_file,
+                    #                                        http_proxy = ProxyUtil.findHTTPSProxy())
+                    __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
+                                                           cert_file = pr_cert_file,
+                                                           key_file = pr_key_file)
             except Exception, e:
                 DebugPrint(0, "ERROR: could not initialize HTTPS connection")
                 DebugPrintTraceback()
@@ -959,7 +959,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
             elif ( responseString == __certRejection ):
                 __connectionError = True
                 __certificateRejected = True
-                response = Response(-1, responseString)               
+                response = Response(-1, responseString)
             else:
                 response = Response(-1, responseString)
         if responseString != None and \
@@ -1852,7 +1852,7 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
         # Identity info check
         [VOName, ReportableVOName] = [None, None]
         id_info = { }
-        
+
         DebugPrint(4, "DEBUG: Finding UserIdentityNodes")
         UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
         DebugPrint(4, "DEBUG: Finding UserIdentityNodes (processing)")
@@ -1909,7 +1909,7 @@ def UsageCheckXmldoc(xmlDoc,external,resourceType = None):
         # 3. A null or unknown VOName (prone to suppressing jobs we care
         # about if osg-user-vo-map.txt is not well-cared-for).
         reason = None
-        Grid = GetElement(xmlDoc, usageRecord, namespace, prefix, 'Grid') 
+        Grid = GetElement(xmlDoc, usageRecord, namespace, prefix, 'Grid')
         if Config.get_SuppressGridLocalRecords() and \
                Grid and (string.lower(Grid) == 'local'):
             # 1
@@ -1956,44 +1956,44 @@ failedBundleCount = 0
 # Bundle class
 #
 class Bundle:
-   nRecords = 0
-   nHandshakes = 0
-   nReprocessed = 0
-   nItems = 0
-   content = []
-         
-   def addHandshake(self, xmlData):
-      self.content.append( ['',xmlData] )
-      self.nHandshakes += 1
-      self.nItems += 1
-      return self.checkAndSend("Handshake added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+    nRecords = 0
+    nHandshakes = 0
+    nReprocessed = 0
+    nItems = 0
+    content = []
 
-   def addRecord(self, filename, xmlData):
-      self.content.append( [filename,xmlData] )
-      self.nRecords += 1
-      self.nItems += 1
-      return self.checkAndSend("Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+    def addHandshake(self, xmlData):
+        self.content.append( ['',xmlData] )
+        self.nHandshakes += 1
+        self.nItems += 1
+        return self.checkAndSend("Handshake added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
 
-   def addReprocess(self, filename, xmlData):
-      self.content.append( [filename,xmlData] )
-      self.nReprocessed += 1
-      self.nItems += 1
-      return self.checkAndSend("Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+    def addRecord(self, filename, xmlData):
+        self.content.append( [filename,xmlData] )
+        self.nRecords += 1
+        self.nItems += 1
+        return self.checkAndSend("Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
 
-   def checkAndSend(self,defaultmsg):
-      # Check if the bundle is full, if it is, do the
-      # actuall sending!
-      if (self.nItems >= BundleSize):
-         return ProcessBundle(self)
-      else:
-         return defaultmsg
-         
-   def clear(self):
-      self.nRecords = 0
-      self.nHandshakes = 0
-      self.nItems = 0
-      self.content = []
-      self.nReprocessed = 0
+    def addReprocess(self, filename, xmlData):
+        self.content.append( [filename,xmlData] )
+        self.nReprocessed += 1
+        self.nItems += 1
+        return self.checkAndSend("Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+
+    def checkAndSend(self,defaultmsg):
+        # Check if the bundle is full, if it is, do the
+        # actuall sending!
+        if (self.nItems >= BundleSize):
+            return ProcessBundle(self)
+        else:
+            return defaultmsg
+
+    def clear(self):
+        self.nRecords = 0
+        self.nHandshakes = 0
+        self.nItems = 0
+        self.content = []
+        self.nReprocessed = 0
 
 #
 # ProcessBundle
@@ -2027,20 +2027,20 @@ def ProcessBundle(bundle):
 
         filename = item[0]
         xmlData = item[1]
-        
+
         DebugPrint(1, 'Processing bundle file: ' + filename)
-        
+
         if ( xmlData == ''):
-           # Read the contents of the file into a string of xml
-           try:
-              in_file = open(filename,"r")
-              xmlData = in_file.read()
-              in_file.close()
-           except:
-              DebugPrint(1, 'Processing bundle failure: unable to read file' + filename)
-              responseString = responseString + '\nUnable to read from ' + filename
-              failedBundleCount += 1
-              continue
+            # Read the contents of the file into a string of xml
+            try:
+                in_file = open(filename,"r")
+                xmlData = in_file.read()
+                in_file.close()
+            except:
+                DebugPrint(1, 'Processing bundle failure: unable to read file' + filename)
+                responseString = responseString + '\nUnable to read from ' + filename
+                failedBundleCount += 1
+                continue
 
         if not xmlData:
             DebugPrint(1, 'Processing bundle failure: ' + filename +
@@ -2048,7 +2048,7 @@ def ProcessBundle(bundle):
             responseString = responseString + '\nEmpty file ' + filename + ': XML not sent'
             failedBundleCount += 1
             continue
-        
+
         xmlData = __xmlintroRemove.sub('',xmlData)
 
         bundleData = bundleData + xmlData + "\n";
@@ -2061,39 +2061,39 @@ def ProcessBundle(bundle):
     response = __sendUsageXML(Config.get_ProbeName(), bundleData, "multiupdate")
     DebugPrint(1, 'Processing bundle Response:  ' + response.get_message())
     if (response.get_message() == "Error: Unknown Command: multiupdate or Invalid Arg Count: 1"):
-       DebugPrint(0, "Collector is too old to handle 'bundles', reverting to sending individual records.")
-       BundleSize = 0
-       bundle.clear()
-       if (bundle.nHandshakes > 0):
-          Handshake()
-       else:
-          SearchOutstandingRecord()
-          Reprocess()
-       return "Bundling has been canceled."
+        DebugPrint(0, "Collector is too old to handle 'bundles', reverting to sending individual records.")
+        BundleSize = 0
+        bundle.clear()
+        if (bundle.nHandshakes > 0):
+            Handshake()
+        else:
+            SearchOutstandingRecord()
+            Reprocess()
+        return "Bundling has been canceled."
 
     responseString = 'Processed bundle with ' + str(bundle.nItems) + ' records:  ' + response.get_message()
 
     # Determine if the call succeeded, and remove the file if it did
     if response.get_code() == 0:
-       successfulSendCount += bundle.nRecords
-       successfulHandshakes += bundle.nHandshakes
-       successfulReprocessCount += bundle.nReprocessed
-       successfulBundleCount += 1
-       for item in bundle.content:
-          filename = item[0]
-          if (filename != ''):
-             os.remove(filename)
+        successfulSendCount += bundle.nRecords
+        successfulHandshakes += bundle.nHandshakes
+        successfulReprocessCount += bundle.nReprocessed
+        successfulBundleCount += 1
+        for item in bundle.content:
+            filename = item[0]
+            if (filename != ''):
+                os.remove(filename)
     else:
-       DebugPrint(1, 'Response indicates failure, the following files will not be deleted:')
-       for item in bundle.content:
-          filename = item[0]
-          if (filename != ''):
-             DebugPrint(1, '   ' + filename)
-       failedSendCount += bundle.nRecords
-       failedHandshakes += bundle.nHandshakes
-       failedReprocessCount += bundle.nReprocessed
-       failedBundleCount += 1
-       
+        DebugPrint(1, 'Response indicates failure, the following files will not be deleted:')
+        for item in bundle.content:
+            filename = item[0]
+            if (filename != ''):
+                DebugPrint(1, '   ' + filename)
+        failedSendCount += bundle.nRecords
+        failedHandshakes += bundle.nHandshakes
+        failedReprocessCount += bundle.nReprocessed
+        failedBundleCount += 1
+
     bundle.clear()
 
     #if responseString != "":
@@ -2109,7 +2109,7 @@ def ProcessBundle(bundle):
 def Reprocess():
     global successfulReprocessCount
     global failedReprocessCount
-       
+
     responseString = ""
 
     # Loop through and try to send any outstanding records
@@ -2142,18 +2142,18 @@ def Reprocess():
             continue
 
         if (BundleSize > 1):
-           # Delay the sending until we have 'bundleSize' records.
-           response = CurrentBundle.addReprocess(failedRecord,xmlData)
-           DebugPrint(1, response)
-           if (len(responseString)!=0): 
-              responseString = responseString + '\n' 
-           responseString = responseString + 'Reprocessed ' + failedRecord + ':  ' + response
+            # Delay the sending until we have 'bundleSize' records.
+            response = CurrentBundle.addReprocess(failedRecord,xmlData)
+            DebugPrint(1, response)
+            if (len(responseString)!=0):
+                responseString = responseString + '\n'
+            responseString = responseString + 'Reprocessed ' + failedRecord + ':  ' + response
         else:
             # Send the xml to the collector for processing
             response = __sendUsageXML(Config.get_ProbeName(), xmlData)
             DebugPrint(1, 'Reprocess Response:  ' + response.get_message())
-            if (len(responseString)!=0): 
-               responseString = responseString + '\n' 
+            if (len(responseString)!=0):
+                responseString = responseString + '\n'
             responseString = responseString + 'Reprocessed ' + failedRecord + ':  ' + response.get_message()
 
             # Determine if the call succeeded, and remove the file if it did
@@ -2241,30 +2241,30 @@ def SendHandshake(record):
     connectionProblem = (__connectionRetries > 0) or (__connectionError)
 
     if (BundleSize > 1):
-       # Delay the sending until we have 'bundleSize' records.
-       responseString = CurrentBundle.addHandshake(usageXmlString)
+        # Delay the sending until we have 'bundleSize' records.
+        responseString = CurrentBundle.addHandshake(usageXmlString)
     else:
-       # Attempt to send the record to the collector. Note that this must
-       # be sent currently as an update, not as a handshake (cf unused
-       # SendStatus() call)
-       response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
-       responseString = response.get_message()
+        # Attempt to send the record to the collector. Note that this must
+        # be sent currently as an update, not as a handshake (cf unused
+        # SendStatus() call)
+        response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
+        responseString = response.get_message()
 
-       DebugPrint(0, 'Response code:  ' + str(response.get_code()))
-       DebugPrint(0, 'Response message:  ' + response.get_message())
+        DebugPrint(0, 'Response code:  ' + str(response.get_code()))
+        DebugPrint(0, 'Response message:  ' + response.get_message())
 
-       # Determine if the call was successful based on the response
-       # code.  Currently, 0 = success
-       if response.get_code() == 0:
-          DebugPrint(1, 'Response indicates success, ')
-          successfulHandshakes += 1
-          if (connectionProblem):
-             # Reprocess failed records before attempting more new ones
-             SearchOutstandingRecord()
-             Reprocess()
-       else:
-          DebugPrint(1, 'Response indicates failure, ')
-          failedHandshakes += 1
+        # Determine if the call was successful based on the response
+        # code.  Currently, 0 = success
+        if response.get_code() == 0:
+            DebugPrint(1, 'Response indicates success, ')
+            successfulHandshakes += 1
+            if (connectionProblem):
+                # Reprocess failed records before attempting more new ones
+                SearchOutstandingRecord()
+                Reprocess()
+        else:
+            DebugPrint(1, 'Response indicates failure, ')
+            failedHandshakes += 1
 
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
@@ -2364,38 +2364,38 @@ def Send(record):
         connectionProblem = (__connectionRetries > 0) or (__connectionError)
 
         if (BundleSize > 1 and f.name != "<stdout>"):
-           # Delay the sending until we have 'bundleSize' records.
-           responseString = CurrentBundle.addRecord(f.name, usageXmlString)
+            # Delay the sending until we have 'bundleSize' records.
+            responseString = CurrentBundle.addRecord(f.name, usageXmlString)
         else:
-           # Attempt to send the record to the collector
-           response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
-           responseString = response.get_message()
+            # Attempt to send the record to the collector
+            response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
+            responseString = response.get_message()
 
-           DebugPrint(0, 'Response code:  ' + str(response.get_code()))
-           DebugPrint(0, 'Response message:  ' + response.get_message())
+            DebugPrint(0, 'Response code:  ' + str(response.get_code()))
+            DebugPrint(0, 'Response message:  ' + response.get_message())
 
-           # Determine if the call was successful based on the response
-           # code.  Currently, 0 = success
-           if response.get_code() == 0:
-              DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
-              successfulSendCount += 1
-              os.remove(f.name)
-           else:
-              failedSendCount += 1
-              if (f.name == "<stdout>"):
-                 DebugPrint(0, 'Record send failed and no backup made: record lost!')
-                 responseString += "\nFatal: failed record lost!"
-                 match = re.search(r'^<(?:[^:]*:)?RecordIdentity.*/>$', usageXmlString, re.MULTILINE)
-                 if match:
-                    DebugPrint(0, match.group(0))
-                    responseString += "\n", match.group(0)
-                 match = re.search(r'^<(?:[^:]*:)?GlobalJobId.*/>$', usageXmlString, re.MULTILINE)
-                 if match:
-                    DebugPrint(0, match.group(0))
-                    responseString += "\n", match.group(0)
-                 responseString += "\n" + usageXmlString
-              else:
-                 DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
+            # Determine if the call was successful based on the response
+            # code.  Currently, 0 = success
+            if response.get_code() == 0:
+                DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+                successfulSendCount += 1
+                os.remove(f.name)
+            else:
+                failedSendCount += 1
+                if (f.name == "<stdout>"):
+                    DebugPrint(0, 'Record send failed and no backup made: record lost!')
+                    responseString += "\nFatal: failed record lost!"
+                    match = re.search(r'^<(?:[^:]*:)?RecordIdentity.*/>$', usageXmlString, re.MULTILINE)
+                    if match:
+                        DebugPrint(0, match.group(0))
+                        responseString += "\n", match.group(0)
+                    match = re.search(r'^<(?:[^:]*:)?GlobalJobId.*/>$', usageXmlString, re.MULTILINE)
+                    if match:
+                        DebugPrint(0, match.group(0))
+                        responseString += "\n", match.group(0)
+                    responseString += "\n" + usageXmlString
+                else:
+                    DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
 
         DebugPrint(0, responseString)
         DebugPrint(0, "***********************************************************")
@@ -2526,29 +2526,29 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
         DebugPrint(3, 'UsageXml:  ' + usageXmlString)
 
         if (BundleSize > 1 and f.name != "<stdout>"):
-           # Delay the sending until we have 'bundleSize' records.
-           responseString = CurrentBundle.addRecord(f.name, usageXmlString)
+            # Delay the sending until we have 'bundleSize' records.
+            responseString = CurrentBundle.addRecord(f.name, usageXmlString)
         else:
-           # If XMLFiles can ever be anything else than Update messages,
-           # then one should be able to deduce messageType from the root
-           # element of the XML.
-           messageType = "URLEncodedUpdate"
+            # If XMLFiles can ever be anything else than Update messages,
+            # then one should be able to deduce messageType from the root
+            # element of the XML.
+            messageType = "URLEncodedUpdate"
 
-           # Attempt to send the record to the collector
-           response = __sendUsageXML(Config.get_ProbeName(), usageXmlString, messageType)
+            # Attempt to send the record to the collector
+            response = __sendUsageXML(Config.get_ProbeName(), usageXmlString, messageType)
 
-           DebugPrint(0, 'Response code:  ' + str(response.get_code()))
-           DebugPrint(0, 'Response message:  ' + response.get_message())
+            DebugPrint(0, 'Response code:  ' + str(response.get_code()))
+            DebugPrint(0, 'Response message:  ' + response.get_message())
 
-           # Determine if the call was successful based on the
-           # response code.  Currently, 0 = success
-           if response.get_code() == 0:
-              DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
-              successfulSendCount += 1
-              os.remove(f.name)
-           else:
-              failedSendCount += 1
-              DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
+            # Determine if the call was successful based on the
+            # response code.  Currently, 0 = success
+            if response.get_code() == 0:
+                DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+                successfulSendCount += 1
+                os.remove(f.name)
+            else:
+                failedSendCount += 1
+                DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
 
     DebugPrint(0, responseString)
     DebugPrint(0, "***********************************************************")
@@ -2572,7 +2572,7 @@ def FindBestJobId(usageRecord, namespace, prefix):
     if LocalJobIdNodes and LocalJobIdNodes[0].firstChild and \
        LocalJobIdNodes[0].firstChild.data:
         return [LocalJobIdNodes[0].localName, LocalJobIdNodes[0].firstChild.data]
-    
+
     return ['Unknown', 'Unknown']
 
 class InternalError(exceptions.Exception):
@@ -2627,7 +2627,7 @@ def __ResourceTool(action, xmlDoc, usageRecord, namespace, prefix, key, value = 
             textNode = xmlDoc.createTextNode(value)
             wantedResource.appendChild(textNode)
     else: # AddIfMissing{Key,Value}, UpdateFirst and UnconditionalAdd
-          # should all drop through to here.
+            # should all drop through to here.
         # Create Resource node
         wantedResource = xmlDoc.createElementNS(namespace,
                                                 prefix + 'Resource')
@@ -2792,13 +2792,13 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
 
     # 2. Certinfo
     if vo_info and ((not VOName) or VOName[0] != r'/'):
-      DebugPrint(4, "DEBUG: Received values " + vo_info['VOName'] +
-                 " and " + vo_info['ReportableVOName'])
-      DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: DONE")
-      VONameNodes[0].firstChild.data = vo_info['VOName']
-      VOName = vo_info['VOName']
-      ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
-      ReportableVOName = vo_info['ReportableVOName']
+        DebugPrint(4, "DEBUG: Received values " + vo_info['VOName'] +
+                   " and " + vo_info['ReportableVOName'])
+        DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: DONE")
+        VONameNodes[0].firstChild.data = vo_info['VOName']
+        VOName = vo_info['VOName']
+        ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
+        ReportableVOName = vo_info['ReportableVOName']
 
     # 3. & 4.
     if not vo_info and not VOName:
@@ -3021,7 +3021,7 @@ def readCertInfo(localJobId, probeName):
     global Config
     global jobManagers
     certinfo_files = []
-    
+
     DebugPrint(4, "readCertInfo: received (" + str(localJobId) + ", " + str(probeName) + ")")
 
     # Ascertain LRMS type -- from explicit set method if possible, from probe name if not
@@ -3048,7 +3048,7 @@ def readCertInfo(localJobId, probeName):
     if localJobId == None: return # No LocalJobId, so no dice
 
     DebugPrint(4, "readCertInfo: continuing to process")
-    
+
     for jobManager in jobManagers:
         filestem = Config.get_DataFolder() + \
                    'gratia_certinfo' + '_' + \
@@ -3082,7 +3082,7 @@ def readCertInfo(localJobId, probeName):
     for certinfo in certinfo_files:
         found = 0 # Keep track of whether to return info for this file.
         result = None
-        
+
         try:
             certinfo_doc = xml.dom.minidom.parse(certinfo)
         except Exception, e:
