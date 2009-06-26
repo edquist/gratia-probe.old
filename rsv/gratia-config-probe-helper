@@ -113,6 +113,8 @@ EOF
     $ENV{PYTHONPATH} = join(":", @PYTHONPATH);
   }
 
+  # Make sure wget is in our path (not safe to assume a system one exists).
+  $ENV{PATH} = "$ENV{PATH}:$ENV{VDT_LOCATION}/wget/bin";
 
   # Check directories
   unless (checkProbeDirs()) {
@@ -141,22 +143,22 @@ EOF
       $probe_in_cron != 1) {
     if ($is_root) {
       setCritical();
-      &appendDetailsData("Probe $probename is not listed in crontab.\n");
+      &appendDetailsData("Probe $probename is not listed in crontab (critical error).\n");
     } else {
-      &appendDetailsData("Not root: cannot examine crontab.\n");
+      &appendDetailsData("Not root: cannot examine crontab (not a critical error).\n");
     }
   }
   # Is probe enabled?
   if ($enabled ne "1") {
     setCritical();
-    &appendDetailsData("Probe $probename has EnableProbe not set to 1.\n");
+    &appendDetailsData("Probe $probename has EnableProbe not set to 1 (critical error).\n");
     $run_me_root = 1;
     $probeconfig_problems = 1;
   }
   # Is probename generic or unset?
   if ($probename =~ m&(?:generic|unknown)&i) {
     setCritical();
-    &appendDetailsData("MeterName $probename appears to be generic.\n");
+    &appendDetailsData("MeterName $probename appears to be generic (critical error).\n");
     $probeconfig_problems = 1;
     normal_exit();
   }
@@ -167,7 +169,7 @@ EOF
     if ($rdf_stat[2] != 041777) {
       setCritical();
       &appendDetailsData(sprintf("%s (found %05o, wanted %05o).",
-                                 "Data folder $real_datafolder does not have correct permissions.\n",
+                                 "Data folder $real_datafolder does not have correct permissions (critical error).\n",
                                  $rdf_stat[2],
                                  041777));
     }
@@ -201,6 +203,9 @@ EOF
   # Check size of reprocessing queue
   my $npending = `(cd "$workingfolder/gratiafiles" >/dev/null 2>&1 && ls -1 | wc -l)`;
   chomp $npending;
+  if ($npending eq "") {
+    $npending = 0;
+  }
   &appendDetailsData ("$npending files waiting to be re-sent to $soaphost.\n");
   if ($npending > 1000) {
     setWarning();
@@ -218,9 +223,22 @@ EOF
   ################################
   # Check last contact time with Gratia server.
   my $probe_contact_check =
-    `wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?probename=$probename'`;
+    `wget -q --tries=1 --timeout=10 -O - 'http://$soaphost/gratia-administration/monitor-status.html?probename=$probename'`;
   chomp $probe_contact_check;
   $probe_contact_check =~ s&^last-contact=([^\s]+)\s+([^\s]+?)\|?$&${1} ${2}&;
+
+  # Check to see if we've ever had a contact with this collector
+  if ($probe_contact_check =~ /^last-contact=never/) {
+    setCritical();
+    $run_me_root = 1;
+    &appendDetailsData (<<EOF);
+Probe $probename has never been seen by Gratia collector $soaphost.
+This is a critical error.
+EOF
+    normal_exit();
+  }
+
+  # This means either the collector didn't respond or we've checked in at least once.
   $probe_contact_check = ParseDate($probe_contact_check);
   my $last_contact_string = UnixDate($probe_contact_check, "%Y-%m-%d %T %Z");
   my $cmpDateHour = DateCalc("today", "- 1 hour");
@@ -230,19 +248,13 @@ EOF
     &appendDetailsData (<<EOF);
 Gratia server $soaphost not responding to obtain last contact details.
 EOF
-  } elsif ($probe_contact_check eq "last-contact=never") {
-    setCritical();
-    $run_me_root = 1;
-    &appendDetailsData (<<EOF);
-Gratia server $soaphost has never seen probe $probename.
-EOF
-    normal_exit();
   } elsif (Date_Cmp($probe_contact_check, $cmpDateDay) < 1) {
     setCritical();
     $run_me_root = 1;
     &appendDetailsData (<<EOF);
 Probe $probename has not been seen by Gratia collector $soaphost in >1d.
 Last contact time = $last_contact_string
+This is a critical error
 EOF
     normal_exit();
   } elsif (Date_Cmp($probe_contact_check, $cmpDateHour) < 1) {
@@ -263,13 +275,13 @@ EOF
   # Cross-check locally configured site name matches Gratia server sitename.
   if ($probe_seen_by_soaphost) {
     my $probe_site_check =
-      system("wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^\\(probename=\\)\\{0,1\\}$probename\[|:][ 	]*last-contact=' >/dev/null 2>&1") == 0;
+      system("wget -q --tries=1 --timeout=10 -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^\\(probename=\\)\\{0,1\\}$probename\[|:][ 	]*last-contact=' >/dev/null 2>&1") == 0;
     if (!$probe_site_check) {
       setWarning();
       &appendDetailsData (<<EOF);
 Probe $probename not found in check of probes reporting to $soaphost from $sitename.
 Check Collector SiteName translation on $soaphost
-wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^\(probename=\)\{0,1\}$probename\[|:][ 	]*last-contact='
+wget -q --tries=1 --timeout=10 -O - 'http://$soaphost/gratia-administration/monitor-status.html?sitename=$sitename' 2>/dev/null | grep -e '^\(probename=\)\{0,1\}$probename\[|:][ 	]*last-contact='
 EOF
     } else {
       &appendDetailsData (<<EOF);
@@ -325,6 +337,8 @@ DETAILS:
 $metric{'detailsData'}
 EOF
   } else {
+    # Force the metric to always have a status; defaults to OK (0).
+    exists $metric{'metricStatus'} or $metric{'metricStatus'} = 0;
     &printWorkerScriptXml (0,"\n  <MetricStatus>$metric{'metricStatus'}</MetricStatus>\n  <DetailsData>$metric{'detailsData'}</DetailsData>\n","");
   }
 }
@@ -336,12 +350,12 @@ sub setCritical {
 
 sub setWarning {
   $metric{'metricStatus'} = 1 unless ## "WARNING" unless
-    $metric{'metricStatus'} == 2; ## "CRITICAL";
+    (exists $metric{'metricStatus'} and $metric{'metricStatus'} == 2); ## "CRITICAL";
 }
 
 sub setUnknown {
   $metric{'metricStatus'} = 3 unless ## "UNKNOWN" unless
-    $metric{'metricStatus'} == 2; ## "CRITICAL";
+    (exists $metric{'metricStatus'} and $metric{'metricStatus'} == 2); ## "CRITICAL";
 }
 
 sub metricStatusWord {
@@ -422,6 +436,7 @@ sub probe_check_pbs_lsf {
     &appendDetailsData (<<EOF);
 Error loading urCollector::Configuration: $@
 Major probe installation problem.
+This is a critical error.
 EOF
     normal_exit();
   }
@@ -432,6 +447,7 @@ EOF
     &appendDetailsData (<<EOF);
 Error reading $URCOLLECTOR_LOC/urCollector.conf: $@
 Please check urCollector.conf file for errors.
+This is a critical error.
 EOF
     normal_exit();
   }
@@ -441,6 +457,7 @@ EOF
     &appendDetailsData (<<EOF);
 Unrecognized lrmsType $urCollector::Configuration::configValues{lrmsType} in urCollector.conf
 Please check urCollector.conf file for errors.
+This is a critical error.
 EOF
     normal_exit();
   }
@@ -451,6 +468,7 @@ EOF
     &appendDetailsData (<<EOF);
 Mismatch between probeType $current_gratia_probe_type and configured lrmsType $urCollector::Configuration::configValues{lrmsType} in urCollector.conf.
 Please check urCollector.conf file for errors.
+This is a critical error.
 EOF
     normal_exit();
   }
@@ -473,6 +491,7 @@ EOF
       &appendDetailsData (<<EOF);
 Configured PBS log directory $dir does not exist.
 Check pbsAcctLogDir in urCollector.conf.
+This is a critical error.
 EOF
       normal_exit();
     }
@@ -483,6 +502,7 @@ EOF
       &appendDetailsData (<<EOF);
 No files found in configured PBS log directory $dir.
 Check pbsAcctLogDir in urCollector.conf.
+This is a critical error.
 EOF
       normal_exit();
     } elsif ((not -e "$dir/$date") and (not -e "$dir/$date.gz")) {
@@ -499,6 +519,7 @@ EOF
       &appendDetailsData (<<EOF);
 Configured LSF log directory $dir does not exist.
 Check lsfAcctLogDir in urCollector.conf.
+This is a critical error.
 EOF
       normal_exit();
     } elsif (not -e "$dir/lsb.events") {
