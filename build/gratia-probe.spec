@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.02.1a
+Version: 1.04
 Release: 1
 License: GPL
 Group: Applications/System
@@ -387,20 +387,22 @@ Common files and examples for Gratia OSG accounting system probes.
 %doc common/samplemeter.py
 %doc common/samplemeter_multi.py
 %doc common/ProbeConfigTemplate
+%{default_prefix}/probe/common/DebugPrint.py
+%{default_prefix}/probe/common/GRAM/JobManagerGratia.pm
+%{default_prefix}/probe/common/GRAM/README.txt
+%{default_prefix}/probe/common/GRAM/globus-job-manager-script-real.pl.diff.4.0.5
+%{default_prefix}/probe/common/GRAM/globus-job-manager-script.in.diff.4.0.6
+%{default_prefix}/probe/common/GetProbeConfigAttribute.py
+%{default_prefix}/probe/common/Gratia.py
+%{default_prefix}/probe/common/GratiaPing.py
+%{default_prefix}/probe/common/ProbeConfigTemplate
+%{default_prefix}/probe/common/ProxyUtil.py
 %{default_prefix}/probe/common/README
+%{default_prefix}/probe/common/RegisterProbe.py
 %{default_prefix}/probe/common/samplemeter.pl
 %{default_prefix}/probe/common/samplemeter.py
 %{default_prefix}/probe/common/samplemeter_multi.py
-%{default_prefix}/probe/common/ProbeConfigTemplate
-%{default_prefix}/probe/common/Gratia.py
-%{default_prefix}/probe/common/GetProbeConfigAttribute.py
-%{default_prefix}/probe/common/DebugPrint.py
-%{default_prefix}/probe/common/RegisterProbe.py
 %{default_prefix}/probe/common/test/db-find-job
-%{default_prefix}/probe/common/GRAM/README.txt
-%{default_prefix}/probe/common/GRAM/JobManagerGratia.pm
-%{default_prefix}/probe/common/GRAM/globus-job-manager-script-real.pl.diff.4.0.5
-%{default_prefix}/probe/common/GRAM/globus-job-manager-script.in.diff.4.0.6
 %config(noreplace) /etc/yum.repos.d/gratia.repo
 
 %package extra-libs
@@ -1016,6 +1018,15 @@ fi
 %endif # noarch
 
 %changelog
+* Fri Jun 26 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04-1
+- 1.04 release.
+- Add files ProxyUtil.py, GratiaPing.py to common package.
+- Secure upload to collector included self-signing.
+- MeterName -> ProbeName (legacy name supported).
+- SOAPHost -> CollectorHost (legacy name supported).
+- Probe-side record bundling.
+- Improve connection error handling.
+
 * Mon Mar  2 2009 Christopher Green <greenc@fnal.gov> - 1.02.1a-1
 - Do not create etc and libexec links.
 - Add patches to remove reliance on existance of etc and libexec links.
