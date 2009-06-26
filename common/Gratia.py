@@ -743,7 +743,7 @@ def __connect():
                     DebugPrint(0, 'WARNING: http_proxy is set but not supported')
                     #__connection = ProxyUtil.HTTPConnection(Config.get_SOAPHost(),
                     #                                        http_proxy = ProxyUtil.findHTTPProxy())
-                    __connection = httplib.HTTPConnection(Config.get_SOAPHost())
+                __connection = httplib.HTTPConnection(Config.get_SOAPHost())
             except Exception, e:
                 DebugPrint(0, "ERROR: could not initialize HTTP connection")
                 DebugPrintTraceback()
