@@ -94,6 +94,16 @@ EOF
     normal_exit()
   }
 
+  # VDT_LOCATION
+  unless ($ENV{VDT_LOCATION}) {
+    setCritical();
+    &appendDetailsData(<<EOF);
+VDT_LOCATION must be set in the environment or with the
+--vdt-location=<vdt-location> option!
+EOF
+    normal_exit()
+  }
+
   ####################################
   # Start tests
   my @PYTHONPATH = ();
@@ -210,7 +220,7 @@ EOF
   my $probe_contact_check =
     `wget -q -O - 'http://$soaphost/gratia-administration/monitor-status.html?probename=$probename'`;
   chomp $probe_contact_check;
-  $probe_contact_check =~ s&^last-contact=([^\s]+)\s+([^\s]+?)\|?$&${1}T${2}Z&;
+  $probe_contact_check =~ s&^last-contact=([^\s]+)\s+([^\s]+?)\|?$&${1} ${2}&;
   $probe_contact_check = ParseDate($probe_contact_check);
   my $last_contact_string = UnixDate($probe_contact_check, "%Y-%m-%d %T %Z");
   my $cmpDateHour = DateCalc("today", "- 1 hour");
@@ -574,7 +584,7 @@ sub gratiaProbeType {
 }
 
 sub probeDirPath {
-  return "$ENV{VDT_LOCATION}/gratia/probe/$current_gratia_probe_type";
+  return ($ENV{VDT_LOCATION} and $current_gratia_probe_type)?"$ENV{VDT_LOCATION}/gratia/probe/$current_gratia_probe_type":"<unknown>";
 }
 
 sub appendDetailsData {
