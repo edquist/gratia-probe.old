@@ -741,8 +741,8 @@ def __connect():
             try:
                 if (ProxyUtil.findHTTPProxy()):
                     DebugPrint(0, 'WARNING: http_proxy is set but not supported')
-                    #__connection = ProxyUtil.HTTPConnection(Config.get_SOAPHost(),
-                    #                                        http_proxy = ProxyUtil.findHTTPProxy())
+                #__connection = ProxyUtil.HTTPConnection(Config.get_SOAPHost(),
+                #                                        http_proxy = ProxyUtil.findHTTPProxy())
                 __connection = httplib.HTTPConnection(Config.get_SOAPHost())
             except Exception, e:
                 DebugPrint(0, "ERROR: could not initialize HTTP connection")
@@ -778,14 +778,14 @@ def __connect():
             DebugPrint(4, "DEBUG: Attempting to connect to HTTPS")
             try:
                 if (ProxyUtil.findHTTPSProxy()):
-                    DebugPrint(0, 'WARNING: http_proxy is set but not supported when UseSoapProtocol is set to 1')
-                    #__connection = ProxyUtil.HTTPSConnection(Config.get_SSLHost(),
-                    #                                        cert_file = pr_cert_file,
-                    #                                        key_file = pr_key_file,
-                    #                                        http_proxy = ProxyUtil.findHTTPSProxy())
-                    __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
-                                                           cert_file = pr_cert_file,
-                                                           key_file = pr_key_file)
+                    DebugPrint(0, 'WARNING: http_proxy is set but not supported')
+                #__connection = ProxyUtil.HTTPSConnection(Config.get_SSLHost(),
+                #                                        cert_file = pr_cert_file,
+                #                                        key_file = pr_key_file,
+                #                                        http_proxy = ProxyUtil.findHTTPSProxy())
+                __connection = httplib.HTTPSConnection(Config.get_SSLHost(),
+                                                       cert_file = pr_cert_file,
+                                                       key_file = pr_key_file)
             except Exception, e:
                 DebugPrint(0, "ERROR: could not initialize HTTPS connection")
                 DebugPrintTraceback()
