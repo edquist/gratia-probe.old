@@ -2956,7 +2956,7 @@ def VOfromUser(user):
 
 def __encodeData(messageType, xmlData):
     probename = Config.get_ProbeName()
-    if messageType[0:3] == "URL":
+    if messageType[0:3] == "URL" or messageType == "multiupdate":
         return urllib.urlencode([("command" , messageType), ("arg1", xmlData), ("from",probename)]);
     else:
         return "command=" + messageType + "&arg1=" + xmlData + "&from=" + probename
