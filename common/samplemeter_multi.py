@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import Gratia
 
 
@@ -58,6 +59,6 @@ if __name__ == '__main__':
         
         Gratia.Initialize()
 
-        for i in range(2000):
+        for i in range(10):
                 r = GetRecord(i)
                 Gratia.Send(r)
