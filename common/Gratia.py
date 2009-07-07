@@ -221,7 +221,7 @@ class ProbeConfiguration:
     def setMeterName(self,name):
         self.__ProbeName = name
 
-    def getMeterName(self):
+    def get_MeterName(self):
         return self.get_ProbeName()
 
     def setProbeName(self,name):
