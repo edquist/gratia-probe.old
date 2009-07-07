@@ -628,9 +628,9 @@ def PsAcct(enable = True):
         print "Gratia error during initialization:\n","Unexpected Exception", sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1]
 
     try:
-        if (Gratia.Config.get_MeterName()=="Generic"):
-            Gratia.Config.setMeterName("psacct:"+sysinfo.Hostname)
-        tmp = Gratia.Config.get_MeterName().split(':')
+        if (Gratia.Config.get_ProbeName()=="Generic"):
+            Gratia.Config.setProbeName("psacct:"+sysinfo.Hostname)
+        tmp = Gratia.Config.get_ProbeName().split(':')
         if len(tmp)==2:
             sysinfo.MachineName = tmp[1]
 

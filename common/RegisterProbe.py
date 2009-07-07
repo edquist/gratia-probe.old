@@ -6,7 +6,7 @@ if __name__ == '__main__':
         Gratia.Initialize()
         registrationhost = Gratia.Config.get_SSLRegistrationHost()
         registrationservice = Gratia.Config.get_SSLRegistrationService()
-        probename = Gratia.Config.get_MeterName()
+        probename = Gratia.Config.get_ProbeName()
         #
         # if we are using ssl certs get them from the server
         #
