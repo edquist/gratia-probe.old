@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.04
+Version: 1.04.3a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -23,7 +23,7 @@ BuildRequires: gcc-c++
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
 %global gridftp_transfer_source gratia-probe-gridftp-transfer-%{gridftp_transfer_probe_version}.tar.bz2
-%global dcache_transfer_probe_version v0-2-7
+%global dcache_transfer_probe_version v0-2-8
 %global dcache_storage_probe_version v0-1-2
 %global gridftp_transfer_probe_version v0-3
 
@@ -1018,6 +1018,10 @@ fi
 %endif # noarch
 
 %changelog
+* Tue Jul  7 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.3a-1
+- Fix backward compatibility for old MeterName.
+- Update dCache transfer package to 0.2.8 incorporating query improvement from Brian.
+
 * Fri Jun 26 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04-1
 - 1.04 release.
 - Add files ProxyUtil.py, GratiaPing.py to common package.
