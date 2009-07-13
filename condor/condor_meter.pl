@@ -752,14 +752,9 @@ sub Feed_Gratia {
   #   "/C=CH/O=CERN/OU=GRID/CN=Sami Lehti 5217"
   #   "/DC=gov/DC=fnal/O=Fermilab/OU=People/CN=Philippe G. Canal/UID=pcanal"
 
-  # Philippe asked if I could strip the first '/' and change all other
-  # '/' (used as seperators) to ', '  (that's comma and space)
   if ( defined ($hash{'x509userproxysubject'})) {
-    if ($hash{'x509userproxysubject'} =~ m%^/(.*)%) {
-      ($uki = $1) =~ s(/) (, )g;
-      print $py qq/r.UserKeyInfo("$uki")\n/;
-    } else {
-      print $py qq/r.UserKeyInfo("$hash{'x509userproxysubject'}")\n/;
+      # DN gets converted to slash format if necessary in Gratia.py
+      print $py qq/r.DN("$hash{'x509userproxysubject'}")\n/;
     }
   }
 

@@ -7,7 +7,7 @@ $py->open("| python");
 print $py "import Gratia\n";
 print $py "Gratia.Initialize()\n";
 print $py "r = Gratia.UsageRecord()\n";
-print $py "r.UserKeyInfo(\"CN=john ainsworth, L=MC, OU=Manchester, O=eScience, C=UK\")\n";
+print $py "r.DN(\"CN=john ainsworth, L=MC, OU=Manchester, O=eScience, C=UK\")\n";
 
 print $py "r.LocalJobId(\"PBS.1234.0bad\")\n";
 print $py "r.LocalJobId(\"PBS.1234.0\") # overwrite the previous entry\n";

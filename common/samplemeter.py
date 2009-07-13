@@ -12,7 +12,7 @@ def GetRecord(jobid = 0):
 
         r.LocalUserId("cmsuser000")
         r.GlobalUsername("john ainsworth")
-        r.UserKeyInfo("CN=john ainsworth, L=MC, OU=Manchester, O=eScience, C=UK")
+        r.DN("CN=john ainsworth, L=MC, OU=Manchester, O=eScience, C=UK")
 
         r.LocalJobId("PBS.1234.0bad")
         r.LocalJobId("PBS.1234." + str(jobid))        # overwrite the previous entry

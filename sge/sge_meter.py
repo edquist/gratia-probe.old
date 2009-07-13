@@ -151,7 +151,7 @@ class SGE:
         #
         # Get the GlobalUserName from pwent
         #
-        # get UserKeyInfo from reverse gridmap lookup to get the 
+        # get DN from reverse gridmap lookup to get the 
         # distinguished name from the certificate
         try: 
             pwent=pwd.getpwnam(self.sgeRecord['owner'])
@@ -164,7 +164,7 @@ class SGE:
 
         # dn from reverse gridmap lookup
         if dn != "":
-            r.UserKeyInfo(dn)
+            r.DN(dn)
 
         # 3.7 JobName  - optional, string
         # Use SGE job_name field
