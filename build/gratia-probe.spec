@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.04.3b
+Version: 1.04.3c
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1018,6 +1018,9 @@ fi
 %endif # noarch
 
 %changelog
+* Mon Jul 13 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.3c-1
+- Fix daft typo.
+
 * Mon Jul 13 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.3b-1
 - Change probes to use DN rather than UserkKeyInfo.
 
