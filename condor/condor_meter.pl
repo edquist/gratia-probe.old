@@ -755,7 +755,6 @@ sub Feed_Gratia {
   if ( defined ($hash{'x509userproxysubject'})) {
       # DN gets converted to slash format if necessary in Gratia.py
       print $py qq/r.DN("$hash{'x509userproxysubject'}")\n/;
-    }
   }
 
   # 2.7 JobName - Condors name? for this job? - optional, string
