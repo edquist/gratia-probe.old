@@ -1,6 +1,6 @@
 #@(#)gratia/probe/common:$HeadURL$:$Id$
 
-import os, sys, time, glob, string, httplib, xml.dom.minidom, socket
+import os, errno, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
 import traceback
 import re, fileinput
@@ -1085,6 +1085,17 @@ def LogToSyslog(level, message) :
         LogFileIsWriteable = False
 
     syslog.closelog()
+    
+def RemoveFile(file):
+    # Remove the file, ignore error if the file is already gone.
+    
+   try: 
+      os.remove(file)
+   except os.error, err:
+      if (err.errno!=errno.ENOENT):
+         pass
+      else:
+         raise err
 
 def RemoveOldFiles(nDays = 31, globexp = None):
 
@@ -1100,7 +1111,7 @@ def RemoveOldFiles(nDays = 31, globexp = None):
     for f in files:
         if os.path.getmtime(f) < cutoff:
             DebugPrint(2, "Will remove: " + f)
-            os.remove(f)
+            RemoveFile(f)
 
 #
 # Remove old backups
@@ -1159,6 +1170,7 @@ def Error(*arg):
         LogToSyslog(-1,GenerateOutput("",*arg))
     else:
         LogToFile(time.strftime(r'%H:%M:%S %Z', time.localtime()) + " " + out)
+
 
 ##
 ## Mkdir
@@ -2082,7 +2094,7 @@ def ProcessBundle(bundle):
         for item in bundle.content:
             filename = item[0]
             if (filename != ''):
-                os.remove(filename)
+                RemoveFile(filename)
     else:
         DebugPrint(1, 'Response indicates failure, the following files will not be deleted:')
         for item in bundle.content:
@@ -2159,7 +2171,7 @@ def Reprocess():
             # Determine if the call succeeded, and remove the file if it did
             if response.get_code() == 0:
                 successfulReprocessCount += 1
-                os.remove(failedRecord)
+                RemoveFile(failedRecord)
                 del OutstandingRecord[failedRecord]
             else:
                 if __connectionError:
@@ -2345,7 +2357,7 @@ def Send(record):
                         DebugPrint(0, 'Saved record to ' + f.name)
                     else:
                         DebugPrint(0,"failed to fill: ",f.name)
-                        if f.name != "<stdout>": os.remove(f.name)
+                        if f.name != "<stdout>": RemoveFile(f.name)
                     f.close()
                 except:
                     DebugPrint(0,"failed to fill with exception: ",f.name,"--",
@@ -2379,7 +2391,7 @@ def Send(record):
             if response.get_code() == 0:
                 DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
                 successfulSendCount += 1
-                os.remove(f.name)
+                RemoveFile(f.name)
             else:
                 failedSendCount += 1
                 if (f.name == "<stdout>"):
@@ -2431,7 +2443,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
         DebugPrint(0, "***********************************************************")
         if os.path.getsize(xmlFilename) == 0:
             DebugPrint(0, "File " + xmlFilename + " is zero-length: skipping")
-            os.remove(xmlFilename)
+            RemoveFile(xmlFilename)
             continue
         DebugPrint(1,"xmlFilename: ",xmlFilename)
         if (failedSendCount + len(OutstandingRecord)) >= Config.get_MaxPendingFiles():
@@ -2459,7 +2471,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
                            xmlFilename + ": not sending")
                 suppressedCount += 1
                 # Cleanup old records - SPC - NERSC 08/28/07
-                if removeOriginal: os.remove(xmlFilename)
+                if removeOriginal: RemoveFile(xmlFilename)
                 continue
 
             # Generate the XML
@@ -2506,13 +2518,13 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
                         DebugPrint(3,"suceeded to fill: ",f.name)
                     else:
                         DebugPrint(0,"failed to fill: ",f.name)
-                        if f.name != "<stdout>": os.remove(f.name)
+                        if f.name != "<stdout>": RemoveFile(f.name)
                 except:
                     DebugPrint(0,"failed to fill with exception: ",f.name,"--",
                                sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
-                    if f.name != "<stdout>": os.remove(f.name)
+                    if f.name != "<stdout>": RemoveFile(f.name)
 
-        if removeOriginal and f.name != "<stdout>": os.remove(xmlFilename)
+        if removeOriginal and f.name != "<stdout>": RemoveFile(xmlFilename)
 
         DebugPrint(0, 'Saved record to ' + f.name)
 
@@ -2545,7 +2557,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
             if response.get_code() == 0:
                 DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
                 successfulSendCount += 1
-                os.remove(f.name)
+                RemoveFile(f.name)
             else:
                 failedSendCount += 1
                 DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
@@ -3114,7 +3126,7 @@ def readCertInfo(localJobId, probeName):
                     "FQAN": GetNodeData(certinfo_nodes[0].getElementsByTagName('FQAN'), 0)
                     }
                 DebugPrint(4, "readCertInfo: removing " + str(certinfo))
-                os.remove(certinfo) # Clean up.
+                RemoveFile(certinfo) # Clean up.
                 break # Done -- stop looking
         else:
             DebugPrint(0, 'ERROR: certinfo file ' + certinfo +
