@@ -1092,7 +1092,7 @@ def RemoveFile(file):
    try: 
       os.remove(file)
    except os.error, err:
-      if (err.errno!=errno.ENOENT):
+      if (err.errno==errno.ENOENT):
          pass
       else:
          raise err
