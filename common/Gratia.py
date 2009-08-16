@@ -24,7 +24,7 @@ __lrms = None
 
 def disconnect_at_exit():
     if (BundleSize > 1 and CurrentBundle.nItems > 0):
-        responseString = ProcessBundle(CurrentBundle)
+        (responseString,response) = ProcessBundle(CurrentBundle)
         DebugPrint(0, responseString)
         DebugPrint(0, "***********************************************************")
     __disconnect()
@@ -1998,7 +1998,7 @@ class Bundle:
         if (self.nItems >= BundleSize):
             return ProcessBundle(self)
         else:
-            return defaultmsg
+            return (defaultmsg,Response(0,defaultmsg))
 
     def clear(self):
         self.nRecords = 0
@@ -2111,7 +2111,7 @@ def ProcessBundle(bundle):
     #if responseString != "":
     #    DebugPrint(0, responseString)
 
-    return responseString
+    return (responseString,response)
 
 #
 # Reprocess
@@ -2155,11 +2155,11 @@ def Reprocess():
 
         if (BundleSize > 1):
             # Delay the sending until we have 'bundleSize' records.
-            response = CurrentBundle.addReprocess(failedRecord,xmlData)
-            DebugPrint(1, response)
+            (addreponseString,response) = CurrentBundle.addReprocess(failedRecord,xmlData)
+            DebugPrint(1, addreponseString)
             if (len(responseString)!=0):
                 responseString = responseString + '\n'
-            responseString = responseString + 'Reprocessed ' + failedRecord + ':  ' + response
+            responseString = responseString + 'Reprocessed ' + failedRecord + ':  ' + addreponseString
         else:
             # Send the xml to the collector for processing
             response = __sendUsageXML(Config.get_ProbeName(), xmlData)
@@ -2254,7 +2254,7 @@ def SendHandshake(record):
 
     if (BundleSize > 1):
         # Delay the sending until we have 'bundleSize' records.
-        responseString = CurrentBundle.addHandshake(usageXmlString)
+        (responseString, response) = CurrentBundle.addHandshake(usageXmlString)
     else:
         # Attempt to send the record to the collector. Note that this must
         # be sent currently as an update, not as a handshake (cf unused
@@ -2377,7 +2377,7 @@ def Send(record):
 
         if (BundleSize > 1 and f.name != "<stdout>"):
             # Delay the sending until we have 'bundleSize' records.
-            responseString = CurrentBundle.addRecord(f.name, usageXmlString)
+            (responseString, response) = CurrentBundle.addRecord(f.name, usageXmlString)
         else:
             # Attempt to send the record to the collector
             response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
@@ -2539,7 +2539,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
 
         if (BundleSize > 1 and f.name != "<stdout>"):
             # Delay the sending until we have 'bundleSize' records.
-            responseString = CurrentBundle.addRecord(f.name, usageXmlString)
+            (responseString, response) = CurrentBundle.addRecord(f.name, usageXmlString)
         else:
             # If XMLFiles can ever be anything else than Update messages,
             # then one should be able to deduce messageType from the root
@@ -2548,6 +2548,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
 
             # Attempt to send the record to the collector
             response = __sendUsageXML(Config.get_ProbeName(), usageXmlString, messageType)
+            responseString = response.get_message()
 
             DebugPrint(0, 'Response code:  ' + str(response.get_code()))
             DebugPrint(0, 'Response message:  ' + response.get_message())
