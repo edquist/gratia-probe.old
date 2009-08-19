@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.04.4c
+Version: 1.04.4d
 Release: 1
 License: GPL
 Group: Applications/System
@@ -23,7 +23,7 @@ BuildRequires: gcc-c++
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
 %global gridftp_transfer_source gratia-probe-gridftp-transfer-%{gridftp_transfer_probe_version}.tar.bz2
-%global dcache_transfer_probe_version v0-2-9
+%global dcache_transfer_probe_version v0-2-10
 %global dcache_storage_probe_version v0-1-2
 %global gridftp_transfer_probe_version v0-3
 
@@ -1018,6 +1018,9 @@ fi
 %endif # noarch
 
 %changelog
+* Wed Aug 19 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4d-1
+- Update dCache-transfer package to include improvement to query.
+
 * Wed Aug 19 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4c-1
 - Update dCache-transfer package to include fix for response handling under bundling.
 
