@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.04.3c
-Release: 2
+Version: 1.04.4b
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -1018,6 +1018,12 @@ fi
 %endif # noarch
 
 %changelog
+* Wed Aug 19 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4b-1
+- Prepend 'OK' to successful bundling responses.
+
+* Wed Aug 19 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4a-1
+- Fix to server-side error remediation while bundling.
+
 * Tue Aug 11 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.3c-2
 - Corrections for incorrect munging of new probe config template.
 
