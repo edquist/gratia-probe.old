@@ -1978,19 +1978,19 @@ class Bundle:
         self.content.append( ['',xmlData] )
         self.nHandshakes += 1
         self.nItems += 1
-        return self.checkAndSend("Handshake added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+        return self.checkAndSend("OK - Handshake added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
 
     def addRecord(self, filename, xmlData):
         self.content.append( [filename,xmlData] )
         self.nRecords += 1
         self.nItems += 1
-        return self.checkAndSend("Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+        return self.checkAndSend("OK - Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
 
     def addReprocess(self, filename, xmlData):
         self.content.append( [filename,xmlData] )
         self.nReprocessed += 1
         self.nItems += 1
-        return self.checkAndSend("Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+        return self.checkAndSend("OK - Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
 
     def checkAndSend(self,defaultmsg):
         # Check if the bundle is full, if it is, do the
@@ -2095,6 +2095,7 @@ def ProcessBundle(bundle):
             filename = item[0]
             if (filename != ''):
                 RemoveFile(filename)
+        responseString = 'OK - ' + responseString
     else:
         DebugPrint(1, 'Response indicates failure, the following files will not be deleted:')
         for item in bundle.content:
