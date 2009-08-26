@@ -335,7 +335,11 @@ class ProbeConfiguration:
         return self.__getConfigAttribute('KeyFile')
 
     def get_MaxPendingFiles(self):
-        return self.__getConfigAttribute('MaxPendingFiles')
+        val = self.__getConfigAttribute('MaxPendingFiles')
+        if val == None or val == "":
+            return 100000
+        else:
+            return int(val)
 
     def get_DataFolder(self):
         return self.__getConfigAttribute('DataFolder')
@@ -445,6 +449,9 @@ class ProbeConfiguration:
         result = self.__getConfigAttribute("BundleSize")
         if result:
             BundleSize = int(result)
+        maxpending = self.get_MaxPendingFiles()
+        if (BundleSize > maxpending):
+            BundleSize = maxpending
         return BundleSize
 
 class Event:
@@ -479,7 +486,7 @@ class Response:
                 self._code = 0
             else:
                 self._code = 1
-        elif code:
+        else:
             self._code = code
         if message:
             self._message = message
@@ -498,6 +505,8 @@ class Response:
 
 BackupDirList = []
 OutstandingRecord = { }
+HasMoreOutstandingRecord = False
+OustandingRecordCount = 0
 RecordPid = os.getpid()
 RecordId = 0
 MaxConnectionRetries = 2
@@ -1087,7 +1096,7 @@ def LogToSyslog(level, message) :
     syslog.closelog()
     
 def RemoveFile(file):
-    # Remove the file, ignore error if the file is already gone.
+   # Remove the file, ignore error if the file is already gone.
     
    try: 
       os.remove(file)
@@ -1096,6 +1105,13 @@ def RemoveFile(file):
          pass
       else:
          raise err
+
+def RemoveRecordFile(file):
+   # Remove a record file and reduce the oustanding record count
+   global OutstandingRecordCount
+   RemoveFile(file)
+   OutstandingRecordCount += -1
+   DebugPrint(3,"Remove the record: "+file)
 
 def RemoveOldFiles(nDays = 31, globexp = None):
 
@@ -1236,13 +1252,23 @@ def InitDirList():
 def SearchOutstandingRecord():
     "Search the list of backup directories for"
     "any record that has not been sent yet"
+    
+    global HasMoreOutstandingRecord
+    global OutstandingRecordCount
 
+    OutstandingRecord.clear()
+    OutstandingRecordCount = 0
+    
     fragment = FilenameProbeCollectorFragment()
 
     for current_dir in BackupDirList:
+        # For backward compatibility still look for the records in the top level
+        # gratiafiles directories.
         path = os.path.join(current_dir,"gratiafiles")
+        subpath = os.path.join(path,"s*."+fragment+"__*")
         path = os.path.join(path,"r*."+Config.get_GratiaExtension())
         files = glob.glob(path) + glob.glob(path + "__*")
+        OutstandingRecordCount += len(files)
         for f in files:
             # Legacy reprocess files or ones with the correct fragment
             if re.search(r'/?r(?:[0-9]+)?\.?[0-9]+(?:\.'+fragment+r')?\.'+Config.get_GratiaExtension()+r'(?:__.{10})?$',f):
@@ -1250,6 +1276,20 @@ def SearchOutstandingRecord():
                 if len(OutstandingRecord) >= MaxFilesToReprocess: break
 
         if len(OutstandingRecord) >= MaxFilesToReprocess: break
+        
+        # Now look for the record in the probe specific subdirectory.
+        dirs = glob.glob(subpath)
+        for subdir in dirs:
+            files = os.listdir(subdir)
+            OutstandingRecordCount += len(files)
+            for f in files:
+                OutstandingRecord[f] = 1
+                if len(OutstandingRecord) >= MaxFilesToReprocess: break
+            if len(OutstandingRecord) >= MaxFilesToReprocess: break
+        if len(OutstandingRecord) >= MaxFilesToReprocess: break
+
+    # Mark that we probably have more outstanding record to look at.                
+    HasMoreOutstandingRecord = len(OutstandingRecord) >= MaxFilesToReprocess
 
     DebugPrint(1,"List of Outstanding records: ",OutstandingRecord.keys())
 
@@ -1283,6 +1323,8 @@ def FilenameProbeCollectorFragment():
 
 def OpenNewRecordFile(DirIndex):
     # The file name will be rUNIQUE.$pid.gratia.xml
+    
+    global OutstandingRecordCount
     DebugPrint(3,"Open request: ",DirIndex)
     index = 0
     for current_dir in BackupDirList:
@@ -1302,6 +1344,7 @@ def OpenNewRecordFile(DirIndex):
         try:
             filename = GenerateFilename(current_dir)
             DebugPrint(1,"Creating file:",filename)
+            OutstandingRecordCount += 1
             f = open(filename,'w')
             DirIndex = index
             return(f,DirIndex)
@@ -2094,7 +2137,8 @@ def ProcessBundle(bundle):
         for item in bundle.content:
             filename = item[0]
             if (filename != ''):
-                RemoveFile(filename)
+                DebugPrint(1, 'Bundle response indicates success, ' + filename + ' will be deleted')            
+                RemoveRecordFile(filename)
         responseString = 'OK - ' + responseString
     else:
         DebugPrint(1, 'Response indicates failure, the following files will not be deleted:')
@@ -2109,9 +2153,6 @@ def ProcessBundle(bundle):
 
     bundle.clear()
 
-    #if responseString != "":
-    #    DebugPrint(0, responseString)
-
     return (responseString,response)
 
 #
@@ -2120,8 +2161,26 @@ def ProcessBundle(bundle):
 #  Loops through all outstanding records and attempts to send them again
 #
 def Reprocess():
+    ReprocessList()
+    while(HasMoreOutstandingRecord):
+        # Need to look for left over files
+        SearchOutstandingRecord()
+
+        # Attempt to reprocess any outstanding records
+        ReprocessList()
+
+#
+# ReprocessList
+#
+#  Loops through all the record in the OustandingRecord list and attempts to send them again
+#
+def ReprocessList():
     global successfulReprocessCount
     global failedReprocessCount
+
+    currentFailedCount = 0;
+    currentSuccessCount = 0;
+    currentBundledCount = - CurrentBundle.nItems;
 
     responseString = ""
 
@@ -2157,32 +2216,47 @@ def Reprocess():
         if (BundleSize > 1):
             # Delay the sending until we have 'bundleSize' records.
             (addreponseString,response) = CurrentBundle.addReprocess(failedRecord,xmlData)
-            DebugPrint(1, addreponseString)
-            if (len(responseString)!=0):
-                responseString = responseString + '\n'
-            responseString = responseString + 'Reprocessed ' + failedRecord + ':  ' + addreponseString
+
+            # Determine if the call succeeded, and remove the file if it did
+            if response.get_code() != 0:
+                currentFailedCount += CurrentBundle.nItems
+                if __connectionError:
+                    DebugPrint(1,"Connection problems: reprocessing suspended; new record processing shall continue")
+            else:
+                if (CurrentBundle.nItems==0):
+                   currentSuccessCount += BundleSize
+                   currentBundledCount = 0
+                else:
+                   currentBundledCount += 1
         else:
             # Send the xml to the collector for processing
             response = __sendUsageXML(Config.get_ProbeName(), xmlData)
-            DebugPrint(1, 'Reprocess Response:  ' + response.get_message())
-            if (len(responseString)!=0):
-                responseString = responseString + '\n'
-            responseString = responseString + 'Reprocessed ' + failedRecord + ':  ' + response.get_message()
+            DebugPrint(1, 'Reprocess Response for ' + failedRecord +':  ' + response.get_message())
 
             # Determine if the call succeeded, and remove the file if it did
             if response.get_code() == 0:
+                DebugPrint(1, 'Response indicates success, ' + failedRecord + ' will be deleted')
+                currentSuccessCount += 1
                 successfulReprocessCount += 1
-                RemoveFile(failedRecord)
+                RemoveRecordFile(failedRecord)
                 del OutstandingRecord[failedRecord]
             else:
+                currentFailedCount += 1
                 if __connectionError:
                     DebugPrint(1,
                                "Connection problems: reprocessing suspended; new record processing shall continue")
                 failedReprocessCount += 1
 
-    if responseString != "":
-        DebugPrint(0, responseString)
+    if (currentFailedCount == 0):
+        responseString = "OK"
+    elif (currentSuccessCount != 0):
+        responseString = "Warning"
+    else:
+        responseString = "Error"
+    responseString += " - Reprocessing "+str(currentSuccessCount)+" record(s) uploaded, "+str(currentBundledCount)+" bundled, "+str(currentFailedCount)+" failed"
 
+    DebugPrint(0,"Reprocessing response: "+responseString)
+    
     return responseString
 
 def CheckXmlDoc(xmlDoc,external,resourceType = None):
@@ -2263,15 +2337,15 @@ def SendHandshake(record):
         response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
         responseString = response.get_message()
 
-        DebugPrint(0, 'Response code:  ' + str(response.get_code()))
-        DebugPrint(0, 'Response message:  ' + response.get_message())
+        DebugPrint(4, 'Response code:  ' + str(response.get_code()))
+        DebugPrint(4, 'Response message:  ' + response.get_message())
 
         # Determine if the call was successful based on the response
         # code.  Currently, 0 = success
         if response.get_code() == 0:
             DebugPrint(1, 'Response indicates success, ')
             successfulHandshakes += 1
-            if (connectionProblem):
+            if (connectionProblem or HasMoreOutstandingRecord):
                 # Reprocess failed records before attempting more new ones
                 SearchOutstandingRecord()
                 Reprocess()
@@ -2294,11 +2368,9 @@ def Send(record):
         DebugPrint(4, "DEBUG: Printing record to send")
         record.Print()
         DebugPrint(4, "DEBUG: Printing record to send: OK")
-        if (failedSendCount + len(OutstandingRecord)) >= Config.get_MaxPendingFiles():
-            responseString = "Fatal Error: too many pending files"
-            DebugPrint(0, responseString)
-            DebugPrint(0, "***********************************************************")
-            return responseString
+  
+        DebugPrint(4, "DEBUG: File Count: " + str(OutstandingRecordCount))
+        toomanyfiles = OutstandingRecordCount >= Config.get_MaxPendingFiles()
 
         # Assemble the record into xml
         DebugPrint(4, "DEBUG: Creating XML")
@@ -2343,28 +2415,32 @@ def Send(record):
         success = False
         f = 0
 
-        DebugPrint(4, "DEBUG: Back up record to send")
-        while not success:
-            (f,dirIndex) = OpenNewRecordFile(dirIndex)
-            DebugPrint(1,"Will save in the record in:",f.name)
-            DebugPrint(3,"DirIndex=",dirIndex)
-            if f.name != "<stdout>":
-                try:
-                    for line in record.XmlData:
-                        f.write(line)
-                    f.flush()
-                    if f.tell() > 0:
-                        success = True
-                        DebugPrint(0, 'Saved record to ' + f.name)
-                    else:
-                        DebugPrint(0,"failed to fill: ",f.name)
-                        if f.name != "<stdout>": RemoveFile(f.name)
-                    f.close()
-                except:
-                    DebugPrint(0,"failed to fill with exception: ",f.name,"--",
-                               sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+        if toomanyfiles:
+            DebugPrint(0, "DEBUG: Too many pending files, the record has not been backed up") 
+            f = sys.stdout     
+        else:
+            DebugPrint(4, "DEBUG: Back up record to send")
+            while not success:
+                (f,dirIndex) = OpenNewRecordFile(dirIndex)
+                DebugPrint(1,"Will save in the record in:",f.name)
+                DebugPrint(3,"DirIndex=",dirIndex)
+                if f.name != "<stdout>":
+                    try:
+                        for line in record.XmlData:
+                            f.write(line)
+                        f.flush()
+                        if f.tell() > 0:
+                            success = True
+                            DebugPrint(0, 'Saved record to ' + f.name)
+                        else:
+                            DebugPrint(0,"failed to fill: ",f.name)
+                            if f.name != "<stdout>": RemoveRecordFile(f.name)
+                        f.close()
+                    except:
+                        DebugPrint(0,"failed to fill with exception: ",f.name,"--",
+                                   sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
 
-        DebugPrint(4, "DEBUG: Backing up record to send: OK")
+            DebugPrint(4, "DEBUG: Backing up record to send: OK")
 
         # Currently, the recordXml is in a list format, with each item being a line of xml.
         # the collector web service requires the xml to be sent as a string.
@@ -2390,12 +2466,19 @@ def Send(record):
             # Determine if the call was successful based on the response
             # code.  Currently, 0 = success
             if response.get_code() == 0:
-                DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+                if f.name != "<stdout>": 
+                   DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+                   RemoveRecordFile(f.name)
+                else:
+                   DebugPrint(1, 'Response indicates success')                
                 successfulSendCount += 1
-                RemoveFile(f.name)
             else:
                 failedSendCount += 1
-                if (f.name == "<stdout>"):
+                if (toomanyfiles):
+                    DebugPrint(1, 'Due to too many pending files and a connection error, the following record was not sent and has not been backed up.')
+                    DebugPrint(1, 'Lost record: '+usageXmlString)
+                    responseString = "Fatal Error: too many pending files"
+                elif (f.name == "<stdout>"):
                     DebugPrint(0, 'Record send failed and no backup made: record lost!')
                     responseString += "\nFatal: failed record lost!"
                     match = re.search(r'^<(?:[^:]*:)?RecordIdentity.*/>$', usageXmlString, re.MULTILINE)
@@ -2413,7 +2496,7 @@ def Send(record):
         DebugPrint(0, responseString)
         DebugPrint(0, "***********************************************************")
 
-        if (connectionProblem) and (CurrentBundle.nItems==0) and (response.get_code() == 0):
+        if (connectionProblem or HasMoreOutstandingRecord) and (CurrentBundle.nItems==0) and (response.get_code() == 0):
             # Reprocess failed records before attempting more new ones
             SearchOutstandingRecord()
             Reprocess()
@@ -2447,7 +2530,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
             RemoveFile(xmlFilename)
             continue
         DebugPrint(1,"xmlFilename: ",xmlFilename)
-        if (failedSendCount + len(OutstandingRecord)) >= Config.get_MaxPendingFiles():
+        if (OutstandingRecordCount >= Config.get_MaxPendingFiles()):
             responseString = "Fatal Error: too many pending files"
             DebugPrint(0, responseString)
             DebugPrint(0, "***********************************************************")
@@ -2500,30 +2583,38 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
         success = False
         f = 0
 
-        while not success:
-            (f,dirIndex) = OpenNewRecordFile(dirIndex)
-            DebugPrint(1,"Will save in the record in:",f.name)
-            DebugPrint(3,"DirIndex=",dirIndex)
-            if f.name == "<stdout>":
-                responseString = "Fatal Error: unable to save record prior to send attempt"
-                DebugPrint(0, responseString)
-                DebugPrint(0, "***********************************************************")
-                return responseString
-            else:
-                try:
-                    for line in xmlData:
-                        f.write(line)
-                    f.flush()
-                    if f.tell() > 0:
-                        success = True
-                        DebugPrint(3,"suceeded to fill: ",f.name)
-                    else:
-                        DebugPrint(0,"failed to fill: ",f.name)
-                        if f.name != "<stdout>": RemoveFile(f.name)
-                except:
-                    DebugPrint(0,"failed to fill with exception: ",f.name,"--",
-                               sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
-                    if f.name != "<stdout>": RemoveFile(f.name)
+        toomanyfiles = OutstandingRecordCount >= Config.get_MaxPendingFiles()
+
+        if toomanyfiles:
+            DebugPrint(4, "DEBUG: Too many pending files, the record has not been backed up") 
+            f = sys.stdout     
+        else:
+            DebugPrint(4, "DEBUG: Back up record to send")
+            while not success:
+                (f,dirIndex) = OpenNewRecordFile(dirIndex)
+                DebugPrint(1,"Will save in the record in:",f.name)
+                DebugPrint(3,"DirIndex=",dirIndex)
+                if f.name == "<stdout>":
+                    responseString = "Fatal Error: unable to save record prior to send attempt"
+                    DebugPrint(0, responseString)
+                    DebugPrint(0, "***********************************************************")
+                    return responseString
+                else:
+                    try:
+                        for line in xmlData:
+                            f.write(line)
+                        f.flush()
+                        if f.tell() > 0:
+                            success = True
+                            DebugPrint(3,"suceeded to fill: ",f.name)
+                        else:
+                            DebugPrint(0,"failed to fill: ",f.name)
+                            if f.name != "<stdout>": RemoveRecordFile(f.name)
+                    except:
+                        DebugPrint(0,"failed to fill with exception: ",f.name,"--",
+                                   sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+                        if f.name != "<stdout>": RemoveRecordFile(f.name)
+            DebugPrint(4, "DEBUG: Backing up record to send: OK")
 
         if removeOriginal and f.name != "<stdout>": RemoveFile(xmlFilename)
 
@@ -2557,9 +2648,12 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
             # Determine if the call was successful based on the
             # response code.  Currently, 0 = success
             if response.get_code() == 0:
-                DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+                if f.name != "<stdout>": 
+                   DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
+                   RemoveRecordFile(f.name)
+                else:
+                   DebugPrint(1, 'Response indicates success')                
                 successfulSendCount += 1
-                RemoveFile(f.name)
             else:
                 failedSendCount += 1
                 DebugPrint(1, 'Response indicates failure, ' + f.name + ' will not be deleted')
