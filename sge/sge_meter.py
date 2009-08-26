@@ -243,6 +243,13 @@ class SGE:
         # 4.5 NodeCount
 
         # 4.6 Processors
+        try:
+            num_slots = int(self.sgeRecord['slots'])
+            r.Processors(num_slots)
+        except:
+            Gratia.DebugPrint(verbose_level,
+                              "Warning: Unable to parse " \
+                              "number of slots to an integer: %s." % self.sgeRecord['slots'])
 
         # 4.7 TimeDuration
         
