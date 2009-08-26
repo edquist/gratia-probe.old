@@ -9,6 +9,8 @@ import urllib
 import ProxyUtil
 import xml.sax.saxutils
 import exceptions
+import pwd
+import grp
 from OpenSSL import crypto
 
 quiet = 0
@@ -402,6 +404,17 @@ class ProbeConfiguration:
 
     def get_SuppressUnknownVORecords(self):
         result = self.__getConfigAttribute('SuppressUnknownVORecords')
+        if result:
+            match = re.search(r'^(True|1|t)$', result, re.IGNORECASE)
+            if match:
+                return True
+            else:
+                return False
+        else:
+            return None
+
+    def get_MapUnknownToGroup(self):
+        result = self.__getConfigAttribute('MapUnknownToGroup')
         if result:
             match = re.search(r'^(True|1|t)$', result, re.IGNORECASE)
             if match:
@@ -2923,6 +2936,14 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     if not vo_info and not VOName:
         DebugPrint(4, "DEBUG: Calling VOfromUser")
         vo_info = VOfromUser(LocalUserId)
+        if Config.get_MapUnknownToGroup() and not vo_info:
+            MyName = LocalUserId
+            try:
+                gid = pwd.getpwnam(LocalUserId)[3]
+                MyName = grp.getgrgid(gid)[0]
+            except:
+                pass
+            vo_info = {'VOName': MyName, 'ReportableVOName': MyName}
 
     # Resolve.
     if vo_info:
