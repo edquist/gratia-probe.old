@@ -20,6 +20,7 @@ __responseMatcherURLCheck = re.compile(r'Unknown Command: URL', re.IGNORECASE)
 __responseMatcherErrorCheck = re.compile(r'Error report</title', re.IGNORECASE)
 __certinfoLocalJobIdMunger = re.compile(r'(?P<ID>\d+(?:\.\d+)*)')
 __certinfoJobManagerExtractor = re.compile(r'gratia_certinfo_(?P<JobManager>(?:[^\d_][^_]*))')
+__BundleProblemMatcher = re.compile(r'Error: Unknown Command: multiupdate', re.IGNORECASE)
 __xmlintroRemove = re.compile(r'<\?xml[^>]*\?>')
 __certRejection = "Error: The certificate has been rejected by the Gratia Collector!";
 __lrms = None
@@ -2131,7 +2132,7 @@ def ProcessBundle(bundle):
     # Send the xml to the collector for processing
     response = __sendUsageXML(Config.get_ProbeName(), bundleData, "multiupdate")
     DebugPrint(1, 'Processing bundle Response:  ' + response.get_message())
-    if (response.get_message() == "Error: Unknown Command: multiupdate or Invalid Arg Count: 1"):
+    if (__BundleProbelemMatcher.match(response.get_message())):
         DebugPrint(0, "Collector is too old to handle 'bundles', reverting to sending individual records.")
         BundleSize = 0
         bundle.clear()
