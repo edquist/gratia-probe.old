@@ -1327,29 +1327,32 @@ def OpenNewRecordFile(DirIndex):
     global OutstandingRecordCount
     DebugPrint(3,"Open request: ",DirIndex)
     index = 0
-    for current_dir in BackupDirList:
-        index = index + 1
-        if index <= DirIndex or not os.path.exists(current_dir):
-            continue
-        DebugPrint(3,"Open request: looking at ",current_dir)
-        current_dir = os.path.join(current_dir,"gratiafiles")
-        if not os.path.exists(current_dir):
+    if OutstandingRecordCount < Config.get_MaxPendingFiles():
+        for current_dir in BackupDirList:
+            index = index + 1
+            if index <= DirIndex or not os.path.exists(current_dir):
+                continue
+            DebugPrint(3,"Open request: looking at ",current_dir)
+            current_dir = os.path.join(current_dir,"gratiafiles")
+            if not os.path.exists(current_dir):
+                try:
+                    Mkdir(current_dir)
+                except:
+                    continue
+            if not os.path.exists(current_dir):
+                continue
+            if not os.access(current_dir,os.W_OK): continue
             try:
-                Mkdir(current_dir)
+                filename = GenerateFilename(current_dir)
+                DebugPrint(1,"Creating file:",filename)
+                OutstandingRecordCount += 1
+                f = open(filename,'w')
+                DirIndex = index
+                return(f,DirIndex)
             except:
                 continue
-        if not os.path.exists(current_dir):
-            continue
-        if not os.access(current_dir,os.W_OK): continue
-        try:
-            filename = GenerateFilename(current_dir)
-            DebugPrint(1,"Creating file:",filename)
-            OutstandingRecordCount += 1
-            f = open(filename,'w')
-            DirIndex = index
-            return(f,DirIndex)
-        except:
-            continue
+    else:
+        DebugPrint(0, "DEBUG: Too many pending files, the record has not been backed up")     
     f = sys.stdout
     DirIndex = index
     return (f,DirIndex)
@@ -2180,7 +2183,8 @@ def ReprocessList():
 
     currentFailedCount = 0;
     currentSuccessCount = 0;
-    currentBundledCount = - CurrentBundle.nItems;
+    currentBundledCount = 0;
+    prevBundled = CurrentBundle.nItems;
 
     responseString = ""
 
@@ -2189,6 +2193,7 @@ def ReprocessList():
         if __connectionError:
             # Fail record without attempting to send.
             failedReprocessCount += 1
+            currentFailedCount += 1
             continue
 
         xmlData = None
@@ -2204,6 +2209,7 @@ def ReprocessList():
             DebugPrint(1, 'Reprocess failure: unable to read file' + failedRecord)
             responseString = responseString + '\nUnable to read from ' + failedRecord
             failedReprocessCount += 1
+            currentFailedCount += 1
             continue
 
         if not xmlData:
@@ -2211,6 +2217,7 @@ def ReprocessList():
                        ' was empty: skip send')
             responseString = responseString + '\nEmpty file ' + failedRecord + ': XML not sent'
             failedReprocessCount += 1
+            currentFailedCount += 1
             continue
 
         if (BundleSize > 1):
@@ -2219,13 +2226,19 @@ def ReprocessList():
 
             # Determine if the call succeeded, and remove the file if it did
             if response.get_code() != 0:
-                currentFailedCount += CurrentBundle.nItems
+                if (CurrentBundle.nItems==0):
+                   currentFailedCount += BundleSize - prevBundled
+                   currentBundledCount = 0
+                   prevBundled = 0
+                else:
+                   currentFailedCount += CurrentBundle.nItems - prevBundled
                 if __connectionError:
                     DebugPrint(1,"Connection problems: reprocessing suspended; new record processing shall continue")
             else:
                 if (CurrentBundle.nItems==0):
-                   currentSuccessCount += BundleSize
+                   currentSuccessCount += BundleSize - prevBundled
                    currentBundledCount = 0
+                   prevBundled = 0
                 else:
                    currentBundledCount += 1
         else:
@@ -2415,32 +2428,30 @@ def Send(record):
         success = False
         f = 0
 
-        if toomanyfiles:
-            DebugPrint(0, "DEBUG: Too many pending files, the record has not been backed up") 
-            f = sys.stdout     
-        else:
-            DebugPrint(4, "DEBUG: Back up record to send")
-            while not success:
-                (f,dirIndex) = OpenNewRecordFile(dirIndex)
-                DebugPrint(1,"Will save in the record in:",f.name)
-                DebugPrint(3,"DirIndex=",dirIndex)
-                if f.name != "<stdout>":
-                    try:
-                        for line in record.XmlData:
-                            f.write(line)
-                        f.flush()
-                        if f.tell() > 0:
-                            success = True
-                            DebugPrint(0, 'Saved record to ' + f.name)
-                        else:
-                            DebugPrint(0,"failed to fill: ",f.name)
-                            if f.name != "<stdout>": RemoveRecordFile(f.name)
-                        f.close()
-                    except:
-                        DebugPrint(0,"failed to fill with exception: ",f.name,"--",
-                                   sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+        DebugPrint(4, "DEBUG: Attempt to back up record to send")
+        while not success:
+            (f,dirIndex) = OpenNewRecordFile(dirIndex)
+            DebugPrint(1,"Will save in the record in:",f.name)
+            DebugPrint(3,"DirIndex=",dirIndex)
+            if f.name != "<stdout>":
+                try:
+                    for line in record.XmlData:
+                        f.write(line)
+                    f.flush()
+                    if f.tell() > 0:
+                        success = True
+                        DebugPrint(0, 'Saved record to ' + f.name)
+                    else:
+                        DebugPrint(0,"failed to fill: ",f.name)
+                        if f.name != "<stdout>": RemoveRecordFile(f.name)
+                    f.close()
+                except:
+                    DebugPrint(0,"failed to fill with exception: ",f.name,"--",
+                               sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+                DebugPrint(4, "DEBUG: Backing up record to send: OK")
+            else:
+                break     
 
-            DebugPrint(4, "DEBUG: Backing up record to send: OK")
 
         # Currently, the recordXml is in a list format, with each item being a line of xml.
         # the collector web service requires the xml to be sent as a string.
@@ -2614,7 +2625,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
                         DebugPrint(0,"failed to fill with exception: ",f.name,"--",
                                    sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
                         if f.name != "<stdout>": RemoveRecordFile(f.name)
-            DebugPrint(4, "DEBUG: Backing up record to send: OK")
+                    DebugPrint(4, "DEBUG: Backing up record to send: OK")
 
         if removeOriginal and f.name != "<stdout>": RemoveFile(xmlFilename)
 
