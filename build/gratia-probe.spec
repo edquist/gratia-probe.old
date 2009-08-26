@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.04.4d
+Version: 1.04.4e
 Release: 1
 License: GPL
 Group: Applications/System
@@ -102,6 +102,7 @@ Patch9: urCollector-2006-06-13-mppwidth.patch
 Patch10: urCollector-2006-06-13-walltime.patch
 Patch11: urCollector-2006-06-13-libexec-fix.patch
 Patch12: urCollector-2006-06-13-lonely-cr-fix.patch
+Patch13: urCollector-2006-06-13-processors-global-fix.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -129,6 +130,7 @@ cd urCollector-%{urCollector_version}
 %patch -P 10 -b .walltime
 %patch -P 11 -b .libexec
 %patch -P 12 -b .lonely-cr
+%patch -P 13 -b .processors
 %setup -q -D -T -a 9
 %endif
 %setup -q -D -T -a 5
@@ -371,6 +373,7 @@ Summary: Common files for Gratia OSG accounting system probes
 Group: Applications/System
 %if %{?python:0}%{!?python:1}
 Requires: python >= 2.2
+Requires: pyOpenSSL
 %endif
 AutoReqProv: no
 
@@ -1018,6 +1021,14 @@ fi
 %endif # noarch
 
 %changelog
+* Wed Aug 26 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4e-1
+- Improve PBS' ability to glean information about number of cores from log.
+- SGE probe patch from Brian for number of cores.
+- Gratia.py improvements for handling large numbers of files to reprocess.
+- Gratia.py improvements for non-grid user -> group mappings.
+- Gratia.py fix for misunderstanding multiupdate errors from old
+-  collectors while bundling.
+
 * Wed Aug 19 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4d-1
 - Update dCache-transfer package to include improvement to query.
 
