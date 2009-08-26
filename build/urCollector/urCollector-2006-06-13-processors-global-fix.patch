@@ -1,0 +1,79 @@
+--- urCollector.pl~	2009-08-19 17:21:06.000000000 -0500
++++ urCollector.pl	2009-08-26 10:59:32.000000000 -0500
+@@ -1287,42 +1287,46 @@
+ 	if (/^(\d*)\.(.*)$/o) {
+     $urAcctlogInfo{server}=$2;
+   }
+-  $urAcctlogInfo{processors} = 1; # Default
+ 	foreach my $record_field ( @$lrmsRecordFields ) {
+ 		if ( $record_field =~ /^queue=(.*)$/o) {
+       $urAcctlogInfo{queue}=$1;
+       next;
+     }
+-		if ( $record_field =~ /^resources_used.cput=.*?(\d+):(\d+):(\d+)$/o) {
++		if ( $record_field =~ /^resources_used\.cput=.*?(\d+):(\d+):(\d+)$/o) {
+ 			$urAcctlogInfo{cput}= $3 + $2*60 + $1*3600;
+       next;
+ 		}
+-		if ( $record_field =~ /^resources_used.walltime=*?(\d+):(\d+):(\d+)$/o) {
++		if ( $record_field =~ /^resources_used\.walltime=*?(\d+):(\d+):(\d+)$/o) {
+ 			$urAcctlogInfo{walltime}= $3 + $2*60 + $1*3600;
+       next;
+ 		}
+-		if ( $record_field =~ /^resources_used.vmem=.*?(\d*[M.k]b)$/o) {
++		if ( $record_field =~ /^resources_used\.vmem=.*?(\d*[M.k]b)$/o) {
+ 			$urAcctlogInfo{vmem}     = $1;
+       next;
+ 		}
+-		if ( $record_field =~ /^resources_used.mem=.*?(\d*[M.k]b)$/o) {
++		if ( $record_field =~ /^resources_used\.mem=.*?(\d*[M.k]b)$/o) {
+ 			$urAcctlogInfo{mem}     = $1;
+       next;
+ 		}
+-    if ( $record_field =~ /^Resource_List.mppwidth=(\d*)$/o) {
+-      $urAcctlogInfo{processors} = $1;
++    if ( $record_field =~ /^Resource_List\.mppwidth=(\d+)$/o) {
++      $urAcctlogInfo{mppwidth} = $1;
+       next;
+-    } elsif ( $record_field =~ /^Resource_List.neednodes=(\d*)$/o) {	
+-			$urAcctlogInfo{processors} = $1;
+-			# attention! might also be list of hostnames,
+-			# in this case the number of hosts should be
+-			# counted!? What about SMP machines; is their
+-			# hostname listed N times or only once??
++    } elsif ( $record_field =~ /^Resource_List\.neednodes=(\d+)$/o) {	
++      $urAcctlogInfo{neednodes} = $1;
++      # attention! might also be list of hostnames,
++      # in this case the number of hosts should be
++      # counted!? What about SMP machines; is their
++      # hostname listed N times or only once??
+       next;
+-		} elsif ( $record_field =~ /^Resource_List.nodect=(\d*)/o ) {
+-			$urAcctlogInfo{processors} = $1;
++		} elsif ( $record_field =~ /^Resource_List\.nodect=(\d+)/o ) {
++      $urAcctlogInfo{nodect} = $1;
+       next;
+-		}
++		} elsif ( $record_field =~ /^Resource_List\.select=(\d+)/o ) {
++      $urAcctlogInfo{select} = $1;
++      next;
++    } elsif ( $record_field =~ /^Resource_List\.nodes=(\d+)(?::(\d+))/o ) {
++      $urAcctLogInfo{nodes} = ${1} * ( ${2} || 1 );
++    }
+ 		if ( $record_field =~ /^group=(.*)$/o) {	
+ 			$urAcctlogInfo{group} = $1;
+       next;
+@@ -1360,7 +1364,12 @@
+       next;
+ 		}
+ 	}
+-	
++  $urAcctlogInfo{processors} =
++      $urAcctlogInfo{select} || 
++      $urAcctLogInfo{nodes} || 
++      $urAcctLogInfo{nodect} || 
++      $urAcctlogInfo{neednodes} || 
++      $urAcctlogInfo{mppwidth} || 1;
+ }
+ 
+ sub parseUR_lsf {
