@@ -3,7 +3,7 @@
 import os, errno, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
 import traceback
-import re, fileinput
+import re, fileinput, tarfile
 import atexit
 import urllib
 import ProxyUtil
@@ -62,6 +62,7 @@ class ProbeConfiguration:
     __DataFileExpiration = None
     __UseSyslog = None
     __UserVOMapFile = None
+    __FilenameFragment = None
 
     def __init__(self, customConfig = "ProbeConfig"):
         if os.path.exists(customConfig):
@@ -229,6 +230,7 @@ class ProbeConfiguration:
 
     def setProbeName(self,name):
         self.__ProbeName = name
+        self.__FilenameFragment = None
 
     def get_ProbeName(self):
         if (self.__ProbeName == None):
@@ -248,6 +250,15 @@ class ProbeConfiguration:
             else:
                 self.setProbeName(result)
         return self.__ProbeName
+
+    def FilenameFragment(self):
+        "Generate a filename fragment based on the collector destination"
+        if (self.__FilenameFragment == None):
+            fragment = self.get_ProbeName()
+            if fragment: fragment += '_'
+            fragment += self.get_SOAPHost()
+            __FilenameFragment = re.sub(r'[:/]', r'_', fragment)
+        return __FilenameFragment
 
     def get_Grid(self):
         if (self.__Grid == None):
@@ -341,6 +352,13 @@ class ProbeConfiguration:
         val = self.__getConfigAttribute('MaxPendingFiles')
         if val == None or val == "":
             return 100000
+        else:
+            return int(val)
+
+    def get_MaxStagedArchives(self):
+        val = self.__getConfigAttribute('MaxStagedArchives')
+        if val == None or val == "":
+            return 2000
         else:
             return int(val)
 
@@ -520,7 +538,9 @@ class Response:
 BackupDirList = []
 OutstandingRecord = { }
 HasMoreOutstandingRecord = False
-OustandingRecordCount = 0
+OutstandingRecordCount = 0
+OutstandingStagedRecordCount = 0
+OutstandingStagedTarCount = 0
 RecordPid = os.getpid()
 RecordId = 0
 MaxConnectionRetries = 2
@@ -1120,12 +1140,32 @@ def RemoveFile(file):
       else:
          raise err
 
+def RemoveDir(dir):
+   # Remove the file, ignore error if the file is already gone.
+    
+   try: 
+      os.rmdir(dir)
+   except os.error, err:
+      if (err.errno==errno.ENOENT):
+         pass
+      else:
+         raise err
+
 def RemoveRecordFile(file):
    # Remove a record file and reduce the oustanding record count
    global OutstandingRecordCount
+   global OutstandingStagedRecordCount
+   
    RemoveFile(file)
-   OutstandingRecordCount += -1
-   DebugPrint(3,"Remove the record: "+file)
+   # We try to exclude the record in staged/outbox
+   dirname = os.path.dirname(file)
+   if ( os.path.basename( dirname ) == "outbox" and 
+        os.path.basename( os.path.dirname( dirname ) ) == "staged" ):
+      DebugPrint(3,"Remove the staged record: "+file)
+      OutstandingStagedRecordCount += -1
+   else:
+      OutstandingRecordCount += -1
+      DebugPrint(3,"Remove the record: "+file)
 
 def RemoveOldFiles(nDays = 31, globexp = None):
 
@@ -1263,55 +1303,124 @@ def InitDirList():
     DirListAdd(os.environ['HOME'])
     DebugPrint(1,"List of backup directories: ",BackupDirList)
 
+def AddOutstandingRecord(file):
+    "Add the file to the outstanding list, unless it is"
+    "already in the current bundle."
+   
+    if not (BundleSize>1 and CurrentBundle.hasFile(file)):
+        OutstandingRecord[file] = 1
+
+def ListOutstandingRecord( dir, isstaged ):
+    "Put in OustandingRecord the name of the file in dir, if any"
+    "up to MaxFilesToReprocess file names and return True if we"
+    "reach the maximum number of files"
+
+    global OutstandingStagedRecordCount
+    global OutstandingRecordCount
+
+    if not os.path.exists(dir): return False
+            
+    files = os.listdir(dir)
+    nfiles = len(files)
+    DebugPrint(4,"DEBUG: ListOutstanding for "+dir+" adding "+str(nfiles))
+    if (isstaged):
+        OutstandingStagedRecordCount += nfiles
+    else:
+        OutstandingRecordCount += nfiles
+    for f in files:
+       AddOutstandingRecord( os.path.join(dir,f) )
+       if len(OutstandingRecord) >= MaxFilesToReprocess: return True
+    return False
+    
 def SearchOutstandingRecord():
     "Search the list of backup directories for"
     "any record that has not been sent yet"
     
     global HasMoreOutstandingRecord
     global OutstandingRecordCount
+    global OutstandingStagedTarCount
+    global OutstandingStagedRecordCount
 
     OutstandingRecord.clear()
     OutstandingRecordCount = 0
+    OutstandingStagedTarCount = 0
+    OutstandingStagedRecordCount = 0
     
-    fragment = FilenameProbeCollectorFragment()
+    hasMoreStaged = False
+    
+    fragment = Config.FilenameFragment()
 
+    DebugPrint(4,"DEBUG: Starting SearchOutstandingRecord")
     for current_dir in BackupDirList:
+        DebugPrint(4,"DEBUG: SearchOutstandingRecord "+current_dir)
+        DebugPrint(4,"DEBUG: Middle of SearchOutstandingRecord outbox:"+str(OutstandingRecordCount)+" staged outbox:"+str(OutstandingStagedRecordCount)+" tarfiles:"+str(OutstandingStagedTarCount))
+
+        gratiapath = os.path.join(current_dir,"gratiafiles")
+        subpath = os.path.join(gratiapath,"subdir."+fragment)
+        outbox = os.path.join(subpath,"outbox")
+        staged = os.path.join(subpath,"staged")
+        stagedoutbox = os.path.join(subpath,"staged","outbox")
+
         # For backward compatibility still look for the records in the top level
         # gratiafiles directories.
-        path = os.path.join(current_dir,"gratiafiles")
-        subpath = os.path.join(path,"s*."+fragment+"__*")
-        path = os.path.join(path,"r*."+Config.get_GratiaExtension())
+        path = os.path.join(gratiapath,"r*."+Config.get_GratiaExtension())
         files = glob.glob(path) + glob.glob(path + "__*")
+        DebugPrint(4,"DEBUG: Search add "+str(len(files))+" for "+path)
         OutstandingRecordCount += len(files)
         for f in files:
             # Legacy reprocess files or ones with the correct fragment
             if re.search(r'/?r(?:[0-9]+)?\.?[0-9]+(?:\.'+fragment+r')?\.'+Config.get_GratiaExtension()+r'(?:__.{10})?$',f):
-                OutstandingRecord[f] = 1
+                AddOutstandingRecord(f)
                 if len(OutstandingRecord) >= MaxFilesToReprocess: break
 
+        # Record the number of tar file already on disk.
+        stagedfiles = glob.glob( os.path.join(staged,"store","tz.*") )
+        OutstandingStagedTarCount += len(stagedfiles)
+
         if len(OutstandingRecord) >= MaxFilesToReprocess: break
-        
+
         # Now look for the record in the probe specific subdirectory.
-        dirs = glob.glob(subpath)
-        for subdir in dirs:
-            files = os.listdir(subdir)
-            OutstandingRecordCount += len(files)
-            for f in files:
-                OutstandingRecord[f] = 1
-                if len(OutstandingRecord) >= MaxFilesToReprocess: break
-            if len(OutstandingRecord) >= MaxFilesToReprocess: break
-        if len(OutstandingRecord) >= MaxFilesToReprocess: break
+        if ( ListOutstandingRecord(outbox,False) ): break
+        prevOutstandingStagedRecordCount = OutstandingStagedRecordCount
+        if ( ListOutstandingRecord(stagedoutbox,True) ): break
+        
+        # If total number of outstanding files is less than the number of files already in the bundle,
+        # Let's decompress one of the tar file (if any)
+        needmorefiles = OutstandingStagedRecordCount==0 or ((OutstandingRecordCount + OutstandingStagedRecordCount) <= CurrentBundle.nFiles);
+        if (needmorefiles and len(stagedfiles)>0):
+            # the staged/outbox is empty and we have some staged tar files
 
+            instore = OutstandingStagedRecordCount - prevOutstandingStagedRecordCount;
+            if (instore!=0 and CurrentBundle.nFiles > 0):
+                (responseString,response) = ProcessBundle(CurrentBundle)
+                DebugPrint(0, responseString)
+                DebugPrint(0, "***********************************************************")
+                if(CurrentBundle.nItems > 0):
+                    # The upload did not work, there is no need to proceed with the record collection
+                    break
+                    
+            stagedfile = stagedfiles[0]
+            if (UncompressOutbox(stagedfile,stagedoutbox)):
+                 RemoveFile(stagedfile)
+            else:
+                 Mkdir( os.path.join(staged,"quarantine") )
+                 os.rename( stagedfile, os.path.join(staged,"quarantine", os.path.basename( stagedfile )) )
+
+            OutstandingStagedTarCount += -1
+            OutstandingStagedRecordCount = prevOutstandingStagedRecordCount
+            if ( ListOutstandingRecord( stagedoutbox, True ) ): break
+              
     # Mark that we probably have more outstanding record to look at.                
-    HasMoreOutstandingRecord = len(OutstandingRecord) >= MaxFilesToReprocess
+    HasMoreOutstandingRecord = (OutstandingStagedTarCount>0) or (len(OutstandingRecord) >= MaxFilesToReprocess)
 
     DebugPrint(1,"List of Outstanding records: ",OutstandingRecord.keys())
+    DebugPrint(4,"DEBUG: After SearchOutstandingRecord outbox:"+str(OutstandingRecordCount)+" staged outbox:"+str(OutstandingStagedRecordCount)+" tarfiles:"+str(OutstandingStagedTarCount))
 
-def GenerateFilename(current_dir):
+def GenerateFilename(prefix,current_dir):
     "Generate a filename of the for gratia/r$UNIQUE.$pid.gratia.xml"
     "in the directory 'current_dir'"
-    filename = "r."+str(RecordPid)+ \
-               "."+FilenameProbeCollectorFragment()+ \
+    filename = prefix+str(RecordPid)+ \
+               "."+Config.FilenameFragment()+ \
                "."+Config.get_GratiaExtension() + "__XXXXXXXXXX"
     filename = os.path.join(current_dir,filename)
     mktemp_pipe = os.popen("mktemp -q \"" + filename + "\"");
@@ -1323,17 +1432,48 @@ def GenerateFilename(current_dir):
             return filename
 
     raise IOError
+    
+def UncompressOutbox(staging_name,target_dir):
+    # Compress the probe_dir/outbox and stored the resulting tar.gz file
+    # in probe_dir/staged
+    
+    #staged_dir = os.path.join(probe_dir,"staged")
+    #outbox = os.path.join(probe_dir,"outbox")
 
-def FilenameProbeCollectorFragment():
-    "Generate a filename fragment based on the collector destination"
-    fragment = Config.get_ProbeName()
-    if fragment: fragment += '_'
-    if Config.get_UseSSL() == "1":
-        fragment += Config.get_SSLHost()
-    else:
-        fragment += Config.get_SOAPHost()
+    DebugPrint(1,"Uncompressing: "+staging_name)
+    try:
+       tar = tarfile.open( staging_name, "r")
+    except Exception, e:
+       DebugPrint(0, "Warning: Exception caught while opening tar.bz2 file: "+staging_name+":")
+       DebugPrint(0, "Caught exception: ", e)
+       DebugPrintTraceback()
+       return False
 
-    return re.sub(r'[:/]', r'_', fragment)
+    for tarinfo in tar:
+        DebugPrint(1,"Extracting: "+tarinfo.name)
+        tar.extract(tarinfo,target_dir)
+    tar.close()
+    return True
+
+def CompressOutbox(probe_dir,outbox,outfiles):
+    # Compress the probe_dir/outbox and stored the resulting tar.gz file
+    # in probe_dir/staged
+    
+    global OutstandingStagedTarCount
+    
+    staged_store = os.path.join(probe_dir,"staged","store")    
+    Mkdir(staged_store)
+    
+    staging_name = GenerateFilename("tz.",staged_store)
+    DebugPrint(1,"Compressing outbox in tar.bz2 file: "+staging_name)
+    tar = tarfile.open( staging_name, "w:bz2")
+    
+    compressed_files = 0
+    for f in outfiles:
+        tar.add( os.path.join(outbox,f), f)
+        compressed_files += 1
+    tar.close()
+    OutstandingStagedTarCount += 1
 
 def OpenNewRecordFile(DirIndex):
     # The file name will be rUNIQUE.$pid.gratia.xml
@@ -1341,23 +1481,47 @@ def OpenNewRecordFile(DirIndex):
     global OutstandingRecordCount
     DebugPrint(3,"Open request: ",DirIndex)
     index = 0
-    if OutstandingRecordCount < Config.get_MaxPendingFiles():
+    toomanyfiles = OutstandingRecordCount >= Config.get_MaxPendingFiles()
+    toomanystaged = OutstandingStagedTarCount >= Config.get_MaxStagedArchives()
+    
+    if (not toomanyfiles or not toomanystaged):
         for current_dir in BackupDirList:
             index = index + 1
             if index <= DirIndex or not os.path.exists(current_dir):
                 continue
             DebugPrint(3,"Open request: looking at ",current_dir)
             current_dir = os.path.join(current_dir,"gratiafiles")
-            if not os.path.exists(current_dir):
+            probe_dir = os.path.join(current_dir,"subdir."+Config.FilenameFragment())
+            working_dir = os.path.join(probe_dir,"outbox")
+            if (toomanyfiles):
+               if not os.path.exists(working_dir): continue
+               
+               # Need to find and pack the full outbox
+               outfiles = os.listdir(working_dir)
+               if (len(outfiles)==0): continue
+               
+               CompressOutbox(probe_dir,working_dir,outfiles)
+               
+               # then delete the content
+               for f in os.listdir(working_dir):
+                   RemoveRecordFile(os.path.join(working_dir,f))
+                   
+               # and retry
+               toomanyfiles = OutstandingRecordCount >= Config.get_MaxPendingFiles()
+               if (toomanyfiles):
+                   # We did not suppress enough file, let's go on
+                   continue
+
+            if not os.path.exists(working_dir):
                 try:
-                    Mkdir(current_dir)
+                    Mkdir(working_dir)
                 except:
                     continue
-            if not os.path.exists(current_dir):
+            if not os.path.exists(working_dir):
                 continue
-            if not os.access(current_dir,os.W_OK): continue
+            if not os.access(working_dir,os.W_OK): continue
             try:
-                filename = GenerateFilename(current_dir)
+                filename = GenerateFilename("r.",working_dir)
                 DebugPrint(1,"Creating file:",filename)
                 OutstandingRecordCount += 1
                 f = open(filename,'w')
@@ -1366,7 +1530,7 @@ def OpenNewRecordFile(DirIndex):
             except:
                 continue
     else:
-        DebugPrint(0, "DEBUG: Too many pending files, the record has not been backed up")     
+       DebugPrint(0, "DEBUG: Too many pending files, the record has not been backed up")     
     f = sys.stdout
     DirIndex = index
     return (f,DirIndex)
@@ -2032,24 +2196,32 @@ class Bundle:
     nHandshakes = 0
     nReprocessed = 0
     nItems = 0
+    nFiles = 0
     content = []
+    
+    def __addContent(self,filename,xmlData):
+        self.content.append( [filename,xmlData] )
+        self.nItems += 1
+        if (len(filename)): self.nFiles += 1
+        
+    def hasFile(self,filename):
+        for [name,data] in self.content:
+           if (filename == name): return True
+        return False
 
     def addHandshake(self, xmlData):
-        self.content.append( ['',xmlData] )
+        self.__addContent('',xmlData)
         self.nHandshakes += 1
-        self.nItems += 1
         return self.checkAndSend("OK - Handshake added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
 
     def addRecord(self, filename, xmlData):
-        self.content.append( [filename,xmlData] )
+        self.__addContent( filename,xmlData )
         self.nRecords += 1
-        self.nItems += 1
         return self.checkAndSend("OK - Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
 
     def addReprocess(self, filename, xmlData):
-        self.content.append( [filename,xmlData] )
+        self.__addContent( filename,xmlData )
         self.nReprocessed += 1
-        self.nItems += 1
         return self.checkAndSend("OK - Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
 
     def checkAndSend(self,defaultmsg):
@@ -2064,6 +2236,7 @@ class Bundle:
         self.nRecords = 0
         self.nHandshakes = 0
         self.nItems = 0
+        self.nFiles = 0
         self.content = []
         self.nReprocessed = 0
 
@@ -2090,11 +2263,6 @@ def ProcessBundle(bundle):
     bundleData =  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" \
                   "<RecordEnvelope>\n"
     for item in bundle.content:
-        if __connectionError:
-            # Fail record without attempting to send.
-            failedBundleCount += 1
-            continue
-
         xmlData = None
 
         filename = item[0]
@@ -2109,7 +2277,7 @@ def ProcessBundle(bundle):
                 xmlData = in_file.read()
                 in_file.close()
             except:
-                DebugPrint(1, 'Processing bundle failure: unable to read file' + filename)
+                DebugPrint(1, 'Processing bundle failure: unable to read file: ' + filename)
                 responseString = responseString + '\nUnable to read from ' + filename
                 failedBundleCount += 1
                 continue
@@ -2128,10 +2296,14 @@ def ProcessBundle(bundle):
         #  bundleData = xmlData
         #else:
         #  bundleData = bundleData + '|' + xmlData
+
     bundleData = bundleData + "</RecordEnvelope>"
     # Send the xml to the collector for processing
     response = __sendUsageXML(Config.get_ProbeName(), bundleData, "multiupdate")
-    DebugPrint(1, 'Processing bundle Response:  ' + response.get_message())
+
+    DebugPrint(1, 'Processing bundle Response code:  ' + str(response.get_code()))
+    DebugPrint(1, 'Processing bundle Response message:  ' + response.get_message())
+
     if (__BundleProbelemMatcher.match(response.get_message())):
         DebugPrint(0, "Collector is too old to handle 'bundles', reverting to sending individual records.")
         BundleSize = 0
@@ -2179,12 +2351,27 @@ def ProcessBundle(bundle):
 #
 def Reprocess():
     ReprocessList()
-    while(HasMoreOutstandingRecord):
+    while(not __connectionError and HasMoreOutstandingRecord):
+        # This is decrease in SearchOutstanding
+        tarcount = OutstandingStagedTarCount
+        scount = OutstandingStagedRecordCount
+
         # Need to look for left over files
         SearchOutstandingRecord()
-
+      
+        if (len(OutstandingRecord)==0): 
+            DebugPrint(4,"DEBUG: quit reprocessing loop due empty list")
+            break
+        
+        # This is potentially decreased in ReprocessList
+        rcount = OutstandingRecordCount
         # Attempt to reprocess any outstanding records
         ReprocessList()
+        if (rcount == OutstandingRecordCount and scount == OutstandingStagedRecordCount and tarcount == OutstandingStagedTarCount):
+            DebugPrint(3,"Reprocessing seems stalled, stopping it until next successfull send")
+            # We are not making progress
+            break
+         
 
 #
 # ReprocessList
@@ -2209,7 +2396,7 @@ def ReprocessList():
             failedReprocessCount += 1
             currentFailedCount += 1
             continue
-
+            
         xmlData = None
         #if os.path.isfile(failedRecord):
         DebugPrint(1, 'Reprocessing:  ' + failedRecord)
@@ -2220,7 +2407,7 @@ def ReprocessList():
             xmlData = in_file.read()
             in_file.close()
         except:
-            DebugPrint(1, 'Reprocess failure: unable to read file' + failedRecord)
+            DebugPrint(1, 'Reprocess failure: unable to read file: ' + failedRecord)
             responseString = responseString + '\nUnable to read from ' + failedRecord
             failedReprocessCount += 1
             currentFailedCount += 1
@@ -2258,7 +2445,9 @@ def ReprocessList():
         else:
             # Send the xml to the collector for processing
             response = __sendUsageXML(Config.get_ProbeName(), xmlData)
-            DebugPrint(1, 'Reprocess Response for ' + failedRecord +':  ' + response.get_message())
+
+            DebugPrint(1, 'Processing bundle Response code for ' + failedRecord +':  ' + str(response.get_code()))
+            DebugPrint(1, 'Processing bundle Response message for ' + failedRecord +':  ' + response.get_message())
 
             # Determine if the call succeeded, and remove the file if it did
             if response.get_code() == 0:
@@ -2283,7 +2472,7 @@ def ReprocessList():
     responseString += " - Reprocessing "+str(currentSuccessCount)+" record(s) uploaded, "+str(currentBundledCount)+" bundled, "+str(currentFailedCount)+" failed"
 
     DebugPrint(0,"Reprocessing response: "+responseString)
-    
+    DebugPrint(1,"After reprocessing: "+str(OutstandingRecordCount)+" in outbox "+str(OutstandingStagedRecordCount)+" in staged outbox "+str(OutstandingStagedTarCount)+" tar files")
     return responseString
 
 def CheckXmlDoc(xmlDoc,external,resourceType = None):
@@ -2364,8 +2553,8 @@ def SendHandshake(record):
         response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
         responseString = response.get_message()
 
-        DebugPrint(4, 'Response code:  ' + str(response.get_code()))
-        DebugPrint(4, 'Response message:  ' + response.get_message())
+        DebugPrint(1, 'Response code:  ' + str(response.get_code()))
+        DebugPrint(1, 'Response message:  ' + response.get_message())
 
         # Determine if the call was successful based on the response
         # code.  Currently, 0 = success
@@ -2445,7 +2634,7 @@ def Send(record):
         DebugPrint(4, "DEBUG: Attempt to back up record to send")
         while not success:
             (f,dirIndex) = OpenNewRecordFile(dirIndex)
-            DebugPrint(1,"Will save in the record in:",f.name)
+            DebugPrint(1,"Will save the record in:",f.name)
             DebugPrint(3,"DirIndex=",dirIndex)
             if f.name != "<stdout>":
                 try:
@@ -2454,7 +2643,7 @@ def Send(record):
                     f.flush()
                     if f.tell() > 0:
                         success = True
-                        DebugPrint(0, 'Saved record to ' + f.name)
+                        DebugPrint(1, 'Saved record to ' + f.name)
                     else:
                         DebugPrint(0,"failed to fill: ",f.name)
                         if f.name != "<stdout>": RemoveRecordFile(f.name)
@@ -2485,8 +2674,8 @@ def Send(record):
             response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
             responseString = response.get_message()
 
-            DebugPrint(0, 'Response code:  ' + str(response.get_code()))
-            DebugPrint(0, 'Response message:  ' + response.get_message())
+            DebugPrint(1, 'Response code:  ' + str(response.get_code()))
+            DebugPrint(1, 'Response message:  ' + response.get_message())
 
             # Determine if the call was successful based on the response
             # code.  Currently, 0 = success
@@ -2643,7 +2832,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
 
         if removeOriginal and f.name != "<stdout>": RemoveFile(xmlFilename)
 
-        DebugPrint(0, 'Saved record to ' + f.name)
+        DebugPrint(1, 'Saved record to ' + f.name)
 
         # Currently, the recordXml is in a list format, with each
         # item being a line of xml. The collector web service
@@ -2667,8 +2856,8 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
             response = __sendUsageXML(Config.get_ProbeName(), usageXmlString, messageType)
             responseString = response.get_message()
 
-            DebugPrint(0, 'Response code:  ' + str(response.get_code()))
-            DebugPrint(0, 'Response message:  ' + response.get_message())
+            DebugPrint(1, 'Response code:  ' + str(response.get_code()))
+            DebugPrint(1, 'Response message:  ' + response.get_message())
 
             # Determine if the call was successful based on the
             # response code.  Currently, 0 = success

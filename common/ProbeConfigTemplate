@@ -27,6 +27,8 @@
 
     BundleSize="20"
     MaxPendingFiles="100000"
+    MaxStagedArchives="400"
+       Comments2="The maximum of backload files is MaxPendingFiles * MaxStagedArchives per probe"
     UseSyslog="0"
 
     LogLevel="2"
@@ -40,7 +42,7 @@
     CertificateFile="/etc/grid-security/hostcert.pem"
     KeyFile="/etc/grid-security/hostkey.pem"
     UseGratiaCertificates="0"
-       Comments2="If no directory is specified the gratia certificate file will be created in 'WorkingFolder'/certs."
+       Comments3="If no directory is specified the gratia certificate file will be created in 'WorkingFolder'/certs."
     GratiaCertificateFile="gratia.probecert.pem"
     GratiaKeyFile="gratia.probekey.pem"
     
