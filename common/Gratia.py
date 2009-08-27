@@ -1444,15 +1444,29 @@ def UncompressOutbox(staging_name,target_dir):
     try:
        tar = tarfile.open( staging_name, "r")
     except Exception, e:
-       DebugPrint(0, "Warning: Exception caught while opening tar.bz2 file: "+staging_name+":")
+       DebugPrint(0, "Warning: Exception caught while opening tar file: "+staging_name+":")
        DebugPrint(0, "Caught exception: ", e)
        DebugPrintTraceback()
        return False
 
-    for tarinfo in tar:
-        DebugPrint(1,"Extracting: "+tarinfo.name)
-        tar.extract(tarinfo,target_dir)
-    tar.close()
+    try:
+        for tarinfo in tar:
+            DebugPrint(1,"Extracting: "+tarinfo.name)
+            tar.extract(tarinfo,target_dir)
+    except Exception, e:
+       DebugPrint(0, "Warning: Exception caught while extracting from tar file: "+staging_name+":")
+       DebugPrint(0, "Caught exception: ", e)
+       DebugPrintTraceback()
+       return False
+
+    try:
+        tar.close()
+    except Exception, e:
+       DebugPrint(0, "Warning: Exception caught while closing tar file: "+staging_name+":")
+       DebugPrint(0, "Caught exception: ", e)
+       DebugPrintTraceback()
+       return False
+
     return True
 
 def CompressOutbox(probe_dir,outbox,outfiles):
@@ -1466,14 +1480,36 @@ def CompressOutbox(probe_dir,outbox,outfiles):
     
     staging_name = GenerateFilename("tz.",staged_store)
     DebugPrint(1,"Compressing outbox in tar.bz2 file: "+staging_name)
-    tar = tarfile.open( staging_name, "w:bz2")
+    
+    try:
+        tar = tarfile.open( staging_name, "w:bz2")
+    except Exception, e:
+       DebugPrint(0, "Warning: Exception caught while opening tar.bz2 file: "+staging_name+":")
+       DebugPrint(0, "Caught exception: ", e)
+       DebugPrintTraceback()
+       return False
     
     compressed_files = 0
-    for f in outfiles:
-        tar.add( os.path.join(outbox,f), f)
-        compressed_files += 1
-    tar.close()
+    try:
+        for f in outfiles:
+            tar.add( os.path.join(outbox,f), f)
+            compressed_files += 1
+    except Exception, e:
+       DebugPrint(0, "Warning: Exception caught while add to tar.bz2 file: "+staging_name+":")
+       DebugPrint(0, "Caught exception: ", e)
+       DebugPrintTraceback()
+       return False
+
+    try:
+        tar.close()
+    except Exception, e:
+       DebugPrint(0, "Warning: Exception caught while closing tar.bz2 file: "+staging_name+":")
+       DebugPrint(0, "Caught exception: ", e)
+       DebugPrintTraceback()
+       return False
+
     OutstandingStagedTarCount += 1
+    return True
 
 def OpenNewRecordFile(DirIndex):
     # The file name will be rUNIQUE.$pid.gratia.xml
@@ -1500,11 +1536,12 @@ def OpenNewRecordFile(DirIndex):
                outfiles = os.listdir(working_dir)
                if (len(outfiles)==0): continue
                
-               CompressOutbox(probe_dir,working_dir,outfiles)
-               
-               # then delete the content
-               for f in os.listdir(working_dir):
-                   RemoveRecordFile(os.path.join(working_dir,f))
+               if ( CompressOutbox(probe_dir,working_dir,outfiles) ):               
+                   # then delete the content
+                   for f in os.listdir(working_dir):
+                       RemoveRecordFile(os.path.join(working_dir,f))
+               else:
+                   continue
                    
                # and retry
                toomanyfiles = OutstandingRecordCount >= Config.get_MaxPendingFiles()
