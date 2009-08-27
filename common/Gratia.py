@@ -358,7 +358,7 @@ class ProbeConfiguration:
     def get_MaxStagedArchives(self):
         val = self.__getConfigAttribute('MaxStagedArchives')
         if val == None or val == "":
-            return 2000
+            return 400
         else:
             return int(val)
 
