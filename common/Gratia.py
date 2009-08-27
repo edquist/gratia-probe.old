@@ -2304,7 +2304,7 @@ def ProcessBundle(bundle):
     DebugPrint(1, 'Processing bundle Response code:  ' + str(response.get_code()))
     DebugPrint(1, 'Processing bundle Response message:  ' + response.get_message())
 
-    if (__BundleProbelemMatcher.match(response.get_message())):
+    if (__BundleProblemMatcher.match(response.get_message())):
         DebugPrint(0, "Collector is too old to handle 'bundles', reverting to sending individual records.")
         BundleSize = 0
         bundle.clear()
