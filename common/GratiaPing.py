@@ -5,7 +5,7 @@
 import getopt,sys
 import Gratia
 
-class Usage(Exception):
+class UsageError(Exception):
     def __init__(self, msg):
         self.msg = msg
 
@@ -23,8 +23,8 @@ if __name__ == '__main__':
                 try:
                         opts, args = getopt.getopt(argv[1:], "hv", ["help","verbose"])
                 except getopt.error, msg:
-                        raise Usage(msg)
-        except Usage, err:
+                        raise UsageError(msg)
+        except UsageError, err:
                 print >>sys.stderr, err.msg
                 print >>sys.stderr, "for help use --help"
                 sys.exit(2)
