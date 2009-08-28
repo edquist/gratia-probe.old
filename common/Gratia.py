@@ -907,7 +907,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
 
         # Generate a unique Id for this transaction
         transactionId = meterId + TimeToString().replace(":","")
-        DebugPrint(1, 'TransactionId:  ' + transactionId)
+        DebugPrint(3, 'TransactionId:  ' + transactionId)
 
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
             # Use the following template to call the interface that has
@@ -2418,7 +2418,7 @@ def Reprocess():
         # Attempt to reprocess any outstanding records
         ReprocessList()
         if (rcount == OutstandingRecordCount and scount == OutstandingStagedRecordCount and tarcount == OutstandingStagedTarCount):
-            DebugPrint(3,"Reprocessing seems stalled, stopping it until next successfull send")
+            DebugPrint(3,"Reprocessing seems stalled, stopping it until next successful send")
             # We are not making progress
             break
          
@@ -2496,17 +2496,18 @@ def ReprocessList():
             # Send the xml to the collector for processing
             response = __sendUsageXML(Config.get_ProbeName(), xmlData)
 
-            DebugPrint(1, 'Processing bundle Response code for ' + failedRecord +':  ' + str(response.get_code()))
-            DebugPrint(1, 'Processing bundle Response message for ' + failedRecord +':  ' + response.get_message())
-
             # Determine if the call succeeded, and remove the file if it did
             if response.get_code() == 0:
+                DebugPrint(3, 'Processing bundle Response code for ' + failedRecord +':  ' + str(response.get_code()))
+                DebugPrint(3, 'Processing bundle Response message for ' + failedRecord +':  ' + response.get_message())
                 DebugPrint(1, 'Response indicates success, ' + failedRecord + ' will be deleted')
                 currentSuccessCount += 1
                 successfulReprocessCount += 1
                 RemoveRecordFile(failedRecord)
                 del OutstandingRecord[failedRecord]
             else:
+                DebugPrint(1, 'Processing bundle Response code for ' + failedRecord +':  ' + str(response.get_code()))
+                DebugPrint(1, 'Processing bundle Response message for ' + failedRecord +':  ' + response.get_message())
                 currentFailedCount += 1
                 if __connectionError:
                     DebugPrint(1,
