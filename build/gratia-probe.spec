@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.04.4e
+Version: 1.04.4f
 Release: 1
 License: GPL
 Group: Applications/System
@@ -23,7 +23,7 @@ BuildRequires: gcc-c++
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
 %global gridftp_transfer_source gratia-probe-gridftp-transfer-%{gridftp_transfer_probe_version}.tar.bz2
-%global dcache_transfer_probe_version v0-2-10
+%global dcache_transfer_probe_version v0-2-11
 %global dcache_storage_probe_version v0-1-2
 %global gridftp_transfer_probe_version v0-3
 
@@ -401,7 +401,6 @@ Common files and examples for Gratia OSG accounting system probes.
 %{default_prefix}/probe/common/ProbeConfigTemplate
 %{default_prefix}/probe/common/ProxyUtil.py
 %{default_prefix}/probe/common/README
-%{default_prefix}/probe/common/RegisterProbe.py
 %{default_prefix}/probe/common/samplemeter.pl
 %{default_prefix}/probe/common/samplemeter.py
 %{default_prefix}/probe/common/samplemeter_multi.py
@@ -1021,6 +1020,13 @@ fi
 %endif # noarch
 
 %changelog
+* Fri Aug 28 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4f-1
+- Re-write handling of reprocessing.
+- Improve handling of send erorrs in dCache probe.
+- Improve log level of some messages.
+- Fix GratiaPing.py per pylint.
+- Remove RegisterProbe.py -- obsolete and state.
+
 * Wed Aug 26 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4e-1
 - Improve PBS' ability to glean information about number of cores from log.
 - SGE probe patch from Brian for number of cores.
