@@ -15,11 +15,14 @@ sys.path.append('.')
 gratia_path = os.path.expandvars('/opt/vdt/gratia/probe/common')
 if gratia_path not in sys.path and os.path.exists(gratia_path):
     sys.path.append(gratia_path)
+gratia_path = os.path.expandvars('/opt/vdt/gratia/probe/services')
+if gratia_path not in sys.path and os.path.exists(gratia_path):
+    sys.path.append(gratia_path)
 if 'VDT_LOCATION' in os.environ:
     gratia_path = os.path.expandvars('$VDT_LOCATION/gratia/probe/common')
     if gratia_path not in sys.path and os.path.exists(gratia_path):
         sys.path.append(gratia_path)
-    gratia_path = os.path.expandvars('$VDT_LOCATION/gratia/probe/glue')
+    gratia_path = os.path.expandvars('$VDT_LOCATION/gratia/probe/services')
     if gratia_path not in sys.path and os.path.exists(gratia_path):
         sys.path.append(gratia_path)
 
