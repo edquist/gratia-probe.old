@@ -886,12 +886,14 @@ def __disconnect():
 ##  param - meterId:  A unique Id for this meter, something the web service can use to identify communication from this meter
 ##  param - xmlData:  A string representation of usage xml
 ##
+__resending = 0
 def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
     global __connection
     global __connectionError
     global __certificateRejected
     global __connectionRetries
     global __urlencode_records
+    global __resending
 
     # Backward compatibility with old collectors
     if (__urlencode_records == 0): messageType = "update"
@@ -975,7 +977,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
                 # Try again with the same record before returning to the
                 # caller. There will be no infinite recursion because
                 # __url_records has been reset
-                response = __sendUsageXML(meterId, recordXml)
+                response = __sendUsageXML(meterId, recordXml, messageType)
             else:
                 response = Response(-1, responseString)
         else: # SSL
@@ -998,7 +1000,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
                 # Try again with the same record before returning to the
                 # caller. There will be no infinite recursion because
                 # __url_records has been reset
-                response = __sendUsageXML(meterId, recordXml)
+                response = __sendUsageXML(meterId, recordXml, messageType)
             elif ( responseString == __certRejection ):
                 __connectionError = True
                 __certificateRejected = True
@@ -1012,6 +1014,16 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
 
     except SystemExit:
         raise
+    except httplib.BadStatusLine, e:
+        DebugPrint(0, 'Received BadStatusLine exception:', e.args)
+        __connectionError = True
+        if e.args[0] == '' and not __resending:
+            DebugPrint(0, 'Possible connection timeout: resend this record')
+            __resending = 1
+            response = __sendUsageXML(meterId, recordXml, messageType)
+        else:
+          DebugPrintTraceback(1)
+          response = Response(1,"Failed to send xml to web service")
     except:
         DebugPrint(0,'Failed to send xml to web service due to an error of type "', sys.exc_info()[0], '": ', sys.exc_info()[1])
         DebugPrintTraceback(1)
@@ -1020,6 +1032,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
         __connectionError = True
         response = Response(1,"Failed to send xml to web service")
 
+    __resending = 0
     return response
 
 def SendStatus(meterId):
@@ -1413,8 +1426,8 @@ def SearchOutstandingRecord():
     # Mark that we probably have more outstanding record to look at.                
     HasMoreOutstandingRecord = (OutstandingStagedTarCount>0) or (len(OutstandingRecord) >= MaxFilesToReprocess)
 
-    DebugPrint(1,"List of Outstanding records: ",OutstandingRecord.keys())
-    DebugPrint(4,"DEBUG: After SearchOutstandingRecord outbox:"+str(OutstandingRecordCount)+" staged outbox:"+str(OutstandingStagedRecordCount)+" tarfiles:"+str(OutstandingStagedTarCount))
+    DebugPrint(4, "DEBUG: List of Outstanding records: ",OutstandingRecord.keys())
+    DebugPrint(4, "DEBUG: After SearchOutstandingRecord outbox:"+str(OutstandingRecordCount)+" staged outbox:"+str(OutstandingStagedRecordCount)+" tarfiles:"+str(OutstandingStagedTarCount))
 
 def GenerateFilename(prefix,current_dir):
     "Generate a filename of the for gratia/r$UNIQUE.$pid.gratia.xml"
