@@ -1030,6 +1030,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
         if responseString != None and \
            __responseMatcherErrorCheck.search(responseString):
             # Server threw an error - 503, maybe?
+            __connectionError = True
             response = Response(-1, r'Server unable to receive data: save for reprocessing');
 
     except SystemExit:
