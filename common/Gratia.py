@@ -652,7 +652,27 @@ def Initialize(customConfig = "ProbeConfig"):
         # Attempt to reprocess any outstanding records
         Reprocess()
 
+def Maintenance():
+    "This perform routine maintenance that is usually done at"
+    "startup and end of the probe process.  This is useful for"
+    "long running/daemon type of probe."
+    "We perform the following action:"
+    "  - send a partially filled bundle"
+    "  - check for any outstanding record and send them"
 
+    Handshake()
+
+    # Need to look for left over files
+    SearchOutstandingRecord()
+
+    # Attempt to reprocess any outstanding records
+    Reprocess()
+    
+    if (BundleSize > 1 and CurrentBundle.nItems > 0):
+        (responseString,response) = ProcessBundle(CurrentBundle)
+        DebugPrint(0, responseString)
+        DebugPrint(0, "***********************************************************")
+    
 ##
 ## Certificate handling routine
 ##
