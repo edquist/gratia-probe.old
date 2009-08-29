@@ -3,7 +3,7 @@
 import os, errno, sys, time, glob, string, httplib, xml.dom.minidom, socket
 import StringIO
 import traceback
-import re, fileinput, tarfile
+import re, fileinput, tarfile, shutil
 import atexit
 import urllib
 import ProxyUtil
@@ -1184,6 +1184,34 @@ def RemoveDir(dir):
       else:
          raise err
 
+def QuarantineFile(file,isempty):
+   # If we have trouble with a file, let's quarantine it
+   # If the quarantine reason is 'only' that the file is empty,
+   # list the file as such.
+   
+   dirname = os.path.dirname(file)
+   pardirname = os.path.dirname(dirname)
+   if (dirname != "outbox"):
+       toppath = dirname
+   else:
+       if (pardirname == "staged"):
+           toppath = os.path.dirname(pardirname)
+       else:
+           toppath = pardirname
+   quarantine = os.path.join(dirname,"quarantine")
+   Mkdir(quarantine)
+   if (isempty):
+       try:
+           emptyfiles = open(os.path.join( quarantine, "emptyfile" ), 'a')
+           emptyfiles.write(file + "\n")
+           emptyfiles.close()
+       except:
+           DebugPrint(0,"failed to record that file was empty: ",f,"--",
+                        sys.exc_info(),"--",sys.exc_info()[0],"++",sys.exc_info()[1])
+   else:
+       shutil.copy( file, os.path.join( quarantine, os.path.basename( file ) ) )
+   RemoveRecordFile(file)
+   
 def RemoveRecordFile(file):
    # Remove a record file and reduce the oustanding record count
    global OutstandingRecordCount
@@ -2481,6 +2509,8 @@ def ReprocessList():
             responseString = responseString + '\nUnable to read from ' + failedRecord
             failedReprocessCount += 1
             currentFailedCount += 1
+            RemoveRecordFile(failedRecord)
+            del OutstandingRecord[failedRecord]
             continue
 
         if not xmlData:
@@ -2489,6 +2519,8 @@ def ReprocessList():
             responseString = responseString + '\nEmpty file ' + failedRecord + ': XML not sent'
             failedReprocessCount += 1
             currentFailedCount += 1
+            RemoveRecordFile(failedRecord)
+            del OutstandingRecord[failedRecord]
             continue
 
         if (BundleSize > 1):
