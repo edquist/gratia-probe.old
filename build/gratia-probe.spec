@@ -1021,11 +1021,26 @@ fi
 
 %changelog
 * Fri Aug 28 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4f-1
+- Re-enable and improve the limit on the maximum number of records cached due to a
+-  collector unavailability
+- New ProbeConfig configuration value: MaxStagedArchives
+- New location for the records, it is now
+-  "WorkingFolder"/gratiafiles/subdir.[ProbeName].[CollectorHost]/outbox
+- Once the outbox has "MaxPendingFiles", it is tar-ed and compressed in file
+-  in "WorkingFolder"/gratiafiles/subdir.[ProbeName].[CollectorHost]/staged/store
+- When the collector is again available, one of the tar file is uncompressed
+-  in "WorkingFolder"/gratiafiles/subdir.[ProbeName].[CollectorHost]/staged/outbox
+- The new limit of the number of records is 2*MaxPendingFiles + MaxStagedArchives*MaxPendingFiles
+-  This results in only (2*MaxPendingFiles + MaxStagedArchives) files on disk with
+-  no more than MaxPendingFiles in a single directory.
+- New function Gratia.Maintenance to be called every once in a while by daemon/long 
+-  lived probes
+- Improve handling of reprocessing in case of time outs
 - Re-write handling of reprocessing.
-- Improve handling of send erorrs in dCache probe.
+- Improve handling of send errors in dCache probe.
 - Improve log level of some messages.
 - Fix GratiaPing.py per pylint.
-- Remove RegisterProbe.py -- obsolete and state.
+- Remove RegisterProbe.py -- obsolete and stale.
 
 * Wed Aug 26 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4e-1
 - Improve PBS' ability to glean information about number of cores from log.
