@@ -1554,10 +1554,12 @@ def CompressOutbox(probe_dir,outbox,outfiles):
     compressed_files = 0
     try:
         for f in outfiles:
-            tar.add( os.path.join(outbox,f), f)
+            # Reduce the size of the file name in the archive
+            arcfile = f.replace(Config.FilenameFragment(),"")
+            tar.add( os.path.join(outbox,f), arcfile)
             compressed_files += 1
     except Exception, e:
-       DebugPrint(0, "Warning: Exception caught while add to tar.bz2 file: "+staging_name+":")
+       DebugPrint(0, "Warning: Exception caught while adding "+f+" from "+outbox+" to tar.bz2 file: "+staging_name+":")
        DebugPrint(0, "Caught exception: ", e)
        DebugPrintTraceback()
        return False
