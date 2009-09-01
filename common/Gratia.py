@@ -1556,6 +1556,7 @@ def CompressOutbox(probe_dir,outbox,outfiles):
         for f in outfiles:
             # Reduce the size of the file name in the archive
             arcfile = f.replace(Config.FilenameFragment(),"")
+            arcfile = arcfile.replace("..",".")
             tar.add( os.path.join(outbox,f), arcfile)
             compressed_files += 1
     except Exception, e:
