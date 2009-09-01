@@ -16,13 +16,9 @@ from OpenSSL import crypto
 quiet = 0
 Config = None
 __urlencode_records = 1
-__responseMatcherURLCheck = re.compile(r'Unknown Command: URL', re.IGNORECASE)
-__responseMatcherErrorCheck = re.compile(r'Error report</title', re.IGNORECASE)
 __certinfoLocalJobIdMunger = re.compile(r'(?P<ID>\d+(?:\.\d+)*)')
 __certinfoJobManagerExtractor = re.compile(r'gratia_certinfo_(?P<JobManager>(?:[^\d_][^_]*))')
-__BundleProblemMatcher = re.compile(r'Error: Unknown Command: multiupdate', re.IGNORECASE)
 __xmlintroRemove = re.compile(r'<\?xml[^>]*\?>')
-__certRejection = "Error: The certificate has been rejected by the Gratia Collector!";
 __lrms = None
 
 def disconnect_at_exit():
@@ -508,16 +504,52 @@ class Event:
     def set_xml(self, xml):
         self._xml = xml
 
+
 class Response:
+
+    __responseMatcherURLCheck = re.compile(r'Unknown Command: URL', re.IGNORECASE)
+    __responseMatcherErrorCheck = re.compile(r'Error report</title', re.IGNORECASE)
+    __BundleProblemMatcher = re.compile(r'Error: Unknown Command: multiupdate', re.IGNORECASE)
+    __certRejection = "Error: The certificate has been rejected by the Gratia Collector!";
+
+    AutoSet = -1
+    Success = 0
+    Failed = 1
+    CollectorError = 2
+    UnknownCommand = 3
+    ConnectionError = 4
+    BadCertificate = 5
+    BundleNotSupported = 6
+    
     _code = -1
     _message = ""
 
     def __init__(self, code, message):
         if code == -1:
             if message == "OK":
-                self._code = 0
+                self._code = Response.Success
+                
+            elif message == "Error":
+                self._code = Response.CollectorError
+                
+            elif message == None:
+                self._code = Response.ConnectionError
+                
+            elif message == __certRejection:
+                self._code = Response.BadCertificate
+                
+            elif Response.__BundleProblemMatcher.match(message):
+                self._code = Response.BundleNotSupported
+
+            elif __urlencode_records == 1 and \
+                   Response.__responseMatcherURLCheck.search(message):
+                self._code = Response.UnknownCommand
+
+            elif Response.__responseMatcherErrorCheck.search(message):
+                self._code = Response.ConnectionError
+
             else:
-                self._code = 1
+                self._code = Response.Failed
         else:
             self._code = code
         if message:
@@ -980,17 +1012,17 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
                 if codeNode.length == 1 and messageNode.length == 1:
                     response = Response(int(codeNode[0].childNodes[0].data), messageNode[0].childNodes[0].data)
                 else:
-                    response = Response(-1, responseString)
+                    response = Response(Response.AutoSet, responseString)
             except:
-                response = Response(1,responseString)
+                response = Response(Response.Failed, responseString)
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
             queryString = __encodeData(messageType, recordXml)
             # Attempt to make sure Collector can actually read the post.
             headers = {"Content-type": "application/x-www-form-urlencoded"}
             __connection.request("POST", Config.get_CollectorService(), queryString, headers)
             responseString = __connection.getresponse().read()
-            if __urlencode_records == 1 and \
-                   __responseMatcherURLCheck.search(responseString):
+            response = Response(Response.AutoSet, responseString)
+            if response.get_code() == Response.UnknownCommand:
                 # We're talking to an old collector
                 DebugPrint(0, "Unable to send new record to old collector -- engaging backwards-compatible mode for remainder of connection")
                 __urlencode_records = 0;
@@ -998,8 +1030,6 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
                 # caller. There will be no infinite recursion because
                 # __url_records has been reset
                 response = __sendUsageXML(meterId, recordXml, messageType)
-            else:
-                response = Response(-1, responseString)
         else: # SSL
             DebugPrint(4, "DEBUG: Encoding data for SSL transmission")
             queryString = __encodeData(messageType, recordXml)
@@ -1012,8 +1042,9 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
             DebugPrint(4, "DEBUG: Read response")
             responseString = __connection.getresponse().read()
             DebugPrint(4, "DEBUG: Read response: OK")
-            if __urlencode_records == 1 and \
-                   __responseMatcherURLCheck.search(responseString):
+            response = Response(Response.AutoSet, responseString)
+            
+            if response.get_code() == Response.UnknownCommand:
                 # We're talking to an old collector
                 DebugPrint(0, "Unable to send new record to old collector -- engaging backwards-compatible mode for remainder of connection")
                 __urlencode_records = 0;
@@ -1021,17 +1052,15 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
                 # caller. There will be no infinite recursion because
                 # __url_records has been reset
                 response = __sendUsageXML(meterId, recordXml, messageType)
-            elif ( responseString == __certRejection ):
+            elif response.get_code() == Response.BadCertificate:
                 __connectionError = True
                 __certificateRejected = True
-                response = Response(-1, responseString)
-            else:
-                response = Response(-1, responseString)
-        if responseString != None and \
-           __responseMatcherErrorCheck.search(responseString):
+                response = Response(Response.AutoSet, responseString)
+
+        if response.get_code == Response.ConnectionError or response.get_code == Response.CollectorError:
             # Server threw an error - 503, maybe?
             __connectionError = True
-            response = Response(-1, r'Server unable to receive data: save for reprocessing');
+            response = Response(Response.Failed, r'Server unable to receive data: save for reprocessing');
 
     except SystemExit:
         raise
@@ -1044,14 +1073,14 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
             response = __sendUsageXML(meterId, recordXml, messageType)
         else:
           DebugPrintTraceback(1)
-          response = Response(1,"Failed to send xml to web service")
+          response = Response(Response.Failed,"Failed to send xml to web service")
     except:
         DebugPrint(0,'Failed to send xml to web service due to an error of type "', sys.exc_info()[0], '": ', sys.exc_info()[1])
         DebugPrintTraceback(1)
         # Upon a connection error, we will stop to try to reprocess but will continue to
         # try sending
         __connectionError = True
-        response = Response(1,"Failed to send xml to web service")
+        response = Response(Response.Failed,"Failed to send xml to web service")
 
     __resending = 0
     return response
@@ -1077,16 +1106,16 @@ def SendStatus(meterId):
 
         queryString = __encodeData("handshake", "probename=" + meterId);
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
-            response = Response(0,"Status message not supported in SOAP mode")
+            response = Response(Response.Success,"Status message not supported in SOAP mode")
 
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
             __connection.request("POST", Config.get_CollectorService(), queryString);
             responseString = __connection.getresponse().read()
-            response = Response(-1, responseString)
+            response = Response(Response.AutoSet, responseString)
         else:
             __connection.request("POST", Config.get_SSLCollectorService(), queryString);
             responseString = __connection.getresponse().read()
-            response = Response(-1, responseString)
+            response = Response(Response.AutoSet, responseString)
     except SystemExit:
         raise
     except:
@@ -1097,7 +1126,7 @@ def SendStatus(meterId):
         # try sending
         __connectionError = True
 
-        response = Response(1,"Failed to send xml to web service")
+        response = Response(Response.Failed,"Failed to send xml to web service")
 
     return response
 
@@ -2332,7 +2361,7 @@ class Bundle:
         if (self.nItems >= BundleSize):
             return ProcessBundle(self)
         else:
-            return (defaultmsg,Response(0,defaultmsg))
+            return (defaultmsg,Response(Response.Success,defaultmsg))
 
     def clear(self):
         self.nRecords = 0
@@ -2406,7 +2435,7 @@ def ProcessBundle(bundle):
     DebugPrint(1, 'Processing bundle Response code:  ' + str(response.get_code()))
     DebugPrint(1, 'Processing bundle Response message:  ' + response.get_message())
 
-    if (__BundleProblemMatcher.match(response.get_message())):
+    if (response.get_code() == Response.BundleNotSupported):
         DebugPrint(0, "Collector is too old to handle 'bundles', reverting to sending individual records.")
         BundleSize = 0
         bundle.clear()
