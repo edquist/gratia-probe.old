@@ -1082,11 +1082,9 @@ fi
 * Thu Sep  3 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4g-1
 - Package services probe API at Brian's request.
 - Include remaining dCache and Gratia.py backlog and server exception
--  handling improvements, including new Maintenance() method.
+-  handling improvements.
 - PBS probe now handles account= directive and passes as UserVOName
 -  (suitably handled by collector).
-
-* Fri Aug 28 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4f-1
 - Re-enable and improve the limit on the maximum number of records cached due to a
 -  collector unavailability
 - New ProbeConfig configuration value: MaxStagedArchives
