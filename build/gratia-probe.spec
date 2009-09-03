@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.04.4f
+Version: 1.04.4g
 Release: 1
 License: GPL
 Group: Applications/System
@@ -23,7 +23,7 @@ BuildRequires: gcc-c++
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
 %global gridftp_transfer_source gratia-probe-gridftp-transfer-%{gridftp_transfer_probe_version}.tar.bz2
-%global dcache_transfer_probe_version v0-2-11
+%global dcache_transfer_probe_version v0-2-12
 %global dcache_storage_probe_version v0-1-2
 %global gridftp_transfer_probe_version v0-3
 
@@ -89,6 +89,7 @@ Source11: %{setuptools_source}
 Source12: %{dcache_transfer_source}
 Source13: %{dcache_storage_source}
 Source14: %{gridftp_transfer_source}
+Source15: %{name}-services-%{version}.tar.bz2
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch2: urCollector-2006-06-13-createTime-timezone.patch
@@ -103,6 +104,7 @@ Patch10: urCollector-2006-06-13-walltime.patch
 Patch11: urCollector-2006-06-13-libexec-fix.patch
 Patch12: urCollector-2006-06-13-lonely-cr-fix.patch
 Patch13: urCollector-2006-06-13-processors-global-fix.patch
+Patch14: urCollector-2006-06-13-accont.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -131,6 +133,7 @@ cd urCollector-%{urCollector_version}
 %patch -P 11 -b .libexec
 %patch -P 12 -b .lonely-cr
 %patch -P 13 -b .processors
+%patch -P 14 -b .account
 %setup -q -D -T -a 9
 %endif
 %setup -q -D -T -a 5
@@ -142,6 +145,7 @@ cd urCollector-%{urCollector_version}
 %{__rm} -rf dCache-transfer/{external,tmp,install.sh} # Not needed by this install.
 %setup -q -D -T -a 13
 %setup -q -D -T -a 14
+%setup -q -D -T -a 15
 
 %build
 %ifnarch noarch
@@ -165,7 +169,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
 
 %ifarch noarch
   # Obtain files
-  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer} \
+  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer,services} \
               "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
@@ -178,6 +182,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-storage/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/gridftp-transfer/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/services/ProbeConfig" \
       ; do
     %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
@@ -774,7 +779,7 @@ m&^\s*GridftpLogDir\s*=& and next;
 %package dCache-transfer%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for dCache billing.
 Group: Application/System
-Requires: %{name}-common >= 0.30
+Requires: %{name}-common >= 1.04.4e
 Requires: %{name}-extra-libs
 Requires: %{name}-extra-libs-arch-spec
 License: See LICENSE.
@@ -876,7 +881,7 @@ to start the service." 1>&2
 %package dCache-storage%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for dCache storage.
 Group: Application/System
-Requires: %{name}-common >= 0.30
+Requires: %{name}-common >= 1.04.4e
 Requires: %{name}-extra-libs
 Requires: %{name}-extra-libs-arch-spec
 License: See LICENSE.
@@ -951,7 +956,7 @@ fi
 %package gridftp-transfer%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for gridftp transfers.
 Group: Application/System
-Requires: %{name}-common >= 0.30
+Requires: %{name}-common >= 1.04.4e
 %if %{?python:0}%{!?python:1}
 Requires: python >= 2.3
 %endif
@@ -1016,10 +1021,71 @@ fi
 #   End of gridftp-transfer preun
 # End of gridftp-transfer section
 
+%package services%{?maybe_itb_suffix}
+Summary: Gratia OSG accounting system probe API for services.
+Group: Application/System
+Requires: %{name}-common >= 1.04.4e
+%if %{?python:0}%{!?python:1}
+Requires: python >= 2.3
+%endif
+License: See LICENSE.
+%{?config_itb:Obsoletes: %{name}-services}
+%{!?config_itb:Obsoletes: %{name}-services%{itb_suffix}}
+
+%description services%{?maybe_itb_suffix}
+Gratia OSG accounting system probe API for services.
+Contributed by University of Nebraska Lincoln.
+
+%files services%{?maybe_itb_suffix}
+%defattr(-,root,root,-)
+%{default_prefix}/probe/services/ComputeElement.py      
+%{default_prefix}/probe/services/ComputeElementRecord.py
+%{default_prefix}/probe/services/StorageElement.py      
+%{default_prefix}/probe/services/StorageElementRecord.py
+%{default_prefix}/probe/services/Subcluster.py          
+%{default_prefix}/probe/services/storageReport          
+%config(noreplace) %{default_prefix}/probe/services/ProbeConfig
+
+%post services%{?maybe_itb_suffix}
+# /usr -> "${RPM_INSTALL_PREFIX0}"
+# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
+%if %{itb}
+  %global osg_collector %{default_osg_collector}
+  %global fnal_collector %{default_fnal_collector}
+%else
+  %global osg_collector gratia-osg-transfer.opensciencegrid.org
+  %global fnal_collector gratia-fermi-transfer.fnal.gov
+%endif
+%global collector_port %{default_collector_port}
+%configure_probeconfig_pre -d services -m services -M 600
+%configure_probeconfig_post
+
+%max_pending_files_check services
+
+# No crontab entry -- this is just an API so far.
+
+# End of services post
+
+%preun services%{?maybe_itb_suffix}
+# Only execute this if we're uninstalling the last package of this name
+if [ $1 -eq 0 ]; then
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-services.cron
+fi
+#   End of services preun
+# End of services section
+
 
 %endif # noarch
 
 %changelog
+* Thu Sep  3 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4g-1
+- Package services probe API at Brian's request.
+- Include remaining dCache and Gratia.py backlog and server exception
+-  handling improvements, including new Maintenance() method.
+- PBS probe now handles account= directive and passes as UserVOName
+-  (suitably handled by collector).
+
 * Fri Aug 28 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4f-1
 - Re-enable and improve the limit on the maximum number of records cached due to a
 -  collector unavailability
