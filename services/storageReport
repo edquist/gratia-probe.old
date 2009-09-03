@@ -260,8 +260,11 @@ def validateOpts(opt):
     
 def sendReport(opt):
     Gratia.Initialize(opt.ProbeConfig)
+    t = time.time()
     desc = StorageElement.StorageElement()
     state = StorageElementRecord.StorageElementRecord()
+    desc.Timestamp(t)
+    state.Timestamp(t)
     uniqueID = '%s:%s:%s' % (opt.uniqueid, opt.spaceType, opt.spaceName)
     desc.UniqueID(uniqueID)
     desc.Name(opt.spaceName)
@@ -276,9 +279,9 @@ def sendReport(opt):
     state.UniqueID(uniqueID)
     state.MeasurementType(opt.measurementType)
     state.StorageType(opt.storageType)
-    state.TotalSpace(opt.total)
-    state.FreeSpace(opt.free)
-    state.UsedSpace(opt.used)
+    state.TotalSpace(opt.total*1000**3)
+    state.FreeSpace(opt.free*1000**3)
+    state.UsedSpace(opt.used*1000**3)
     if opt.fileCount != None:
         state.FileCount(opt.fileCount)
     if opt.fileCountLimit != None:
