@@ -104,7 +104,7 @@ Patch10: urCollector-2006-06-13-walltime.patch
 Patch11: urCollector-2006-06-13-libexec-fix.patch
 Patch12: urCollector-2006-06-13-lonely-cr-fix.patch
 Patch13: urCollector-2006-06-13-processors-global-fix.patch
-Patch14: urCollector-2006-06-13-accont.patch
+Patch14: urCollector-2006-06-13-account.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
