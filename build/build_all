@@ -127,7 +127,7 @@ fi
 
 
 build/package-probe "${version}" common condor pbs-lsf psacct sge glexec \
-                                 metric
+                                 metric services
 status=$?
 
 if (( $status == 0 )); then
