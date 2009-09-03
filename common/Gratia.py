@@ -1653,7 +1653,7 @@ def OpenNewRecordFile(DirIndex):
             if not os.access(working_dir,os.W_OK): continue
             try:
                 filename = GenerateFilename("r.",working_dir)
-                DebugPrint(1,"Creating file:",filename)
+                DebugPrint(3,"Creating file:",filename)
                 OutstandingRecordCount += 1
                 f = open(filename,'w')
                 DirIndex = index
@@ -2615,7 +2615,7 @@ def CheckXmlDoc(xmlDoc,external,resourceType = None):
     content = 0
     DebugPrint(4, "DEBUG: In CheckXmlDoc")
     for checker in XmlRecordCheckers:
-        DebugPrint(1,"Running : " +str(checker)+str(xmlDoc)+str(external) + str(resourceType))
+        DebugPrint(3,"Running : " +str(checker)+str(xmlDoc)+str(external) + str(resourceType))
         content = content + checker(xmlDoc,external,resourceType)
     return content
 
@@ -2770,7 +2770,7 @@ def Send(record):
         DebugPrint(4, "DEBUG: Attempt to back up record to send")
         while not success:
             (f,dirIndex) = OpenNewRecordFile(dirIndex)
-            DebugPrint(1,"Will save the record in:",f.name)
+            DebugPrint(3,"Will save the record in:",f.name)
             DebugPrint(3,"DirIndex=",dirIndex)
             if f.name != "<stdout>":
                 try:
@@ -2895,7 +2895,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
             xmlDoc = None
 
         if xmlDoc:
-            DebugPrint(1, "Adding information to parsed XML")
+            DebugPrint(3, "Adding information to parsed XML")
 
             xmlDoc.normalize()
 
