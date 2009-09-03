@@ -105,6 +105,8 @@ Patch11: urCollector-2006-06-13-libexec-fix.patch
 Patch12: urCollector-2006-06-13-lonely-cr-fix.patch
 Patch13: urCollector-2006-06-13-processors-global-fix.patch
 Patch14: urCollector-2006-06-13-account.patch
+Patch15: urCollector-2006-06-13-invoke-gratia-internal.patch
+Patch16: urCollector-2006-06-13-2009-09-03-fixes.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -134,6 +136,8 @@ cd urCollector-%{urCollector_version}
 %patch -P 12 -b .lonely-cr
 %patch -P 13 -b .processors
 %patch -P 14 -b .account
+%patch -P 15 -b .invoke-gratia
+%patch -P 16 -b .2009-09-03-fixes
 %setup -q -D -T -a 9
 %endif
 %setup -q -D -T -a 5
@@ -1080,6 +1084,8 @@ fi
 
 %changelog
 * Thu Sep  3 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4g-1
+- Invoke Gratia from inside the urCollector part.
+- Fix problems with PBS probe found during testing..
 - Package services probe API at Brian's request.
 - Include remaining dCache and Gratia.py backlog and server exception
 -  handling improvements.

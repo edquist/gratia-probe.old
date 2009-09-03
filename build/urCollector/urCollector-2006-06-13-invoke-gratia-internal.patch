@@ -1,0 +1,14 @@
+--- urCollector.pl~	2009-09-03 11:18:48.000000000 -0500
++++ urCollector.pl	2009-09-03 12:00:11.000000000 -0500
+@@ -377,6 +377,11 @@
+ 
+ 	    &processLrmsLogFile($thisLogFile, $newestFile,
+ 				$_[0], $_[1], $_[2], $_[3]);
++      # Call Gratia processing internally now to avoid leaving huge numbers of files unprocessed
++      system("./pbs-lsf_meter.pl 2>&1");
++      # Note we can't update the state buffer becuse of the crazy way we
++      # read backwards. That means if we get interrupted and have to
++      # start again, Gratia will get a bunch of duplicates.
+ 	}
+     }
+ 

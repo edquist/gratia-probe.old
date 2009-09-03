@@ -123,7 +123,8 @@ rm -f 2[0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9].log
 
 #--- run the probes ----
 ./urCollector.pl --nodaemon 2>&1 | ${pp_dir}/DebugPrint.py -l 1
-./pbs-lsf_meter.pl 2>&1
+# Now invoked by urCollector.pl
+#./pbs-lsf_meter.pl 2>&1
 
 ExitCode=$?
 

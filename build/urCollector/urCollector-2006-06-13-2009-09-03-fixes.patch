@@ -1,0 +1,31 @@
+--- urCollector.pl~	2009-09-03 13:21:41.000000000 -0500
++++ urCollector.pl	2009-09-03 13:22:07.000000000 -0500
+@@ -1332,7 +1332,8 @@
+       $urAcctlogInfo{select} = $1;
+       next;
+     } elsif ( $record_field =~ /^Resource_List\.nodes=(\d+)(?::(\d+))/o ) {
+-      $urAcctLogInfo{nodes} = ${1} * ( ${2} || 1 );
++      $urAcctlogInfo{nodes} = ${1} * ( ${2} || 1 );
++      next;
+     }
+ 		if ( $record_field =~ /^group=(.*)$/o) {	
+ 			$urAcctlogInfo{group} = $1;
+@@ -1340,6 +1341,7 @@
+ 		}
+ 		if ( $record_field =~ /^account=(.*)$/o) {
+ 			$urAcctlogInfo{account} = $1;
++      next;
+ 		}     
+ 		if ( $record_field =~ /^jobname=(.*)$/o) {	
+ 			$urAcctlogInfo{jobName} = $1;
+@@ -1376,8 +1378,8 @@
+ 	}
+   $urAcctlogInfo{processors} =
+       $urAcctlogInfo{select} || 
+-      $urAcctLogInfo{nodes} || 
+-      $urAcctLogInfo{nodect} || 
++      $urAcctlogInfo{nodes} || 
++      $urAcctlogInfo{nodect} || 
+       $urAcctlogInfo{neednodes} || 
+       $urAcctlogInfo{mppwidth} || 1;
+ }
