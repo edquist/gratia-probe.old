@@ -567,7 +567,7 @@ class Response:
             self._message = message
 
     def __str__(self):
-        return "(" + str(self.get_code()) + ", " + self.get_message() + ")"
+        return "(" + self.get_code_string() + ", " + self.get_message() + ")"
 
     def get_code_string(self):
         return self._codeString[self._code]
