@@ -520,7 +520,18 @@ class Response:
     ConnectionError = 4
     BadCertificate = 5
     BundleNotSupported = 6
-    
+
+    _codeString = {
+        -1 : "UNSET",
+        0 : "SUCCESS",
+        1 : "FAILED",
+        2 : "COLLECTOR_ERROR",
+        3 : "UNKNOWN_COMMAND",
+        4 : "CONNECTION_ERROR",
+        5 : "BAD_CERTIFICATE",
+        6 : "BUNDLE_NOT_SUPPORTED"
+        }
+
     _code = -1
     _message = ""
 
@@ -555,11 +566,17 @@ class Response:
         if message:
             self._message = message
 
+    def __str__(self):
+        return "(" + str(self.get_code()) + ", " + self.get_message() + ")"
+
+    def get_code_string(self):
+        return self._codeString[self._code]
+
     def get_code(self):
         return self._code
 
     def get_message(self):
-        return self._message
+        return str(self._message)
 
     def set_code(self, code):
         self._code = code
@@ -1002,7 +1019,6 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
 
             # Read the response attachment to get the actual soap response
             responseString = __connection.getfile().read()
-            DebugPrint(2, 'Response:  ' + responseString)
 
             # Parse the response string into a response object
             try:
@@ -1083,6 +1099,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
         response = Response(Response.Failed,"Failed to send xml to web service")
 
     __resending = 0
+    DebugPrint(2, 'Response: ' + str(response))
     return response
 
 def SendStatus(meterId):
@@ -2432,8 +2449,8 @@ def ProcessBundle(bundle):
     # Send the xml to the collector for processing
     response = __sendUsageXML(Config.get_ProbeName(), bundleData, "multiupdate")
 
-    DebugPrint(1, 'Processing bundle Response code:  ' + str(response.get_code()))
-    DebugPrint(1, 'Processing bundle Response message:  ' + response.get_message())
+    DebugPrint(2, 'Processing bundle Response code:  ' + str(response.get_code()))
+    DebugPrint(2, 'Processing bundle Response message:  ' + response.get_message())
 
     if (response.get_code() == Response.BundleNotSupported):
         DebugPrint(0, "Collector is too old to handle 'bundles', reverting to sending individual records.")
@@ -2879,7 +2896,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
             DebugPrint(0, "File " + xmlFilename + " is zero-length: skipping")
             RemoveFile(xmlFilename)
             continue
-        DebugPrint(1,"xmlFilename: ",xmlFilename)
+        DebugPrint(2,"xmlFilename: ",xmlFilename)
         if (OutstandingRecordCount >= Config.get_MaxPendingFiles()):
             responseString = "Fatal Error: too many pending files"
             DebugPrint(0, responseString)
@@ -2942,7 +2959,7 @@ def SendXMLFiles(fileDir, removeOriginal = False, resourceType = None):
             DebugPrint(4, "DEBUG: Back up record to send")
             while not success:
                 (f,dirIndex) = OpenNewRecordFile(dirIndex)
-                DebugPrint(1,"Will save in the record in:",f.name)
+                DebugPrint(3,"Will save in the record in:",f.name)
                 DebugPrint(3,"DirIndex=",dirIndex)
                 if f.name == "<stdout>":
                     responseString = "Fatal Error: unable to save record prior to send attempt"
