@@ -16,7 +16,7 @@
 use strict;
 use POSIX;
 
-use urCollector::Common qw(:DEFAULT :Locking);
+use urCollector::Common qw(:DEFAULT);
 use urCollector::Configuration;
 
 sub local_error {
@@ -50,10 +50,6 @@ POSIX::sigaction(&POSIX::SIGINT, $cleanup_action);
 POSIX::sigaction(&POSIX::SIGQUIT, $cleanup_action);
 POSIX::sigaction(&POSIX::SIGTERM, $cleanup_action);
 
-if (putLock($configValues{collectorLockFileName}) != 0) {
-  local_error("Fatal Error: Couldn't open lock file $configValues{collectorLockFileName}.\n");
-};
-
 my $lrms = uc $configValues{lrmsType};
 
 my $lrms_version;
@@ -81,10 +77,6 @@ if ($lrms_version) {
                    "$configValues{URBox}", $lrms);
 }
 
-if (delLock($configValues{collectorLockFileName}) != 0) {
-  local_error("Error removing lock file.\n");
-}
-
 exit($status);
 ####################################
 # End of initialization / executable code
@@ -96,8 +88,6 @@ exit($status);
 # Subroutines
 ####################################
 sub cleanup {
-  delLock($configValues{collectorLockFileName})
-    if $configValues{collectorLockFileName};
 }
 
 __END__
