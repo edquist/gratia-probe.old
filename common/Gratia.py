@@ -1702,7 +1702,7 @@ class Record(object):
     def __init__(self):
         # See the function ResourceType for details on the
         # parameter
-        DebugPrint(0,"Creating a Record "+TimeToString())
+        DebugPrint(2,"Creating a Record "+TimeToString())
         self.XmlData = []
         self.__ProbeName = Config.get_ProbeName()
         self.__SiteName = Config.get_SiteName()
@@ -1710,7 +1710,7 @@ class Record(object):
         self.RecordData = []
 
     def Print(self) :
-        DebugPrint(1,"Usage Record: ",self)
+        DebugPrint(3,"Usage Record: ",self)
 
     def VerbatimAppendToList(self,where,what,comment,value):
         " Helper Function to generate the xml (Do not call directly)"
@@ -1782,7 +1782,7 @@ class ProbeDetails(Record):
     def __init__(self):
         # Initializer
         super(self.__class__,self).__init__()
-        DebugPrint(0,"Creating a ProbeDetails record "+TimeToString())
+        DebugPrint(1,"Creating a ProbeDetails record "+TimeToString())
 
         self.ProbeDetails = []
 
@@ -1852,7 +1852,7 @@ class UsageRecord(Record):
         # See the function ResourceType for details on the
         # parameter
         super(self.__class__,self).__init__()
-        DebugPrint(0,"Creating a UsageRecord "+TimeToString())
+        DebugPrint(1,"Creating a UsageRecord "+TimeToString())
         self.JobId = []
         self.UserId = []
         self.Username = "none"

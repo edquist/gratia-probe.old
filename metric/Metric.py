@@ -13,10 +13,10 @@ class MetricRecord(Gratia.Record):
     def __init__(self):
         # Initializer
         super(self.__class__,self).__init__()
-        DebugPrint(0,"Creating a metric Record "+TimeToString())
+        DebugPrint(1,"Creating a metric Record "+TimeToString())
 
     def Print(self) :
-        DebugPrint(1,"Metric Record: ",self)
+        DebugPrint(3,"Metric Record: ",self)
         
     def XmlAddMembers(self):
         " This should add the value of the 'data' member of MetricRecord "
