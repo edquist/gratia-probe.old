@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.04.4g
+Version: 1.04.5
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1083,6 +1083,10 @@ fi
 %endif # noarch
 
 %changelog
+* Thu Sep 10 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.5-1
+- PBS probe now uploads to Gratia after every log file has been read.
+- More improvements to Gratia.py output verbosity at low logging levels.
+
 * Thu Sep  3 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4g-1
 - Invoke Gratia from inside the urCollector part.
 - Fix problems with PBS probe found during testing..
