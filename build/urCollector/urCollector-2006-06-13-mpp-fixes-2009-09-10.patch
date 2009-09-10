@@ -1,0 +1,38 @@
+--- ../pbs-lsf-jpsi2/urCollector.pl	2009-09-08 11:43:56.000000000 -0500
++++ ./urCollector.pl	2009-09-10 14:22:54.000000000 -0500
+@@ -1315,9 +1315,18 @@
+ 			$urAcctlogInfo{mem}     = $1;
+       next;
+ 		}
+-    if ( $record_field =~ /^Resource_List\.mppwidth=(\d+)$/o) {
++    if ( $record_field =~ /^Resource_List\.select=(\d+)/o ) {
++      $urAcctlogInfo{select} = $1;
++      next;
++    } elsif ( $record_field =~ /^Resource_List\.mppwidth=(\d+)$/o) {
+       $urAcctlogInfo{mppwidth} = $1;
+       next;
++    } elsif ( $record_field =~ /^Resource_List\.nodes=(\d+)(?::(\d+))/o ) {
++      $urAcctlogInfo{nodes} = ${1} * ( ${2} || 1 );
++      next;
++    } elsif ( $record_field =~ /^Resource_List\.nodect=(\d+)/o ) {
++      $urAcctlogInfo{nodect} = $1;
++      next;
+     } elsif ( $record_field =~ /^Resource_List\.neednodes=(\d+)$/o) {	
+       $urAcctlogInfo{neednodes} = $1;
+       # attention! might also be list of hostnames,
+@@ -1325,15 +1334,6 @@
+       # counted!? What about SMP machines; is their
+       # hostname listed N times or only once??
+       next;
+-		} elsif ( $record_field =~ /^Resource_List\.nodect=(\d+)/o ) {
+-      $urAcctlogInfo{nodect} = $1;
+-      next;
+-		} elsif ( $record_field =~ /^Resource_List\.select=(\d+)/o ) {
+-      $urAcctlogInfo{select} = $1;
+-      next;
+-    } elsif ( $record_field =~ /^Resource_List\.nodes=(\d+)(?::(\d+))/o ) {
+-      $urAcctlogInfo{nodes} = ${1} * ( ${2} || 1 );
+-      next;
+     }
+ 		if ( $record_field =~ /^group=(.*)$/o) {	
+ 			$urAcctlogInfo{group} = $1;

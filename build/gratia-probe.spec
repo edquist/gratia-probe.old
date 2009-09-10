@@ -107,6 +107,7 @@ Patch13: urCollector-2006-06-13-processors-global-fix.patch
 Patch14: urCollector-2006-06-13-account.patch
 Patch15: urCollector-2006-06-13-invoke-gratia-internal.patch
 Patch16: urCollector-2006-06-13-2009-09-03-fixes.patch
+Patch17: urCollector-2006-06-13-mpp-fixes-2009-09-10.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Prefix: /usr
@@ -138,6 +139,7 @@ cd urCollector-%{urCollector_version}
 %patch -P 14 -b .account
 %patch -P 15 -b .invoke-gratia
 %patch -P 16 -b .2009-09-03-fixes
+%patch -P 17 -b .mpp-fixes-2009-09-10
 %setup -q -D -T -a 9
 %endif
 %setup -q -D -T -a 5
@@ -1086,6 +1088,7 @@ fi
 * Thu Sep 10 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.5-1
 - PBS probe now uploads to Gratia after every log file has been read.
 - More improvements to Gratia.py output verbosity at low logging levels.
+- More fixes to multi-processor handling for PBS.
 
 * Thu Sep  3 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.4g-1
 - Invoke Gratia from inside the urCollector part.
