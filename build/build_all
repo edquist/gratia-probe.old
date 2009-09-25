@@ -13,7 +13,8 @@
 ########################################################################
 
 # Defaults
-rpmbuild_top=`grep -e '^%_topdir' ~/.rpmmacros | cut -d' ' -f2`
+#rpmbuild_top=`grep -e '^%_topdir' ~/.rpmmacros | cut -d' ' -f2`
+rpmbuild_top=`rpmbuild --showrc | grep -e '.*: _topdir' | awk '{print $3;}'`
 [[ -n "$rpmbuild_top" ]] || rpmbuild_top=~/rpmbuild
 
 specfile="`pwd`/build/gratia-probe.spec"
@@ -127,7 +128,7 @@ fi
 
 
 build/package-probe "${version}" common condor pbs-lsf psacct sge glexec \
-                                 metric services
+                                 metric services hadoop-storage
 status=$?
 
 if (( $status == 0 )); then

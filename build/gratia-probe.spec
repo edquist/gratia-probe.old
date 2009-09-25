@@ -1081,6 +1081,62 @@ fi
 #   End of services preun
 # End of services section
 
+%package hadoop-storage%{?maybe_itb_suffix}
+Summary: HDFS Storage Probe for Gratia OSG accounting system.
+Group: Application/System
+Requires: %{name}-common >= 1.04.4e
+%if %{?python:0}%{!?python:1}
+Requires: python >= 2.3
+%endif
+Requires: %{name}-services%{?maybe_itb_suffix}
+License: See LICENSE.
+%{?config_itb:Obsoletes: %{name}-hadoop-storage}
+%{!?config_itb:Obsoletes: %{name}-hadoop-storage%{itb_suffix}}
+
+%description hadoop-storage%{?maybe_itb_suffix}
+HDFS Storage Probe for Gratia OSG accounting system.
+Contributed by University of Nebraska Lincoln.
+
+%files hadoop-storage%{?maybe_itb_suffix}
+%defattr(-,root,root,-)
+%{default_prefix}/probe/hadoop-storage/hadoop_storage_probe
+%config(noreplace) %{default_prefix}/probe/hadoop-storage/storage.cfg
+%config(noreplace) %{default_prefix}/probe/hadoop-storage/ProbeConfig
+
+%post hadoop-storage%{?maybe_itb_suffix}
+# /usr -> "${RPM_INSTALL_PREFIX0}"
+# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
+%if %{itb}
+  %global osg_collector %{default_osg_collector}
+  %global fnal_collector %{default_fnal_collector}
+%else
+  %global osg_collector gratia-osg-transfer.opensciencegrid.org
+  %global fnal_collector gratia-fermi-transfer.fnal.gov
+%endif
+%global collector_port %{default_collector_port}
+%configure_probeconfig_pre -d hadoop-storage -m hadoop-storage -M 600
+%configure_probeconfig_post
+
+%max_pending_files_check hadoop-storage
+
+%scrub_root_crontab hadoop-storage
+
+(( min = $RANDOM % 60 ))
+%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-hadoop-storage.cron <<EOF
+$min * * * * root \
+"${RPM_INSTALL_PREFIX1}/probe/hadoop-storage/hadoop_storage_probe"
+EOF
+
+# End of hadoop-storage post
+
+%preun hadoop-storage%{?maybe_itb_suffix}
+# Only execute this if we're uninstalling the last package of this name
+if [ $1 -eq 0 ]; then
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-hadoop-storage.cron
+fi
+#   End of hadoop-storage preun
+# End of hadoop-storage section
 
 %endif # noarch
 
