@@ -90,6 +90,7 @@ Source12: %{dcache_transfer_source}
 Source13: %{dcache_storage_source}
 Source14: %{gridftp_transfer_source}
 Source15: %{name}-services-%{version}.tar.bz2
+Source16: %{name}-hadoop-storage-%{version}.tar.bz2
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch2: urCollector-2006-06-13-createTime-timezone.patch
@@ -152,6 +153,7 @@ cd urCollector-%{urCollector_version}
 %setup -q -D -T -a 13
 %setup -q -D -T -a 14
 %setup -q -D -T -a 15
+%setup -q -D -T -a 16
 
 %build
 %ifnarch noarch
@@ -175,7 +177,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
 
 %ifarch noarch
   # Obtain files
-  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer,services} \
+  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer,services,hadoop-storage} \
               "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
@@ -189,6 +191,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-storage/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/gridftp-transfer/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/services/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/hadoop-storage/ProbeConfig" \
       ; do
     %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
@@ -1125,7 +1128,7 @@ Contributed by University of Nebraska Lincoln.
 (( min = $RANDOM % 60 ))
 %{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-hadoop-storage.cron <<EOF
 $min * * * * root \
-"${RPM_INSTALL_PREFIX1}/probe/hadoop-storage/hadoop_storage_probe"
+"${RPM_INSTALL_PREFIX1}/probe/hadoop-storage/hadoop_storage_probe -c ${RPM_INSTALL_PREFIX1}/probe/hadoop-storage/storage.cfg"
 EOF
 
 # End of hadoop-storage post
@@ -1141,6 +1144,9 @@ fi
 %endif # noarch
 
 %changelog
+* Fri Sep 25 2009 Brian Bockelman <bbockelm@cse.unl.edu> - 1.04.6
+- Added the hadoop-storage probe
+
 * Thu Sep 10 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.04.5-1
 - PBS probe now uploads to Gratia after every log file has been read.
 - More improvements to Gratia.py output verbosity at low logging levels.
