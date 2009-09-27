@@ -1179,7 +1179,7 @@ def LogToFile(message):
     except:
         if LogFileIsWriteable:
             # Print the error message only once
-            print "Gratia: Unable to log to file:  ", filename, " ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1]
+            print >> sys.stderr, "Gratia: Unable to log to file:  ", filename, " ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1]
         LogFileIsWriteable = False
 
     if current_file != None:
@@ -1204,7 +1204,7 @@ def LogToSyslog(level, message) :
     except:
         if LogFileIsWriteable:
             # Print the error message only once
-            print "Gratia: Unable to log to syslog:  ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1]
+            print >> sys.stderr, "Gratia: Unable to log to syslog:  ",  sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1]
         LogFileIsWriteable = False
 
     syslog.closelog()
@@ -1328,7 +1328,7 @@ def DebugPrint(level, *arg):
         if ((not Config) or (level<Config.get_DebugLevel())):
             out = time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + \
                   GenerateOutput("Gratia: ",*arg)
-            print out
+            print >> sys.stderr, out
         if Config and level<Config.get_LogLevel():
             out = GenerateOutput("Gratia: ",*arg)
             if (Config.get_UseSyslog()):
@@ -1343,7 +1343,7 @@ def DebugPrint(level, *arg):
 
 def Error(*arg):
     out = GenerateOutput("Error in Gratia probe: ",*arg)
-    print time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + out
+    print >> sys.stderr, time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + " " + out
     if (Config.get_UseSyslog()):
         LogToSyslog(-1,GenerateOutput("",*arg))
     else:

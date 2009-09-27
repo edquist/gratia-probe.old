@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.04.5
+Version: 1.04.6
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1059,13 +1059,8 @@ Contributed by University of Nebraska Lincoln.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
-%if %{itb}
-  %global osg_collector %{default_osg_collector}
-  %global fnal_collector %{default_fnal_collector}
-%else
-  %global osg_collector gratia-osg-transfer.opensciencegrid.org
-  %global fnal_collector gratia-fermi-transfer.fnal.gov
-%endif
+%global osg_collector %{default_osg_collector}
+%global fnal_collector %{default_fnal_collector}
 %global collector_port %{default_collector_port}
 %configure_probeconfig_pre -d services -m services -M 600
 %configure_probeconfig_post
@@ -1110,13 +1105,9 @@ Contributed by University of Nebraska Lincoln.
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
-%if %{itb}
-  %global osg_collector %{default_osg_collector}
-  %global fnal_collector %{default_fnal_collector}
-%else
-  %global osg_collector gratia-osg-transfer.opensciencegrid.org
-  %global fnal_collector gratia-fermi-transfer.fnal.gov
-%endif
+%global osg_collector %{default_osg_collector}
+%global fnal_collector %{default_fnal_collector}
+%global collector_port %{default_collector_port}
 %global collector_port %{default_collector_port}
 %configure_probeconfig_pre -d hadoop-storage -m hadoop-storage -M 600
 %configure_probeconfig_post
@@ -1128,7 +1119,7 @@ Contributed by University of Nebraska Lincoln.
 (( min = $RANDOM % 60 ))
 %{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-hadoop-storage.cron <<EOF
 $min * * * * root \
-"${RPM_INSTALL_PREFIX1}/probe/hadoop-storage/hadoop_storage_probe -c ${RPM_INSTALL_PREFIX1}/probe/hadoop-storage/storage.cfg"
+"${RPM_INSTALL_PREFIX1}/probe/hadoop-storage/hadoop_storage_probe" -c "${RPM_INSTALL_PREFIX1}/probe/hadoop-storage/storage.cfg"
 EOF
 
 # End of hadoop-storage post
@@ -1144,6 +1135,10 @@ fi
 %endif # noarch
 
 %changelog
+* Sat Sep 26 2009 Brian Bockelman <bbockelm@cse.unl.edu> - 1.04.6-1
+- Changed the hadoop-storage probe to properly pick up site name from ProbeConfig
+- Changed the default collector for the services-based probes to OSG, not OSG-transfer
+
 * Fri Sep 25 2009 Brian Bockelman <bbockelm@cse.unl.edu> - 1.04.6
 - Added the hadoop-storage probe
 

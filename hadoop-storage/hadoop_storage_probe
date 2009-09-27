@@ -236,10 +236,15 @@ def _get_se(cp):
     try:
         return cp.get('Gratia', 'SiteName')
     except:
-        try:
-            return socket.getfqdn()
-        except:
-            return 'Unknown'
+        pass
+    try:
+        return Gratia.Config.get_SiteName()
+    except:
+        pass
+    try:
+        return socket.getfqdn()
+    except:
+        return 'Unknown'
 
 _my_se = None
 def get_se(cp):
