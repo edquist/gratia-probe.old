@@ -367,6 +367,42 @@ def collect_area_data(area, cp):
         Gratia.Send(sa)
         Gratia.Send(sar)
 
+def collect_fsck_data():
+    collect_data("hadoop fsck / | grep -v '^[\.].*$' | grep -v '^$'", "FSCK Data")
+
+def collect_data(cmd, name):
+    ur = Gratia.UsageRecord()
+    ur.StartTime(time.time())
+    fd = os.popen(cmd)
+    output = fd.read()
+    if fd.close():
+        output = "WARNING: Non-zero exit code\n" + output
+    ur.ResourceType("Storage-CustomInfo")
+    ur.AdditionalInfo("CustomInfo", "CommandOutput")
+    ur.GenericAddToList("CommandOutput", Gratia.escapeXML(output))
+    ur.EndTime(time.time())
+    ur.JobName(name, description=cmd)
+    Gratia.Send(ur)
+
+def collect_custom_info(cp):
+    for section in cp.sections():
+        if section.lower().startswith("probe"):
+            collect_custom_info_internal(cp, section)
+
+custom_ctr = 0
+def collect_custom_info_internal(cp, section):
+    global ctr
+    custom_ctr += 1
+    try:
+        name = cp.get(section, "Name")
+    except:
+        name = "Custom Probe %i" % custom_ctr
+    try:
+        cmd = cp.get(section, "Command")
+    except:
+        return
+    collect_data(cmd, name)
+
 def configure():
     parser = optparse.OptionParser()
     parser.add_option("-c", "--config", dest="config", help="Config file to " \
@@ -395,6 +431,8 @@ def main():
     interesting_areas = get_areas(cp)
     for area in interesting_areas:
         collect_area_data(area, cp)
+    collect_custom_info(cp)
+    collect_fsck_data()
 
 if __name__ == '__main__':
     main()
