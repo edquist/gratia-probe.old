@@ -8,6 +8,7 @@ import socket
 import datetime
 import optparse
 import ConfigParser
+import xml.sax.saxutils
 
 # Bootstrap our python configuration.  This should allow us to discover the
 # configurations in the case where our environment wasn't really configured
@@ -367,21 +368,32 @@ def collect_area_data(area, cp):
         Gratia.Send(sa)
         Gratia.Send(sar)
 
-def collect_fsck_data():
-    collect_data("hadoop fsck / | grep -v '^[\.].*$' | grep -v '^$'", "FSCK Data")
+def collect_fsck_data(cp):
+    collect_data("hadoop fsck / | grep -v '^[\.].*$' | grep -v '^$'",
+        "FSCK Data", cp)
 
-def collect_data(cmd, name):
-    ur = Gratia.UsageRecord()
-    ur.StartTime(time.time())
+def collect_data(cmd, name, cp):
+    time_start = time.time()
     fd = os.popen(cmd)
     output = fd.read()
-    if fd.close():
+    result = fd.close()
+    time_end = time.time()
+    if result:
         output = "WARNING: Non-zero exit code\n" + output
+    else:
+        result = 0
+    output = xml.sax.saxutils.escape(output)
+    ur = Gratia.UsageRecord()
+    ur.StartTime(time_start)
     ur.ResourceType("Storage-CustomInfo")
     ur.AdditionalInfo("CustomInfo", "CommandOutput")
-    ur.GenericAddToList("CommandOutput", Gratia.escapeXML(output))
-    ur.EndTime(time.time())
+    ur.GenericAddToList("CommandOutput", output)
+    ur.Status(str(result))
+    ur.WallDuration(time_end - time_start)
+    ur.EndTime(time_end)
     ur.JobName(name, description=cmd)
+    se = get_se(cp)
+    ur.ProjectName('%s:SE:%s' % (se, se))
     Gratia.Send(ur)
 
 def collect_custom_info(cp):
@@ -401,7 +413,7 @@ def collect_custom_info_internal(cp, section):
         cmd = cp.get(section, "Command")
     except:
         return
-    collect_data(cmd, name)
+    collect_data(cmd, name, cp)
 
 def configure():
     parser = optparse.OptionParser()
@@ -432,7 +444,7 @@ def main():
     for area in interesting_areas:
         collect_area_data(area, cp)
     collect_custom_info(cp)
-    collect_fsck_data()
+    collect_fsck_data(cp)
 
 if __name__ == '__main__':
     main()
