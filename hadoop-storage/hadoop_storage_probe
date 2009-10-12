@@ -317,7 +317,7 @@ def collect_area_data(area, cp):
     measurement_type = 'logical'
     storage_type = 'disk'
     timestamp = time.time()
-    cmd = "hadoop fs -count -q %s" % area.path
+    cmd = "hadoop fs -count -q '%s'" % area.path
     fd = os.popen(cmd)
     output = fd.read()
     if fd.close():

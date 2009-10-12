@@ -91,6 +91,7 @@ Source13: %{dcache_storage_source}
 Source14: %{gridftp_transfer_source}
 Source15: %{name}-services-%{version}.tar.bz2
 Source16: %{name}-hadoop-storage-%{version}.tar.bz2
+Source17: %{name}-condor-events-%{version}.tar.bz2
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch2: urCollector-2006-06-13-createTime-timezone.patch
@@ -154,6 +155,7 @@ cd urCollector-%{urCollector_version}
 %setup -q -D -T -a 14
 %setup -q -D -T -a 15
 %setup -q -D -T -a 16
+%setup -q -D -T -a 17
 
 %build
 %ifnarch noarch
@@ -177,7 +179,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
 
 %ifarch noarch
   # Obtain files
-  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer,services,hadoop-storage} \
+  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer,services,hadoop-storage,condor-events} \
               "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
@@ -192,6 +194,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/gridftp-transfer/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/services/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/hadoop-storage/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/condor-events/ProbeConfig" \
       ; do
     %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
@@ -1132,9 +1135,65 @@ fi
 #   End of hadoop-storage preun
 # End of hadoop-storage section
 
+%package condor-events%{?maybe_itb_suffix}
+Summary: Probe that emits a record for each event in the Condor system.
+Group: Application/System
+Requires: %{name}-common >= 1.04.4e
+%if %{?python:0}%{!?python:1}
+Requires: python >= 2.3
+%endif
+Requires: %{name}-common%{?maybe_itb_suffix}
+License: See LICENSE.
+%{?config_itb:Obsoletes: %{name}-condor-events}
+%{!?config_itb:Obsoletes: %{name}-condor-events%{itb_suffix}}
+
+%description condor-events%{?maybe_itb_suffix}
+HDFS Storage Probe for Gratia OSG accounting system.
+Contributed by University of Nebraska Lincoln.
+
+%files condor-events%{?maybe_itb_suffix}
+%defattr(-,root,root,-)
+%{default_prefix}/probe/condor-events/watchCondorEvents.py
+%config(noreplace) %{default_prefix}/probe/condor-events/ProbeConfig
+
+%post condor-events%{?maybe_itb_suffix}
+# /usr -> "${RPM_INSTALL_PREFIX0}"
+# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
+%global osg_collector %{default_osg_collector}
+%global fnal_collector %{default_fnal_collector}
+%global collector_port %{default_collector_port}
+%global collector_port %{default_collector_port}
+%configure_probeconfig_pre -d condor-events -m condor-events -M 600
+%configure_probeconfig_post
+
+%max_pending_files_check condor-events
+
+%scrub_root_crontab condor-events
+
+(( min = $RANDOM % 10 ))
+%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-condor-events.cron <<EOF
+$min,$(( $min + 10 )),$(( $min + 20 )),$(( $min + 30 )),$(( $min + 40 )),$(( $min + 50 )) * * * * root \
+"${RPM_INSTALL_PREFIX1}/probe/condor-events/watchCondorEvents.py" 2> /dev/null > /dev/null
+EOF
+
+# End of condor-events post
+
+
+%preun condor-events%{?maybe_itb_suffix}
+# Only execute this if we're uninstalling the last package of this name
+if [ $1 -eq 0 ]; then
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-condor-events.cron
+fi
+#   End of condor-events preun
+# End of condor-events section
+
 %endif # noarch
 
 %changelog
+* Mon Oct 12 2009 Brian Bockelman <bbockelm@cse.unl.edu> - 1.04.6-2
+- Added the condor-events probe
+
 * Sat Sep 26 2009 Brian Bockelman <bbockelm@cse.unl.edu> - 1.04.6-1
 - Changed the hadoop-storage probe to properly pick up site name from ProbeConfig
 - Changed the default collector for the services-based probes to OSG, not OSG-transfer
