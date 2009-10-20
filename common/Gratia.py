@@ -15,7 +15,7 @@ from OpenSSL import crypto
 
 quiet = 0
 Config = None
-__urlencode_records = 1
+streer__urlencode_records = 1
 __certinfoLocalJobIdMunger = re.compile(r'(?P<ID>\d+(?:\.\d+)*)')
 __certinfoJobManagerExtractor = re.compile(r'gratia_certinfo_(?P<JobManager>(?:[^\d_][^_]*))')
 __xmlintroRemove = re.compile(r'<\?xml[^>]*\?>')
@@ -536,6 +536,8 @@ class Response:
     _message = ""
 
     def __init__(self, code, message):
+        global streer__urlencode_records
+        
         if code == -1:
             if message == "OK":
                 self._code = Response.Success
@@ -546,13 +548,13 @@ class Response:
             elif message == None:
                 self._code = Response.ConnectionError
                 
-            elif message == __certRejection:
+            elif message == self.__certRejection:
                 self._code = Response.BadCertificate
                 
             elif Response.__BundleProblemMatcher.match(message):
                 self._code = Response.BundleNotSupported
 
-            elif __urlencode_records == 1 and \
+            elif streer__urlencode_records == 1 and \
                    Response.__responseMatcherURLCheck.search(message):
                 self._code = Response.UnknownCommand
 
@@ -961,11 +963,11 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
     global __connectionError
     global __certificateRejected
     global __connectionRetries
-    global __urlencode_records
+    global streer__urlencode_records
     global __resending
 
     # Backward compatibility with old collectors
-    if (__urlencode_records == 0): messageType = "update"
+    if (streer__urlencode_records == 0): messageType = "update"
 
     try:
         # Connect to the web service, in case we aren't already
@@ -1041,7 +1043,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
             if response.get_code() == Response.UnknownCommand:
                 # We're talking to an old collector
                 DebugPrint(0, "Unable to send new record to old collector -- engaging backwards-compatible mode for remainder of connection")
-                __urlencode_records = 0;
+                streer__urlencode_records = 0;
                 # Try again with the same record before returning to the
                 # caller. There will be no infinite recursion because
                 # __url_records has been reset
@@ -1063,7 +1065,7 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
             if response.get_code() == Response.UnknownCommand:
                 # We're talking to an old collector
                 DebugPrint(0, "Unable to send new record to old collector -- engaging backwards-compatible mode for remainder of connection")
-                __urlencode_records = 0;
+                streer__urlencode_records = 0;
                 # Try again with the same record before returning to the
                 # caller. There will be no infinite recursion because
                 # __url_records has been reset
