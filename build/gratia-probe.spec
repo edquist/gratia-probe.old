@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 1.04.6
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -92,6 +92,7 @@ Source14: %{gridftp_transfer_source}
 Source15: %{name}-services-%{version}.tar.bz2
 Source16: %{name}-hadoop-storage-%{version}.tar.bz2
 Source17: %{name}-condor-events-%{version}.tar.bz2
+Source18: %{name}-xrootd-transfer-%{version}.tar.bz2
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch2: urCollector-2006-06-13-createTime-timezone.patch
@@ -141,7 +142,6 @@ cd urCollector-%{urCollector_version}
 %patch -P 14 -b .account
 %patch -P 15 -b .invoke-gratia
 %patch -P 16 -b .2009-09-03-fixes
-%patch -P 17 -b .mpp-fixes-2009-09-10
 %setup -q -D -T -a 9
 %endif
 %setup -q -D -T -a 5
@@ -156,6 +156,7 @@ cd urCollector-%{urCollector_version}
 %setup -q -D -T -a 15
 %setup -q -D -T -a 16
 %setup -q -D -T -a 17
+%setup -q -D -T -a 18
 
 %build
 %ifnarch noarch
@@ -179,7 +180,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
 
 %ifarch noarch
   # Obtain files
-  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer,services,hadoop-storage,condor-events} \
+  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer,services,hadoop-storage,condor-events,xrootd-transfer} \
               "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
@@ -195,6 +196,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/services/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/hadoop-storage/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/condor-events/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-transfer/ProbeConfig" \
       ; do
     %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
@@ -1148,7 +1150,7 @@ License: See LICENSE.
 %{!?config_itb:Obsoletes: %{name}-condor-events%{itb_suffix}}
 
 %description condor-events%{?maybe_itb_suffix}
-HDFS Storage Probe for Gratia OSG accounting system.
+Condor Events Probe for Gratia OSG accounting system.
 Contributed by University of Nebraska Lincoln.
 
 %files condor-events%{?maybe_itb_suffix}
@@ -1162,7 +1164,6 @@ Contributed by University of Nebraska Lincoln.
 
 %global osg_collector %{default_osg_collector}
 %global fnal_collector %{default_fnal_collector}
-%global collector_port %{default_collector_port}
 %global collector_port %{default_collector_port}
 %configure_probeconfig_pre -d condor-events -m condor-events -M 600
 %configure_probeconfig_post
@@ -1188,9 +1189,70 @@ fi
 #   End of condor-events preun
 # End of condor-events section
 
+%package xrootd-transfer%{?maybe_itb_suffix}
+Summary: Probe that emits a record for each file transfer in Xrootd.
+Group: Application/System
+Requires: %{name}-common >= 1.04.4e
+%if %{?python:0}%{!?python:1}
+Requires: python >= 2.3
+%endif
+Requires: %{name}-common%{?maybe_itb_suffix}
+License: See LICENSE.
+%{?config_itb:Obsoletes: %{name}-xrootd-transfer}
+%{!?config_itb:Obsoletes: %{name}-xrootd-transfer%{itb_suffix}}
+
+%description xrootd-transfer%{?maybe_itb_suffix}
+Xrootd Transfer Probe for Gratia OSG accounting system.
+Contributed by University of Nebraska Lincoln.
+
+%files xrootd-transfer%{?maybe_itb_suffix}
+%defattr(-,root,root,-)
+%{default_prefix}/probe/xrootd-transfer/watchXrootdLogs.py
+%config(noreplace) %{default_prefix}/probe/xrootd-transfer/ProbeConfig
+
+%post xrootd-transfer%{?maybe_itb_suffix}
+# /usr -> "${RPM_INSTALL_PREFIX0}"
+# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
+%if %{itb}
+  %global osg_collector %{default_osg_collector}
+  %global fnal_collector %{default_fnal_collector}
+%else
+  %global osg_collector gratia-osg-transfer.opensciencegrid.org
+  %global fnal_collector gratia-fermi-transfer.fnal.gov
+%endif
+%global collector_port %{default_collector_port}
+%configure_probeconfig_pre -d xrootd-transfer -m xrootd-transfer -M 600
+%configure_probeconfig_post
+
+%max_pending_files_check xrootd-transfer
+
+%scrub_root_crontab xrootd-transfer
+
+(( min = $RANDOM % 10 ))
+%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-xrootd-transfer.cron <<EOF
+$min,$(( $min + 10 )),$(( $min + 20 )),$(( $min + 30 )),$(( $min + 40 )),$(( $min + 50 )) * * * * root \
+/usr/bin/python "${RPM_INSTALL_PREFIX1}/probe/xrootd-transfer/watchXrootdLogs.py" -c "${RPM_INSTALL_PREFIX1}/probe/xrootd-transfer/ProbeConfig" 2> /dev/null > /dev/null
+EOF
+
+# End of xrootd-transfer post
+
+
+%preun xrootd-transfer%{?maybe_itb_suffix}
+# Only execute this if we're uninstalling the last package of this name
+if [ $1 -eq 0 ]; then
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-xrootd-transfer.cron
+fi
+#   End of xrootd-transfer preun
+# End of xrootd-transfer section
+
 %endif # noarch
 
 %changelog
+* Tue Oct 20 2009 Brian Bockelman <bbockelm@cse.unl.edu> - 1.04.6-3
+- Added the xrootd-transfer probe
+
+
 * Mon Oct 12 2009 Brian Bockelman <bbockelm@cse.unl.edu> - 1.04.6-2
 - Added the condor-events probe
 

@@ -128,7 +128,8 @@ fi
 
 
 build/package-probe "${version}" common condor pbs-lsf psacct sge glexec \
-                                 metric services hadoop-storage condor-events
+                                 metric services hadoop-storage condor-events \
+                                 xrootd-transfer
 status=$?
 
 if (( $status == 0 )); then
