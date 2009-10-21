@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.04.6
+Version: 1.06.7a
 Release: 2
 License: GPL
 Group: Applications/System
@@ -23,7 +23,7 @@ BuildRequires: gcc-c++
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
 %global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
 %global gridftp_transfer_source gratia-probe-gridftp-transfer-%{gridftp_transfer_probe_version}.tar.bz2
-%global dcache_transfer_probe_version v0-2-12
+%global dcache_transfer_probe_version v0-2-14
 %global dcache_storage_probe_version v0-1-2
 %global gridftp_transfer_probe_version v0-3
 
@@ -1249,9 +1249,14 @@ fi
 %endif # noarch
 
 %changelog
+* Wed Oct 21 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.7a-1
+- Correct indentation of loop in DCacheBillingAggregator..
+
+* Wed Oct 21 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.7-1
+- Incorporate Philippe's improvements to DCacheBillingAggregator for long catchups.
+
 * Tue Oct 20 2009 Brian Bockelman <bbockelm@cse.unl.edu> - 1.04.6-3
 - Added the xrootd-transfer probe
-
 
 * Mon Oct 12 2009 Brian Bockelman <bbockelm@cse.unl.edu> - 1.04.6-2
 - Added the condor-events probe
