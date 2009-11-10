@@ -11,6 +11,7 @@ import xml.sax.saxutils
 import exceptions
 import pwd
 import grp
+import math
 from OpenSSL import crypto
 
 quiet = 0
@@ -31,6 +32,7 @@ def disconnect_at_exit():
         try:
             RemoveOldLogs(Config.get_LogRotate())
             RemoveOldJobData(Config.get_DataFileExpiration())
+            RemoveOldQuarantine(Config.get_DataFileExpiration(),Config.get_QuarantineSize())
         except Exception, e:
             DebugPrint(0, "Exception caught at top level: " + str(e))
             DebugPrintTraceback()
@@ -43,6 +45,9 @@ def disconnect_at_exit():
     DebugPrint(0, "                          handshake records failed: " + str(failedHandshakes))
     DebugPrint(0, "                          bundle of records sent successfully: " + str(successfulBundleCount))
     DebugPrint(0, "                          bundle of records failed: " + str(failedBundleCount))
+    DebugPrint(0, "                          outstanding records: " + str(OutstandingRecordCount))
+    DebugPrint(0, "                          outstanding staged records: " + str(OutstandingStagedRecordCount))
+    DebugPrint(0, "                          outstanding records tar files: " + str(OutstandingStagedTarCount))
     DebugPrint(1, "End-of-execution disconnect ...")
 
 class ProbeConfiguration:
@@ -56,6 +61,7 @@ class ProbeConfiguration:
     __LogLevel = None
     __LogRotate = None
     __DataFileExpiration = None
+    __QuarantineSize = None
     __UseSyslog = None
     __UserVOMapFile = None
     __FilenameFragment = None
@@ -326,6 +332,15 @@ class ProbeConfiguration:
                 self.__DataFileExpiration = int(val)
         return self.__DataFileExpiration
 
+    def get_QuarantineSize(self):
+        if (self.__QuarantineSize == None):
+            val = self.__getConfigAttribute('QuarantineSize')
+            if val == None or val == "":
+                self.__QuarantineSize = 200*1000*1000
+            else:
+                self.__QuarantineSize = int(val)*1000*1000
+        return self.__QuarantineSize
+
     def get_UseSyslog(self):
         if (self.__UseSyslog == None):
             val = self.__getConfigAttribute('UseSyslog')
@@ -511,6 +526,7 @@ class Response:
     __responseMatcherErrorCheck = re.compile(r'Error report</title', re.IGNORECASE)
     __BundleProblemMatcher = re.compile(r'Error: Unknown Command: multiupdate', re.IGNORECASE)
     __certRejection = "Error: The certificate has been rejected by the Gratia Collector!";
+    __responseMatcherPostTooLarge = re.compile(r'.*java.lang.IllegalStateException: Post too large.*', re.IGNORECASE)
 
     AutoSet = -1
     Success = 0
@@ -520,6 +536,7 @@ class Response:
     ConnectionError = 4
     BadCertificate = 5
     BundleNotSupported = 6
+    PostTooLarge = 7
 
     _codeString = {
         -1 : "UNSET",
@@ -529,7 +546,8 @@ class Response:
         3 : "UNKNOWN_COMMAND",
         4 : "CONNECTION_ERROR",
         5 : "BAD_CERTIFICATE",
-        6 : "BUNDLE_NOT_SUPPORTED"
+        6 : "BUNDLE_NOT_SUPPORTED",
+        7 : "POST TOO LARGE"
         }
 
     _code = -1
@@ -558,11 +576,15 @@ class Response:
                    Response.__responseMatcherURLCheck.search(message):
                 self._code = Response.UnknownCommand
 
+            elif Response.__responseMatcherPostTooLarge.search(message):
+                self._code = Response.PostTooLarge
+
             elif Response.__responseMatcherErrorCheck.search(message):
                 self._code = Response.ConnectionError
 
             else:
                 self._code = Response.Failed
+
         else:
             self._code = code
         if message:
@@ -1152,6 +1174,13 @@ def SendStatus(meterId):
 
 LogFileIsWriteable = True
 
+def LogFileName():
+     "Return the name of the current log file"
+     
+     filename = time.strftime("%Y-%m-%d") + ".log"
+     return os.path.join(Config.get_LogFolder(),filename)
+
+
 def LogToFile(message):
     "Write a message to the Gratia log file"
 
@@ -1213,14 +1242,17 @@ def LogToSyslog(level, message) :
     
 def RemoveFile(file):
    # Remove the file, ignore error if the file is already gone.
-    
+   
+   result = True
    try: 
       os.remove(file)
    except os.error, err:
       if (err.errno==errno.ENOENT):
+         result = False
          pass
       else:
          raise err
+   return result
 
 def RemoveDir(dir):
    # Remove the file, ignore error if the file is already gone.
@@ -1240,15 +1272,17 @@ def QuarantineFile(file,isempty):
    
    dirname = os.path.dirname(file)
    pardirname = os.path.dirname(dirname)
-   if (dirname != "outbox"):
+   if (os.path.basename(dirname) != "outbox"):
        toppath = dirname
    else:
-       if (pardirname == "staged"):
+       if (os.path.basename(pardirname) == "staged"):
            toppath = os.path.dirname(pardirname)
        else:
            toppath = pardirname
-   quarantine = os.path.join(dirname,"quarantine")
+   quarantine = os.path.join(toppath,"quarantine")
    Mkdir(quarantine)
+   DebugPrint(0,'Putting a quarantine file in: '+quarantine)
+   DebugPrint(3,'Putting a file in quarantine: '+os.path.basename(file))
    if (isempty):
        try:
            emptyfiles = open(os.path.join( quarantine, "emptyfile" ), 'a')
@@ -1266,18 +1300,18 @@ def RemoveRecordFile(file):
    global OutstandingRecordCount
    global OutstandingStagedRecordCount
    
-   RemoveFile(file)
-   # We try to exclude the record in staged/outbox
-   dirname = os.path.dirname(file)
-   if ( os.path.basename( dirname ) == "outbox" and 
-        os.path.basename( os.path.dirname( dirname ) ) == "staged" ):
-      DebugPrint(3,"Remove the staged record: "+file)
-      OutstandingStagedRecordCount += -1
-   else:
-      OutstandingRecordCount += -1
-      DebugPrint(3,"Remove the record: "+file)
+   if RemoveFile(file):
+      # Decrease the count only if the file was really removed
+      dirname = os.path.dirname(file)
+      if ( os.path.basename( dirname ) == "outbox" and 
+           os.path.basename( os.path.dirname( dirname ) ) == "staged" ):
+         DebugPrint(3,"Remove the staged record: "+file)
+         OutstandingStagedRecordCount += -1
+      else:
+         OutstandingRecordCount += -1
+         DebugPrint(3,"Remove the record: "+file)
 
-def RemoveOldFiles(nDays = 31, globexp = None):
+def RemoveOldFiles(nDays = 31, globexp = None, req_maxsize = 0):
 
     if not globexp: return
     # Get the list of all files in the log directory
@@ -1288,10 +1322,80 @@ def RemoveOldFiles(nDays = 31, globexp = None):
 
     cutoff = time.time() - nDays * 24 * 3600
 
+    totalsize = 0
+
+    date_file_list = []
     for f in files:
-        if os.path.getmtime(f) < cutoff:
+        lastmod_date = os.path.getmtime(f)
+        if lastmod_date < cutoff:
             DebugPrint(2, "Will remove: " + f)
             RemoveFile(f)
+        else:
+            size = os.path.getsize(f)
+            totalsize += size
+            date_file_tuple = lastmod_date, size, f
+            date_file_list.append(date_file_tuple)
+
+    if ( len(date_file_list)==0 ):
+       # No more files.
+       return
+      
+    dirname = os.path.dirname(date_file_list[0][2])
+    fs = os.statvfs(dirname)
+    disksize = fs.f_blocks
+    freespace = fs.f_bfree
+    ourblocks = totalsize / fs.f_frsize
+    percent = ourblocks*100.0/disksize
+
+    if (percent < 1):
+       DebugPrint(1,dirname+" uses "+niceNum( percent, 1e-3 )+"% and there is "+niceNum(freespace*100/disksize)+"% free")
+    else:
+       DebugPrint(1,dirname+" uses "+niceNum( percent, 1e-1 )+"% and there is "+niceNum(freespace*100/disksize)+"% free")
+
+    minfree = 0.10 * disksize   # We want the disk to be no fuller than 95%
+    minuse = 0.05 * disksize   # We want the directory to not be artificially reduced below 5% because other things are filling up the disk.
+    calc_maxsize = req_maxsize
+    if (freespace < minfree):
+       # The disk is quite full
+       if (ourblocks > minuse):
+          # We already use more than 5%, let's see how much we can delete to get under 95% full but not under 5% of 
+          # our own use
+          target = minfree - freespace # We would like to remove than much
+          
+          if ( (ourblocks - target) < minuse ):
+             # But it would take us under 5%, so do what we can
+             calc_maxsize = minuse
+          else:
+             calc_maxsize = ourblocks - target
+          
+          if ( 0<req_maxsize and req_maxsize < calc_maxsize * fs.f_frsize):
+             calc_maxsize = req_maxsize
+          else:
+             DebugPrint(4,"DEBUG: The disk is quite full and this directory is 'large' attempting to reduce from "
+                          +niceNum(totalsize/1000000)+"Mb to "+niceNum(calc_maxsize/1000000)+"Mb.")
+             calc_maxsize = calc_maxsize * fs.f_frsize
+
+    if (calc_maxsize > 0 and totalsize > calc_maxsize):
+       DebugPrint(1,"Cleaning up directory due to space overflow: "
+                     +niceNum(totalsize/1e6,1e-1),"Mb for a limit of ",niceNum(calc_maxsize/1e6,1e-1)," Mb.")
+       calc_maxsize = 0.8 * calc_maxsize
+       date_file_list.sort()
+       
+       # To get the newest first (for debugging purpose only)
+       # date_file_list.reverse()
+       
+       currentLogFile = LogFileName()
+       for file_tuple in date_file_list:
+          DebugPrint(2, "Will remove: " + file_tuple[2])
+          RemoveFile(file_tuple[2])
+          totalsize = totalsize - file_tuple[1]
+          if (currentLogFile == file_tuple[2]):
+             # We delete the current log file! Let's record this explicitly!
+             DebugPrint(0,"EMERGENCY DELETION AND TRUNCATION OF LOG FILES.")
+             DebugPrint(0,"Current log file was too large: "+niceNum(file_tuple[1]/(1000000))+"Mb.")
+             DebugPrint(0,"All prior information has been lost.")
+          if (totalsize < calc_maxsize): 
+             return
 
 #
 # Remove old backups
@@ -1317,6 +1421,21 @@ def RemoveOldJobData(nDays = 31):
     RemoveOldFiles(nDays, os.path.join(dataDir, "gratia_certinfo_*"))
     RemoveOldFiles(nDays, os.path.join(dataDir, "gratia_condor_log*"))
     RemoveOldFiles(nDays, os.path.join(dataDir, "gram_condor_log*"))
+
+def RemoveOldQuarantine(nDays = 31, maxSize = 200):
+    # Default to 31 days or 200Mb whichever is lower.
+
+    global BackupDirList
+    global Config
+    
+    fragment = Config.FilenameFragment()
+    for current_dir in BackupDirList:
+        gratiapath = os.path.join(current_dir,"gratiafiles")
+        subpath = os.path.join(gratiapath,"subdir."+fragment)
+        quarantine = os.path.join(subpath,"quarantine")
+        if (os.path.exists(quarantine)):
+           DebugPrint(1, "Removing quarantines data files older than ", nDays, " days from " , quarantine)
+           RemoveOldFiles(nDays, os.path.join(quarantine, "*"), maxSize)
 
 def GenerateOutput(prefix,*arg):
     out = prefix
@@ -1350,6 +1469,76 @@ def Error(*arg):
         LogToSyslog(-1,GenerateOutput("",*arg))
     else:
         LogToFile(time.strftime(r'%H:%M:%S %Z', time.localtime()) + " " + out)
+
+"""
+Having written a bunch of scientific software, I am always amazed
+at how few languages have built in routines for displaying numbers
+nicely.  I was doing a little programming in Python and got surprised
+again.  I couldn't find any routines for displaying numbers to
+a significant number of digits and adding appropriate commas and
+spaces to long digit sequences.  Below is my attempt to write
+a nice number formatting routine for Python.  It is not particularly
+fast.  I suspect building the string by concatenation is responsible
+for much of its slowness.  Suggestions on how to improve the 
+implementation will be gladly accepted.
+
+                        David S. Harrison
+                        (daha@best.com)
+"""
+
+# Returns a nicely formatted string for the floating point number
+# provided.  This number will be rounded to the supplied accuracy
+# and commas and spaces will be added.  I think every language should
+# do this for numbers.  Why don't they?  Here are some examples:
+# >>> print niceNum(123567.0, 1000)
+# 124,000
+# >>> print niceNum(5.3918e-07, 1e-10)
+# 0.000 000 539 2
+# This kind of thing is wonderful for producing tables for
+# human consumption.
+#
+def niceNum(num, precision = 1):
+    """Returns a string representation for a floating point number
+    that is rounded to the given precision and displayed with
+    commas and spaces."""
+    accpow = int(math.floor(math.log10(precision)))
+    if num < 0:
+        digits = int(math.fabs(num/pow(10,accpow)-0.5))
+    else:
+        digits = int(math.fabs(num/pow(10,accpow)+0.5))
+    result = ''
+    if digits > 0:
+        for i in range(0,accpow):
+            if (i % 3)==0 and i>0:
+                result = '0,' + result
+            else:
+                result = '0' + result
+        curpow = int(accpow)
+        while digits > 0:
+            adigit = chr((digits % 10) + ord('0'))
+            if (curpow % 3)==0 and curpow!=0 and len(result)>0:
+                if curpow < 0:
+                    result = adigit + ' ' + result
+                else:
+                    result = adigit + ',' + result
+            elif curpow==0 and len(result)>0:
+                result = adigit + '.' + result
+            else:
+                result = adigit + result
+            digits = digits/10
+            curpow = curpow + 1
+        for i in range(curpow,0):
+            if (i % 3)==0 and i!=0:
+                result = '0 ' + result
+            else:
+                result = '0' + result
+        if curpow <= 0:
+            result = "0." + result
+        if num < 0:
+            result = '-' + result
+    else:
+        result = "0"
+    return result 
 
 
 ##
@@ -2337,52 +2526,94 @@ failedHandshakes = 0
 failedReprocessCount = 0
 successfulBundleCount = 0
 failedBundleCount = 0
+quarantinedFiles = 0
 
 #
 # Bundle class
 #
 class Bundle:
+    nBytes = 0
     nRecords = 0
     nHandshakes = 0
     nReprocessed = 0
     nItems = 0
     nFiles = 0
+    nLastProcessed = 0
     content = []
+    __maxPostSize = 2000000*0.9; # 2Mb
     
-    def __addContent(self,filename,xmlData):
+    def __addContent(self, filename, xmlData):
         self.content.append( [filename,xmlData] )
         self.nItems += 1
         if (len(filename)): self.nFiles += 1
         
-    def hasFile(self,filename):
+    def __checkSize(self, msg, xmlDataLen):
+        if ( (self.nBytes + xmlDataLen) > self.__maxPostSize ) : 
+            (responseString, response) = ProcessBundle(self)
+            if response.get_code() != 0: return (responseString, response)
+            msg = responseString + "; " + msg
+        return msg
+        
+    def addGeneric(self, action, what, filename, xmlData):
+        global failedSendCount
+        global failedHandshakes
+        global failedReprocessCount
+        if ( self.nItems > 0 and (self.nBytes + len(xmlData)) > self.__maxPostSize ) : 
+            (responseString, response) = ProcessBundle(self)
+            if (response.get_code() == Response.BundleNotSupported):
+               return (responseString, response)                
+            elif response.get_code() != 0:
+               # For simplicity we return here, this means that the 'incoming' record is actually
+               # not processed at all this turn
+               self.nLastProcessed += 1
+               action()
+               failedSendCount += self.nRecords
+               failedHandshakes += self.nHandshakes
+               failedReprocessCount += self.nReprocessed
+               self.clear()
+               return (responseString, response)
+            what = "(nested process: " + responseString + ")" + "; " + what
+        else:
+            self.nLastProcessed = 0
+
+        self.__addContent(filename, xmlData)
+        action()
+        self.nBytes += len(xmlData)
+        return self.checkAndSend("OK - "+what+" added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+
+    def hasFile(self, filename):
         for [name,data] in self.content:
            if (filename == name): return True
         return False
 
-    def addHandshake(self, xmlData):
-        self.__addContent('',xmlData)
+    def __actionHandshake(self):
         self.nHandshakes += 1
-        return self.checkAndSend("OK - Handshake added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+       
+    def addHandshake(self, xmlData):
+        return self.addGeneric( self.__actionHandshake, "Handshake", '', xmlData)
 
-    def addRecord(self, filename, xmlData):
-        self.__addContent( filename,xmlData )
+    def __actionRecord(self):
         self.nRecords += 1
-        return self.checkAndSend("OK - Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+        
+    def addRecord(self, filename, xmlData):
+        return self.addGeneric( self.__actionRecord, "Record", filename, xmlData)
+
+    def __actionReprocess(self):
+        self.nReprocessed += 1
 
     def addReprocess(self, filename, xmlData):
-        self.__addContent( filename,xmlData )
-        self.nReprocessed += 1
-        return self.checkAndSend("OK - Record added to bundle ("+str(self.nItems)+"/"+str(BundleSize)+")")
+        return self.addGeneric( self.__actionReprocess, "Record", filename, xmlData)
 
-    def checkAndSend(self,defaultmsg):
+    def checkAndSend(self, defaultmsg):
         # Check if the bundle is full, if it is, do the
         # actuall sending!
-        if (self.nItems >= BundleSize):
+        if (self.nItems >= BundleSize or self.nBytes > self.__maxPostSize):
             return ProcessBundle(self)
         else:
-            return (defaultmsg,Response(Response.Success,defaultmsg))
+            return (defaultmsg, Response(Response.Success, defaultmsg))
 
     def clear(self):
+        self.nBytes = 0
         self.nRecords = 0
         self.nHandshakes = 0
         self.nItems = 0
@@ -2406,6 +2637,7 @@ def ProcessBundle(bundle):
     global successfulBundleCount
     global failedBundleCount
     global BundleSize
+    global quarantinedFiles
 
     responseString = ""
 
@@ -2457,13 +2689,25 @@ def ProcessBundle(bundle):
     if (response.get_code() == Response.BundleNotSupported):
         DebugPrint(0, "Collector is too old to handle 'bundles', reverting to sending individual records.")
         BundleSize = 0
+        bundle.nLastProcessed = 0
         bundle.clear()
         if (bundle.nHandshakes > 0):
             Handshake()
         else:
             SearchOutstandingRecord()
             Reprocess()
-        return "Bundling has been canceled."
+        return ("Bundling has been canceled.", response)
+    elif (response.get_code() == Response.PostTooLarge):
+        if (bundle.nItems > 1):
+           # We let a large record to be added to already too many data.
+           # Let's try to restrict more the size of the record
+           Bundle.__maxPostSize = 0.9 * Bundle.__maxPostSize
+        elif (bundle.nItems == 1):
+           DebugPrint(0,"Error: a record is larger than the Collector can receive. ("+str((len(bundleData)*10/1000/1000)/10.0)+"Mb vs 2Mb).  Record will be Quarantined.")
+           quarantinedFiles += 1
+           QuarantineFile( bundle.content[0][0], False )
+        else:
+           DebugPrint(0,"Internal error, got a 'too large of a post' response eventhough we have no record at all!")
 
     responseString = 'Processed bundle with ' + str(bundle.nItems) + ' records:  ' + response.get_message()
 
@@ -2490,6 +2734,7 @@ def ProcessBundle(bundle):
         failedReprocessCount += bundle.nReprocessed
         failedBundleCount += 1
 
+    bundle.nLastProcessed = bundle.nItems
     bundle.clear()
 
     return (responseString,response)
@@ -2500,9 +2745,9 @@ def ProcessBundle(bundle):
 #  Loops through all outstanding records and attempts to send them again
 #
 def Reprocess():
-    ReprocessList()
-    while(not __connectionError and HasMoreOutstandingRecord):
-        # This is decrease in SearchOutstanding
+    (response, result) = ReprocessList()
+    while(not __connectionError and result and HasMoreOutstandingRecord):
+        # This is decreased in SearchOutstanding
         tarcount = OutstandingStagedTarCount
         scount = OutstandingStagedRecordCount
 
@@ -2515,6 +2760,7 @@ def Reprocess():
         
         # This is potentially decreased in ReprocessList
         rcount = OutstandingRecordCount
+
         # Attempt to reprocess any outstanding records
         ReprocessList()
         if (rcount == OutstandingRecordCount and scount == OutstandingStagedRecordCount and tarcount == OutstandingStagedTarCount):
@@ -2531,11 +2777,13 @@ def Reprocess():
 def ReprocessList():
     global successfulReprocessCount
     global failedReprocessCount
+    global quarantinedFiles
 
     currentFailedCount = 0;
     currentSuccessCount = 0;
     currentBundledCount = 0;
     prevBundled = CurrentBundle.nItems;
+    prevQuarantine = quarantinedFiles
 
     responseString = ""
 
@@ -2579,20 +2827,19 @@ def ReprocessList():
             # Delay the sending until we have 'bundleSize' records.
             (addreponseString,response) = CurrentBundle.addReprocess(failedRecord,xmlData)
 
-            # Determine if the call succeeded, and remove the file if it did
-            if response.get_code() != 0:
-                if (CurrentBundle.nItems==0):
-                   currentFailedCount += BundleSize - prevBundled
-                   currentBundledCount = 0
-                   prevBundled = 0
-                else:
-                   currentFailedCount += CurrentBundle.nItems - prevBundled
+            if (response.get_code() == Response.BundleNotSupported):
+                # The bundling was canceled, Reprocess was called recursively, we are done.
+                break
+            elif response.get_code() != 0:
+                currentFailedCount += CurrentBundle.nLastProcessed - prevBundled
+                currentBundledCount = CurrentBundle.nItems
+                prevBundled = 0
                 if __connectionError:
                     DebugPrint(1,"Connection problems: reprocessing suspended; new record processing shall continue")
             else:
-                if (CurrentBundle.nItems==0):
-                   currentSuccessCount += BundleSize - prevBundled
-                   currentBundledCount = 0
+                if (CurrentBundle.nReprocessed != 0):
+                   currentSuccessCount += CurrentBundle.nLastProcessed - prevBundled
+                   currentBundledCount = CurrentBundle.nItems
                    prevBundled = 0
                 else:
                    currentBundledCount += 1
@@ -2628,7 +2875,7 @@ def ReprocessList():
 
     DebugPrint(0,"Reprocessing response: "+responseString)
     DebugPrint(1,"After reprocessing: "+str(OutstandingRecordCount)+" in outbox "+str(OutstandingStagedRecordCount)+" in staged outbox "+str(OutstandingStagedTarCount)+" tar files")
-    return responseString
+    return (responseString, currentSuccessCount>0 or currentBundledCount == len(OutstandingRecord.keys()) or  prevQuarantine != quarantinedFiles)
 
 def CheckXmlDoc(xmlDoc,external,resourceType = None):
     content = 0
