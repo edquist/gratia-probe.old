@@ -3,7 +3,7 @@
     Title1="Collector Information"
 
     CollectorHost="gratia-osg-itb.opensciencegrid.org:80"
-       Comments0="SOAPHost is now replaced with CollectorHost"
+       Comments10="SOAPHost is now replaced with CollectorHost"
     SOAPHost="gratia-osg-itb.opensciencegrid.org:80" 
     SSLHost="gratia-osg-itb.opensciencegrid.org:443" 
     SSLRegistrationHost="gratia-osg-itb.opensciencegrid.org:80"
@@ -15,7 +15,7 @@
     Title2="Probe information and functional configuration"
 
     ProbeName="generic" 
-       Comments1="ProbeName used to be spelled 'MeterName'"
+       Comments20="ProbeName used to be spelled 'MeterName'"
     SiteName="Generic Site"
     Grid="OSG"
     SuppressUnknownVORecords="0"
@@ -28,12 +28,16 @@
     BundleSize="20"
     MaxPendingFiles="100000"
     MaxStagedArchives="400"
-       Comments2="The maximum of backload files is MaxPendingFiles * MaxStagedArchives per probe"
+       Comments30="The maximum of backload files is MaxPendingFiles * MaxStagedArchives per probe"
     UseSyslog="0"
 
     LogLevel="2"
     DebugLevel="0" 
     LogRotate="31"
+    DataFileExpiration="31"
+       Comments31="The number of days quarantined and unusable data files are kept"
+    QuarantineSize="200"
+       Comments32="The maximum size in Mb allowed to be kept in each quarantined directory"
     GratiaExtension="gratia.xml"
 
     Title4="Authentication Configuration"
@@ -42,7 +46,7 @@
     CertificateFile="/etc/grid-security/hostcert.pem"
     KeyFile="/etc/grid-security/hostkey.pem"
     UseGratiaCertificates="0"
-       Comments3="If no directory is specified the gratia certificate file will be created in 'WorkingFolder'/certs."
+       Comments40="If no directory is specified the gratia certificate file will be created in 'WorkingFolder'/certs."
     GratiaCertificateFile="gratia.probecert.pem"
     GratiaKeyFile="gratia.probekey.pem"
     
