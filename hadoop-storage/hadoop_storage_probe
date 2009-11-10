@@ -42,6 +42,9 @@ if 'JAVA_HOME' not in os.environ:
 if 'HADOOP_CONF_DIR' not in os.environ:
     os.environ['HADOOP_CONF_DIR'] = '/etc/hadoop'
 
+# Prevent us from sending in overly-large objects:
+MAX_DATA_LEN = 50*1024
+
 class Area(object):
 
     def __init__(self, name, path, prefix):
@@ -383,6 +386,8 @@ def collect_data(cmd, name, cp):
     else:
         result = 0
     output = xml.sax.saxutils.escape(output)
+    if len(output) > MAX_DATA_LEN:
+        output = "...Snipped output due to size...\n" + output[-MAX_DATA_LEN:]
     ur = Gratia.UsageRecord()
     ur.StartTime(time_start)
     ur.ResourceType("Storage-CustomInfo")
