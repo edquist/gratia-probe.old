@@ -753,8 +753,11 @@ sub Feed_Gratia {
   #   "/DC=gov/DC=fnal/O=Fermilab/OU=People/CN=Philippe G. Canal/UID=pcanal"
 
   if ( defined ($hash{'x509userproxysubject'})) {
+      my ($dn, $fqan, $vo) = ( $hash{'x509userproxysubject'} =~ m&^(.*?)(?::((/[^/]*).*?))*$& );
       # DN gets converted to slash format if necessary in Gratia.py
-      print $py qq/r.DN("$hash{'x509userproxysubject'}")\n/;
+      print $py qq/r.DN("$dn")\n/ if $dn;
+      print $py qq/r.VOName("$fqan")\n/ if $fqan;
+      print $py qq/r.ReportableVOName("$vo")\n/ if $vo;
   }
 
   # 2.7 JobName - Condors name? for this job? - optional, string
