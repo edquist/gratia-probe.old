@@ -2,11 +2,11 @@
 
     Title1="Collector Information"
 
-    CollectorHost="gratia-osg.fnal.gov:8880"
+    CollectorHost="gratia-osg-itb.opensciencegrid.org:80"
        Comments0="SOAPHost is now replaced with CollectorHost"
-    SOAPHost="gratia-osg.fnal.gov:8880" 
-    SSLHost="gratia-osg.fnal.gov:8443" 
-    SSLRegistrationHost="gratia-osg.fnal.gov:8880"
+    SOAPHost="gratia-osg-itb.opensciencegrid.org:80" 
+    SSLHost="gratia-osg-itb.opensciencegrid.org:443" 
+    SSLRegistrationHost="gratia-osg-itb.opensciencegrid.org:80"
 
     CollectorService="/gratia-servlets/rmi" 
     SSLCollectorService="/gratia-servlets/rmi"
