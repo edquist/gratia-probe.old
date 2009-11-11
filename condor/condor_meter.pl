@@ -206,7 +206,7 @@ foreach $name_arg (@ARGV) {
     while ($file = readdir(DIR)) {
       next unless (-f "$name_arg/$file" and -s "$name_arg/$file");
       if ($file =~ /^(?:gram|gratia)_condor_log\./ or # One of our or GRAM's log stubs
-          $file =~ /^history\.\d+\.\d+/ # A ClassAd
+          $file =~ /^history\.(?:.*?\#)?\d+\.\d+/ # A ClassAd
 # Deactivate certinfo files as expensive -- we should get
 # a history or globus log file now for everything (even WS events).
 #          $file =~ /^gratia_certinfo_(?:condor|managedfork)/ # A certinfo file
@@ -247,7 +247,7 @@ if ($logs_found == 0) {
 
 my @logfiles_sorted = ();
 # Order logfiles by type:
-foreach my $file_regex ('m&^history\.\d+\.\d+&',
+foreach my $file_regex ('m&^history\.(?:.*?\#)?\d+\.\d+&',
                         'm&^(?:gram|gratia)_condor_log\.&',
                         'm&^gratia_certinfo_(?:condor|managedfork)&') {
   my @tmp_array = grep { my $basename = basename $_; eval "\$basename =~ $file_regex" } @logfiles;
@@ -305,6 +305,8 @@ foreach $logfile (@logfiles) {
       # forms (globus stub, etc)
       setSeenLocalJobId($clusterId, $condor_data_hash{ProcId});
     }
+  } elsif ($basename =~ /^history\.(?:.*?\#)?(\d+)\.(\d+)/) {
+    # This file should be ignored, per Condor experts: just clean it up.
   } elsif ($basename =~/^gratia_certinfo_(?:condor|managedfork)_(\d+)(?:\.(\d+))?/) {
     my ($clusterId, $procId) = ($1, ($2 || 0));
     # File is a certinfo stub.
@@ -753,7 +755,7 @@ sub Feed_Gratia {
   #   "/DC=gov/DC=fnal/O=Fermilab/OU=People/CN=Philippe G. Canal/UID=pcanal"
 
   if ( defined ($hash{'x509userproxysubject'})) {
-      my ($dn, $fqan, $vo) = ( $hash{'x509userproxysubject'} =~ m&^(.*?)(?::((/[^/]*).*?))*$& );
+      my ($dn, $fqan, $vo) = ( $hash{'x509userproxysubject'} =~ m&^(.*?)(?::(/([^/]*).*?))*$& );
       # DN gets converted to slash format if necessary in Gratia.py
       print $py qq/r.DN("$dn")\n/ if $dn;
       print $py qq/r.VOName("$fqan")\n/ if $fqan;
@@ -1581,5 +1583,6 @@ sub open_new_py {
 # Local Variables:
 # mode:perl
 # comment-start: "# "
+# eval: (setq perl-continued-brace-offset -2 perl-continued-statement-offset 2 perl-indent-level 2 perl-label-offset -1)
 # End:
 
