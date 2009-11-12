@@ -3764,11 +3764,9 @@ def readCertInfo(localJobId, probeName):
             lrms = string.lower(match.group("Type"))
             DebugPrint(4, "readCertInfo: obtained LRMS type " + lrms + \
                        " from ProbeName")
-        else:
-            DebugPrint(0, 'Error: Unable to ascertain lrms to match against multiple certinfo entries')
-            return
-
-    if len(jobManagers) == 0:
+        elif len(jobManagers) == 0:
+            DebugPrint(0, 'Warning: unable to ascertain lrms to match against multiple certinfo entries and no other possibilities found yet -- may be unable to resolve ambiguities')
+    elif len(jobManagers) == 0:
         jobManagers.append(lrms) # Useful default
         DebugPrint(4, "readCertInfo: added default LRMS type " + lrms + " to search list")
 
