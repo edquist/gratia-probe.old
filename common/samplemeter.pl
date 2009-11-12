@@ -28,9 +28,9 @@ print $py "r.Queue(\"CepaQueue\")\n";
 print $py "r.ProjectName(\"cms reco\")\n";
 
 print $py "r.Network(3.5,\"Gb\",30,\"total\")\n";
-print $py "r.Disk(3.5,\"Gb\",13891,\"max\")\n";
-print $py "r.Memory(650000,\"KB\",\"min\")\n";
-print $py "r.Swap(1.5,\"GB\",\"max\")\n";
+#print $py "r.Disk(3.5,\"Gb\",13891,\"max\")\n";
+#print $py "r.Memory(650000,\"KB\",\"min\")\n";
+#print $py "r.Swap(1.5,\"GB\",\"max\")\n";
 print $py "r.NodeCount(3) # default to total\n";
 print $py "r.Processors(3,.75,\"total\")\n";
 print $py "r.ServiceLevel(\"BottomFeeder\",\"QOS\")\n";
