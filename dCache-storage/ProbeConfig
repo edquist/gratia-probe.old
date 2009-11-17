@@ -11,7 +11,7 @@
     GratiaCertificateFile="gratia.hostcert.pem"
     GratiaKeyFile="gratia.hostkey.pem"
 
-    SOAPHost="http://gratia02.fnal.gov:8880" 
+    SOAPHost="gratia02.fnal.gov:8880" 
     CollectorService="/gratia-servlets/rmi" 
     UseSoapProtocol="0"
     
@@ -33,7 +33,6 @@
     LogFolder="MAGIC_VDT_LOCATION/gratia/var/logs/"
     LogRotate="31"
     UseSyslog="0"
-    GridftpLogDir="MAGIC_VDT_LOCATION/globus/var/log"
 
     UpdateFrequency="120"
 />

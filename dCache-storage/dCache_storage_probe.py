@@ -9,6 +9,12 @@ import ConfigParser
 import GratiaConnector
 import XmlBuilder
 
+# Bootstrap hadoop
+if 'JAVA_HOME' not in os.environ:
+    os.environ['JAVA_HOME'] = '/usr/java/default'
+
+os.environ['CLASSPATH'] = GratiaConnector.gratia_path+"/../../common/lib/xalan.jar"
+
 def configure():
     parser = optparse.OptionParser()
     parser.add_option("-c", "--config", dest="config", help="Config file to use.", default="/etc/dCacheProbeConfig.cfg")

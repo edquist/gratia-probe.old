@@ -36,10 +36,6 @@ except:
     StorageElement = None
     StorageElementRecord = None
 
-# Bootstrap hadoop
-if 'JAVA_HOME' not in os.environ:
-    os.environ['JAVA_HOME'] = '/usr/java/default'
-
 # Prevent us from sending in overly-large objects:
 MAX_DATA_LEN = 50*1024
 
@@ -84,6 +80,6 @@ class GratiaConnector:
     except:
         pass
 
-    def send(self,record):
+  def send(self,record):
         Gratia.Send(record)
 
