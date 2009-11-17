@@ -1,0 +1,13 @@
+<TestObject>
+    <methodB>
+      <array>
+          <TestObject>
+             <methodA>inside</methodA>
+             <methodB>insideB</methodB>
+          </TestObject>
+          <TestObject>
+             <methodB>inside2</methodB>
+          </TestObject>
+      </array>
+    </methodB>
+</TestObject>
