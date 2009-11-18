@@ -245,6 +245,9 @@ class CondorUploader(object):
 
     def eventCallback(self, id, info):
         record = Gratia.UsageRecord("Events")
+        if 'EventTime' in info and info['EventTime'][-1] != 'Z':
+            info['EventTime'] += 'Z'
+        record.EndTime(info['EventTime'])
         etype = info.get('EventTypeNumber', -1)
         user_info = (info['GlobalJobId'], 
                 info.get('x509userproxysubject', info.get('Owner', 'UNKNOWN')),
