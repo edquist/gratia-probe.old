@@ -393,10 +393,15 @@ if __name__ == '__main__':
         if opts.checkpoint:
           if linecount <= checkpoint:
               continue
-        # ignore comments
-        if line[0] == '#':
-            continue
 
+        if line[0] == '#':
+            # ignore comments
+            continue
+        elif line[-1] != '\n':
+            # and break on an incomplete line (EOF)
+            Gratia.DebugPrint(info_level, "INFO: incomplete line (no trailing LF)")
+            break
+        
         # break up line into fields
         sgeList = line.rstrip("\r\n").split(":")
         Gratia.DebugPrint(debug_level, sgeList)
