@@ -38,11 +38,12 @@
        <TotalSpace><xsl:value-of select="$sspace[ @name = 'total' ]"/></TotalSpace>
        <FreeSpace><xsl:value-of select="$sspace[ @name = 'free' ]"/></FreeSpace>
        <UsedSpace><xsl:value-of select="$sspace[ @name = 'used' ]"/></UsedSpace>
+       <Timestamp type="numeric" ><xsl:value-of select="$now"/></Timestamp>
     </StorageElementRecord.StorageElementRecord>
 
 <xsl:for-each select="dc:pools/dc:pool">
 
-    <xsl:variable name="uniqId" select="concat($SE,':SE:',@name)"/>
+    <xsl:variable name="uniqId" select="concat($SE,':Pool:',@name)"/>
 
     <xsl:variable name="status">
         <xsl:choose>
@@ -64,14 +65,17 @@
        <Timestamp type="numeric" ><xsl:value-of select="$now"/></Timestamp>
        <Status><xsl:value-of select="$status"/></Status>
     </StorageElement.StorageElement>
-    <StorageElementRecord.StorageElementRecord>
+    <xsl:if test="$status = 'Production'">
+      <StorageElementRecord.StorageElementRecord>
        <UniqueID><xsl:value-of select="$uniqId"/></UniqueID>
        <MeasurementType>raw</MeasurementType>
        <StorageType>disk</StorageType>
        <TotalSpace><xsl:value-of select="$space[ @name = 'total' ]"/></TotalSpace>
        <FreeSpace><xsl:value-of select="$space[ @name = 'free' ]"/></FreeSpace>
        <UsedSpace><xsl:value-of select="$space[ @name = 'used' ]"/></UsedSpace>
-    </StorageElementRecord.StorageElementRecord>
+       <Timestamp type="numeric" ><xsl:value-of select="$now"/></Timestamp>
+      </StorageElementRecord.StorageElementRecord>
+    </xsl:if>
 
 </xsl:for-each>
 <xsl:for-each select="dc:linkgroups/dc:linkgroup">
@@ -127,6 +131,7 @@
            <TotalSpace><xsl:value-of select="$totalSpace"/></TotalSpace>
            <FreeSpace><xsl:value-of select="$freeSpace"/></FreeSpace>
            <UsedSpace><xsl:value-of select="$usedSpace"/></UsedSpace>
+           <Timestamp type="numeric" ><xsl:value-of select="$now"/></Timestamp>
          </StorageElementRecord.StorageElementRecord>
 
      </xsl:if>
