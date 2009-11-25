@@ -112,7 +112,7 @@ def get_host():
 def send_one(el,
              host, # uname -n
              cename):
-    r=Gratia.UsageRecord("Glexec")
+    r=Gratia.UsageRecord("BatchPilot")
     r.MachineName(cename)
     r.Host(host)
     r.LocalUserId(uid2name(el['jobuid'])) # uid number
