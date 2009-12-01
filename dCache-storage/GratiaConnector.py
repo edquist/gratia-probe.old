@@ -21,9 +21,9 @@ if 'VDT_LOCATION' in os.environ:
     gratia_path = os.path.expandvars('$VDT_LOCATION/gratia/probe/common')
     if gratia_path not in sys.path and os.path.exists(gratia_path):
         sys.path.append(gratia_path)
-    gratia_path = os.path.expandvars('$VDT_LOCATION/gratia/probe/services')
-    if gratia_path not in sys.path and os.path.exists(gratia_path):
-        sys.path.append(gratia_path)
+    gratia_services = os.path.expandvars('$VDT_LOCATION/gratia/probe/services')
+    if gratia_services not in sys.path and os.path.exists(gratia_services):
+        sys.path.append(gratia_services)
 
 has_gratia = True
 try:

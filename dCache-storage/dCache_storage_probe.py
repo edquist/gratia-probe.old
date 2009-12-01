@@ -16,8 +16,9 @@ if 'JAVA_HOME' not in os.environ:
 os.environ['CLASSPATH'] = GratiaConnector.gratia_path+"/../../common/lib/xalan.jar"
 
 def configure():
-    parser = optparse.OptionParser()
-    parser.add_option("-c", "--config", dest="config", help="Config file to use.", default="/etc/dCacheProbeConfig.cfg")
+    usage="usage: %prog [-c|--config=] <probe storage config file location>"
+    parser = optparse.OptionParser(usage)
+    parser.add_option("-c", "--config", dest="config", help="Config file to use." )
     options, args = parser.parse_args()
     config = options.config
     if not os.path.exists(config):
@@ -67,7 +68,7 @@ def main():
     import time
     timeNow = int(time.time())
 
-    cmd = "java  org.apache.xalan.xslt.Process -PARAM now %d -PARAM SE %s -XSL create_se_record.xsl -IN %s " % ( timeNow, get_se(cp) , dCacheUrl )
+    cmd = "java  org.apache.xalan.xslt.Process -PARAM now %d -PARAM SE %s -XSL %s/../dCache-storage/create_se_record.xsl -IN %s " % ( timeNow, get_se(cp) ,GratiaConnector.gratia_path, dCacheUrl )
 
     fd = os.popen(cmd)
 
