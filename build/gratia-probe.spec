@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.7a
-Release: 2
+Version: 1.06.12
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -21,10 +21,8 @@ BuildRequires: gcc-c++
 %global psycopg2_version 2.0.6
 %global setuptools_source setuptools-0.6c3-py2.3.egg
 %global dcache_transfer_source gratia-probe-dCache-transfer-%{dcache_transfer_probe_version}.tar.bz2
-%global dcache_storage_source gratia-probe-dCache-storage-%{dcache_storage_probe_version}.tar.bz2
 %global gridftp_transfer_source gratia-probe-gridftp-transfer-%{gridftp_transfer_probe_version}.tar.bz2
 %global dcache_transfer_probe_version v0-2-14
-%global dcache_storage_probe_version v0-1-2
 %global gridftp_transfer_probe_version v0-3
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
@@ -87,7 +85,7 @@ Source8: SQLAlchemy-%{sqlalchemy_version}.tar.gz
 Source9: psycopg2-%{psycopg2_version}.tar.gz
 Source11: %{setuptools_source}
 Source12: %{dcache_transfer_source}
-Source13: %{dcache_storage_source}
+Source13: %{name}-dCache-storage-%{version}.tar.bz2
 Source14: %{gridftp_transfer_source}
 Source15: %{name}-services-%{version}.tar.bz2
 Source16: %{name}-hadoop-storage-%{version}.tar.bz2
@@ -892,79 +890,79 @@ to start the service." 1>&2
 # End of dCache-transfer post
 # End of dCache-transfer section
 
-%package dCache-storage%{?maybe_itb_suffix}
-Summary: Gratia OSG accounting system probe for dCache storage.
-Group: Application/System
-Requires: %{name}-common >= 1.04.4e
-Requires: %{name}-extra-libs
-Requires: %{name}-extra-libs-arch-spec
-License: See LICENSE.
-%{?config_itb:Obsoletes: %{name}-dCache-storage}
-%{!?config_itb:Obsoletes: %{name}-dCache-storage%{itb_suffix}}
-
-%description dCache-storage%{?maybe_itb_suffix}
-Gratia OSG accounting system probe for available space in dCache.
-Contributed by Greg Sharp and the dCache project.
-
-%files dCache-storage%{?maybe_itb_suffix}
-%defattr(-,root,root,-)
-%{default_prefix}/probe/dCache-storage/README
-%{default_prefix}/probe/dCache-storage/dCache-storage_meter.py
-%{default_prefix}/probe/dCache-storage/dCache-storage_meter.cron.sh
-%config(noreplace) %{default_prefix}/probe/dCache-storage/ProbeConfig
-
-%post dCache-storage%{?maybe_itb_suffix}
-# /usr -> "${RPM_INSTALL_PREFIX0}"
-# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
-
-%if %{itb}
-  %global osg_collector %{default_osg_collector}
-  %global fnal_collector %{default_fnal_collector}
-%else
-  %global osg_collector gratia-osg-transfer.opensciencegrid.org
-  %global fnal_collector gratia-fermi-transfer.fnal.gov
-%endif
-%global collector_port %{default_collector_port}
-%configure_probeconfig_pre -d dCache-storage -m dcache-storage -M 600
-(m&\bVDTSetupFile\b& or m&\bUserVOMapFile\b&) and next; # Skip, not needed
-m&^/>& and print <<EOF;
-    DBHostName="localhost"
-    DBLoginName="srmdcache"
-    DBPassword="srmdcache"
-    AdminSvrPort="22223"
-    AdminSvrLogin="admin"
-    AdminSvrPassword="ADMIN_SVR_PASSWORD"
-    DCacheServerHost="POSTGRES_HOST"
-    DcacheLogLevel="warn"
-EOF
-m&^\s*GridftpLogDir\s*=& and next;
-%configure_probeconfig_post
-
-perl -wapi.bak -e 's&^python &%{pexec} &g' \
-"${RPM_INSTALL_PREFIX1}"/probe/dCache-storage/dCache-storage_meter.cron.sh && \
-%{__rm} -f "${RPM_INSTALL_PREFIX1}/probe/dCache-storage/dCache-storage_meter.cron.sh.bak"
-
-%max_pending_files_check dCache-storage
-
+#%package dCache-storage%{?maybe_itb_suffix}
+#Summary: Gratia OSG accounting system probe for dCache storage.
+#Group: Application/System
+#Requires: %{name}-common >= 1.04.4e
+#Requires: %{name}-extra-libs
+#Requires: %{name}-extra-libs-arch-spec
+#License: See LICENSE.
+#%{?config_itb:Obsoletes: %{name}-dCache-storage}
+#%{!?config_itb:Obsoletes: %{name}-dCache-storage%{itb_suffix}}
+#
+#%description dCache-storage%{?maybe_itb_suffix}
+#Gratia OSG accounting system probe for available space in dCache.
+#Contributed by Andrei Baranovksi of the 
+#
+#%files dCache-storage%{?maybe_itb_suffix}
+#%defattr(-,root,root,-)
+#%{default_prefix}/probe/dCache-storage/README
+#%{default_prefix}/probe/dCache-storage/dCache-storage_meter.py
+#%{default_prefix}/probe/dCache-storage/dCache-storage_meter.cron.sh
+#%config(noreplace) %{default_prefix}/probe/dCache-storage/ProbeConfig
+#
+#%post dCache-storage%{?maybe_itb_suffix}
+## /usr -> "${RPM_INSTALL_PREFIX0}"
+## %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+#
+#%if %{itb}
+#  %global osg_collector %{default_osg_collector}
+#  %global fnal_collector %{default_fnal_collector}
+#%else
+#  %global osg_collector gratia-osg-transfer.opensciencegrid.org
+#  %global fnal_collector gratia-fermi-transfer.fnal.gov
+#%endif
+#%global collector_port %{default_collector_port}
+#%configure_probeconfig_pre -d dCache-storage -m dcache-storage -M 600
+#(m&\bVDTSetupFile\b& or m&\bUserVOMapFile\b&) and next; # Skip, not needed
+#m&^/>& and print <<EOF;
+#    DBHostName="localhost"
+#    DBLoginName="srmdcache"
+#    DBPassword="srmdcache"
+#    AdminSvrPort="22223"
+#    AdminSvrLogin="admin"
+#    AdminSvrPassword="ADMIN_SVR_PASSWORD"
+#    DCacheServerHost="POSTGRES_HOST"
+#    DcacheLogLevel="warn"
+#EOF
+#m&^\s*GridftpLogDir\s*=& and next;
+#%configure_probeconfig_post
+#
+#perl -wapi.bak -e 's&^python &%{pexec} &g' \
+#"${RPM_INSTALL_PREFIX1}"/probe/dCache-storage/dCache-storage_meter.cron.sh && \
+#%{__rm} -f "${RPM_INSTALL_PREFIX1}/probe/dCache-storage/dCache-storage_meter.cron.sh.bak"
+#
+#%max_pending_files_check dCache-storage
+#
 # Configure crontab entry
-%scrub_root_crontab dCache-storage
-
-(( min = $RANDOM % 60 ))
-%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-dcache-storage.cron <<EOF
-$min * * * * root \
-"${RPM_INSTALL_PREFIX1}/probe/dCache-storage/dCache-storage_meter.cron.sh"
-EOF
-
+#%scrub_root_crontab dCache-storage
+#
+#(( min = $RANDOM % 60 ))
+#%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-dcache-storage.cron <<EOF
+#$min * * * * root \
+#"${RPM_INSTALL_PREFIX1}/probe/dCache-storage/dCache-storage_meter.cron.sh"
+#EOF
+#
 # End of dCache-storage post
-
-%preun dCache-storage%{?maybe_itb_suffix}
-# Only execute this if we're uninstalling the last package of this name
-if [ $1 -eq 0 ]; then
-  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-dcache-storage.cron
-fi
-#   End of dCache-storage preun
-# End of dCache-storage section
-
+#
+#%preun dCache-storage%{?maybe_itb_suffix}
+## Only execute this if we're uninstalling the last package of this name
+#if [ $1 -eq 0 ]; then
+#  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-dcache-storage.cron
+#fi
+##   End of dCache-storage preun
+## End of dCache-storage section
+#
 %endif # dCache
 
 %package gridftp-transfer%{?maybe_itb_suffix}
@@ -1249,6 +1247,16 @@ fi
 %endif # noarch
 
 %changelog
+* Wed Dec  2 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.12-1
+- Improvements to SGE probe for incomplete log lines.
+- Condor probe detects and clean ups extra ClassAd file produced for WN BOINC probe. 
+- Deal with extra-content X509USERPROXYSUBJECT if presented.
+- Glexec probe ResourceType changed to BatchPilot.
+- Quarantine bad XML files. Clean up regularly.
+- Check for and deal with POST too large errors.
+- Better handling of large backlogs.
+- "Extraordinary" cleanup to handle disk space crunch.
+
 * Wed Oct 21 2009 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.7a-1
 - Correct indentation of loop in DCacheBillingAggregator..
 
