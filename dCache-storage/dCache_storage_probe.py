@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import re
 import sys
@@ -16,10 +18,15 @@ if 'JAVA_HOME' not in os.environ:
 os.environ['CLASSPATH'] = GratiaConnector.gratia_path+"/../../common/lib/xalan.jar"
 
 def configure():
-    usage="usage: %prog [-c|--config=] <probe storage config file location>"
-    parser = optparse.OptionParser(usage)
+    usage="usage: %prog [-c|--config=] <probe storage config file location>\nProbe config must contain InfoProviderUrl attribute in the dCache section.\nIt may also contain ReportPoolUsage attribute. If set to false , probe will not report pool statistics"
+    parser = optparse.OptionParser(usage=usage)
     parser.add_option("-c", "--config", dest="config", help="Config file to use." )
     options, args = parser.parse_args()
+
+    if ( len(sys.argv) < 2 ):
+      parser.print_help()
+      sys.exit(0)
+
     config = options.config
     if not os.path.exists(config):
         raise Exception("Config file %s does not exist." % config)
@@ -62,13 +69,27 @@ def main():
 
     dCacheUrl = cp.get('dCache', 'InfoProviderUrl')
 
+    poolsUsage = None
+    try:
+      poolsUsage = cp.get('dCache', 'ReportPoolUsage')
+    except:
+      pass
+
     if ( dCacheUrl == None ):
        raise Exception("Config file does not contain dCacheInfoUrl attribute")
+  
+    ynMap = { 'no' : 1 , 'false' : 1 , 'n':1 , '0' : 1 }
+    noPoolsArg = ""
+ 
+    if ( poolsUsage != None and ynMap.has_key(poolsUsage.lower())):
+       noPoolsArg = "-PARAM nopools 1"
 
     import time
     timeNow = int(time.time())
 
-    cmd = "java  org.apache.xalan.xslt.Process -PARAM now %d -PARAM SE %s -XSL %s/../dCache-storage/create_se_record.xsl -IN %s " % ( timeNow, get_se(cp) ,GratiaConnector.gratia_path, dCacheUrl )
+    cmd = "java  org.apache.xalan.xslt.Process %s -PARAM now %d -PARAM SE %s -XSL %s/../dCache-storage/create_se_record.xsl -IN %s " % ( noPoolsArg, timeNow, get_se(cp) ,GratiaConnector.gratia_path, dCacheUrl )
+
+    print cmd
 
     fd = os.popen(cmd)
 

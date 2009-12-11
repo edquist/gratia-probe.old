@@ -4,6 +4,7 @@
 
 <xsl:param name="SE"/>
 <xsl:param name="now" />
+<xsl:param name="nopools"/>
 
 <xsl:key name="resDescr" match="dc:reservation" use="dc:metric[ @name = 'description']"/>
 
@@ -41,6 +42,7 @@
        <Timestamp type="numeric" ><xsl:value-of select="$now"/></Timestamp>
     </StorageElementRecord.StorageElementRecord>
 
+<xsl:if test="not($nopools)">
 <xsl:for-each select="dc:pools/dc:pool">
 
     <xsl:variable name="uniqId" select="concat($SE,':Pool:',@name)"/>
@@ -78,6 +80,8 @@
     </xsl:if>
 
 </xsl:for-each>
+</xsl:if>
+
 <xsl:for-each select="dc:linkgroups/dc:linkgroup">
 
   <xsl:variable name="name" select="dc:metric[ @name = 'name']"/>
