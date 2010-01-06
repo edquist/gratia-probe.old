@@ -15,7 +15,7 @@ import XmlBuilder
 if 'JAVA_HOME' not in os.environ:
     os.environ['JAVA_HOME'] = '/usr/java/default'
 
-os.environ['CLASSPATH'] = GratiaConnector.gratia_path+"/../../common/lib/xalan.jar"
+os.environ['CLASSPATH'] = GratiaConnector.gratia_path+"/../common/jlib/xalan.jar"
 
 def configure():
     usage="usage: %prog [-c|--config=] <probe storage config file location>\nProbe config must contain InfoProviderUrl attribute in the dCache section.\nIt may also contain ReportPoolUsage attribute. If set to false , probe will not report pool statistics"
