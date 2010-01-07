@@ -889,11 +889,14 @@ def __connect():
                 DebugPrint(4, "DEBUG: Connect")
                 __connection.connect()
                 DebugPrint(4, "DEBUG: Connect: OK")
+            except socket.error, e:
+                __connectionError = True
+                raise
             except Exception, e:
+                __connectionError = True
                 DebugPrint(4, "DEBUG: Connect: FAILED")
                 DebugPrint(0, "Error: While trying to connect to HTTP, caught exception " + str(e))
                 DebugPrintTraceback()
-                __connectionError = True
                 return __connected
             DebugPrint(1,"Connection via HTTP to: " + Config.get_SOAPHost())
             #print "Using POST protocol"
@@ -931,6 +934,9 @@ def __connect():
                 DebugPrint(4, "DEBUG: Connect")
                 __connection.connect()
                 DebugPrint(4, "DEBUG: Connect: OK")
+            except socket.error, e:
+                __connectionError = True
+                raise
             except Exception, e:
                 DebugPrint(4, "DEBUG: Connect: FAILED")
                 DebugPrint(0, "Error: While trying to connect to HTTPS, caught exception " + str(e))
@@ -1104,6 +1110,13 @@ def __sendUsageXML(meterId, recordXml, messageType = "URLEncodedUpdate"):
 
     except SystemExit:
         raise
+    except socket.error, e:
+        if (e.args[0] == 111):
+            DebugPrint(0, 'Connection refused while attempting to send xml to web service')
+        else:
+            DebugPrint(0,'Failed to send xml to web service due to an error of type "', sys.exc_info()[0], '": ', sys.exc_info()[1])
+            DebugPrintTraceback(1)
+        response = Response(Response.Failed, r'Server unable to receive data: save for reprocessing');
     except httplib.BadStatusLine, e:
         DebugPrint(0, 'Received BadStatusLine exception:', e.args)
         __connectionError = True
@@ -1159,6 +1172,12 @@ def SendStatus(meterId):
             response = Response(Response.AutoSet, responseString)
     except SystemExit:
         raise
+    except socket.error, e:
+        if (e.args[0] == 111):
+            DebugPrint(0, 'Connection refused while attempting to send xml to web service')
+        else:
+            DebugPrint(0,'Failed to send xml to web service due to an error of type "', sys.exc_info()[0], '": ', sys.exc_info()[1])
+            DebugPrintTraceback(1)
     except:
         DebugPrint(0,'Failed to send xml to web service due to an error of type "', sys.exc_info()[0], '": ', sys.exc_info()[1])
         DebugPrintTraceback(1)
@@ -3643,17 +3662,21 @@ def safeParseXML(xmlString):
 
 __UserVODictionary = { }
 __voiToVOcDictionary = { }
+__dictionaryErrorStatus = False
 
 def __InitializeDictionary():
     global __UserVODictionary
     global __voiToVOcDictionary
+    global __dictionaryErrorStatus
+    if __dictionaryErrorStatus: return None
     mapfile = Config.get_UserVOMapFile()
     if mapfile == None:
         return None
     __voi = []
     __VOc = []
-    try:
-        for line in fileinput.input([mapfile]):
+    DebugPrint(4, "DEBUG: Initializing (voi, VOc) lookup table")
+    for line in fileinput.input([mapfile]):
+        try:
             mapMatch = re.match(r'#(voi|VOc)\s', line)
             if mapMatch:
                 # Translation line: fill translation tables
@@ -3663,14 +3686,26 @@ def __InitializeDictionary():
             if mapMatch:
                 if (not len(__voiToVOcDictionary)) and \
                        len(__voi) and len(__VOc):
-                    for index in xrange(0, len(__voi) - 1):
-                        __voiToVOcDictionary[__voi[index]] = __VOc[index]
+                    try:
+                        for index in xrange(0, len(__voi) - 1):
+                            __voiToVOcDictionary[__voi[index]] = __VOc[index]
+                            if __voiToVOcDictionary[__voi[index]] == None or \
+                                   __voiToVOcDictionary[__voi[index]] == '':
+                                DebugPrint(0, "WARNING: no VOc match for voi \"" + __voi[index] + "\": not entering in (voi, VOc) table.")
+                                del __voiToVOcDictionary[__voi[index]]
+                    except IndexError, i:
+                        DebugPrint(0, "WARNING: VOc line does not have at least as many entries as voi line in " + mapfile + ": truncating")
                 __UserVODictionary[mapMatch.group('User')] = { "VOName" : mapMatch.group('voi'),
                                                                "ReportableVOName" : __voiToVOcDictionary[mapMatch.group('voi')] }
-    except IOError, c:
-        DebugPrint(0,"IO error exception initializing osg-user-vo-map dictionary" + str(c))
-        DebugPrintTraceback()
-        return None
+        except KeyError, e:
+            DebugPrint(0, "WARNING: voi \"" + str(e.args[0]) + "\" listed for user \"" + mapMatch.group('User') + "\" not found in (voi, VOc) table")
+        except IOError, e:
+            DebugPrint(0, "IO error exception initializing osg-user-vo-map dictionary " + str(e))
+            DebugPrintTraceback()
+            __dictionaryErrorStatus = True
+        except Exception, e:
+            DebugPrint(0, "Unexpected exception initializing osg-user-vo-map dictionary " + str(e))
+            __dictionaryErrorStatus = True
 
 def VOc(voi):
     if (len(__UserVODictionary) == 0):
