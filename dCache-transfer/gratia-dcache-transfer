@@ -1,0 +1,110 @@
+#!/bin/sh
+#
+# chkconfig: 2345 99 1
+# description: the gratia-dcache-transfer probe collects dCache accounting information.
+
+# To allow python's logging facility to survive in a restricted
+# environment (eg with "service gratia-dcache-transfer start").
+if [ -z "$HOME" ]; then
+  HOME='/'; export HOME
+fi
+
+PROBE_DIR=/opt/d-cache/gratia-dcache-1.17
+PROBE_CONFIG=$PROBE_DIR/ProbeConfig
+
+# See if the probe is installed.
+[ -d $PROBE_DIR ] || exit 0
+# Make sure there is a config file. If not, assume it is inactive.
+[ -e $PROBE_CONFIG ] || exit 1
+
+# Get the name of the stop file
+STOPLINE=`grep StopFileName $PROBE_CONFIG`
+if [ $? -ne 0 ]
+then
+    echo "gratia-dcache-transfer: can't find stopfile name in $PROBE_CONFIG"
+    exit 1
+fi
+STOPFILE=`echo $STOPLINE | sed -e 's/StopFileName="//' -e 's/".*$//'`
+STOPFILE=$PROBE_DIR/$STOPFILE
+
+isRunning()
+{
+    ps -ef | grep "python dCacheBillingAggregator" | grep -Evq grep
+}
+
+
+start()
+{
+    echo -n "gratia-dcache-transfer: "
+    if [ -e $STOPFILE ]
+    then
+    	echo "The stopfile is present. Please remove it (from $STOPFILE) before trying to start"
+	exit 1
+    fi
+    if isRunning
+    then
+        echo "is already running."
+    else
+	cd $PROBE_DIR
+	nohup python dCacheBillingAggregator.py &
+	echo "success"
+    fi
+}
+
+
+stop()
+{
+    echo -n "gratia-dcache-transfer: "
+    if isRunning
+    then
+	cd $PROBE_DIR # redundant, but it makes sure it exists/is mounted.
+	> $STOPFILE
+	echo -n "is stopping"
+	while isRunning
+	do
+	    sleep 5
+	    echo -n "."
+	done
+	echo
+	rm $STOPFILE
+    else
+	echo "doesn't appear to be running"
+    fi
+
+}
+
+
+dostatus()
+{
+    echo -n "gratia-dcache-transfer: "
+    if isRunning
+    then
+	if [ -e $STOPFILE ]
+	then
+	    echo "is stopping"
+	else
+	    echo "appears to be running"
+	fi
+    else
+    	echo "doesn't appear to be running"
+    fi
+}
+
+
+# See how we were called.
+case "$1" in
+  start)
+        start
+        ;;
+  stop)
+        stop
+        ;;
+  status)
+        dostatus
+        ;;
+  *)
+        echo $"Usage: $0 {start|stop|status}"
+        exit 1
+esac
+
+exit 0

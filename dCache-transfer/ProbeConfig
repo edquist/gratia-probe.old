@@ -1,0 +1,47 @@
+<ProbeConfiguration 
+    UseSSL="0" 
+
+    UseGratiaCertificates="0"
+
+    SSLHost="gratia-osg.fnal.gov:8443" 
+    SSLCollectorService="/gratia-servlets/rmi"
+    SSLRegistrationHost="gratia-osg.fnal.gov:8880"
+    SSLRegistrationService="/gratia-security/security"
+
+    GratiaCertificateFile="gratia.hostcert.pem"
+    GratiaKeyFile="gratia.hostkey.pem"
+
+    SOAPHost="gratia-osg.fnal.gov:8881" 
+    CollectorService="/gratia-servlets/rmi" 
+    UseSoapProtocol="0"
+    
+    MeterName="dCache:BILLING_HOST" 
+    SiteName="BILLING_HOST"
+    LogLevel="1"
+    DebugLevel="0" 
+    GratiaExtension="gratia.xml"
+    CertificateFile="/etc/grid-security/hostcert.pem"
+    KeyFile="/etc/grid-security/hostkey.pem"
+
+    VDTSetupFile="MAGIC_VDT_LOCATION/setup.sh"
+
+    MaxPendingFiles="1000"
+    DataFolder="data"
+    WorkingFolder="tmp"
+    LogFolder="logs"
+    LogRotate="31"
+    UseSyslog="0"
+
+    UpdateFrequency="120"
+    DBHostName="localhost"
+    DBLoginName="srmdcache"
+    DBPassword="srmdcache"
+    StopFileName="stopGratiaFeed"
+    DCacheServerHost="BILLING_HOST"
+    EmailServerHost = "localhost"
+    EmailFromAddress = "dCacheProbe@localhost"
+    EmailToList = ""
+    AggrLogLevel="warn"
+    OnlySendInterSiteTransfers="true"
+    MaxBillingHistoryDays="30"
+/>
