@@ -129,6 +129,7 @@ fi
 
 build/package-probe "${version}" common condor pbs-lsf psacct sge glexec \
                                  metric services hadoop-storage condor-events \
+                                 dCache-transfer gridftp-transfer \
                                  dCache-storage xrootd-transfer
 status=$?
 
