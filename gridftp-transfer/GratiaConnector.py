@@ -35,7 +35,7 @@ class GratiaConnector:
 
           # If we got a non-fatal error, slow down since the server
           # might be overloaded.
-          if response != 'OK':
+          if response[0:2] != 'OK':
                 self._log.error( 'got response ' + response )
                 raise TransientFailure()
 
