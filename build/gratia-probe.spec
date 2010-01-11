@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.13b
+Version: 1.06.13c
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1239,6 +1239,9 @@ fi
 %endif # noarch
 
 %changelog
+* Mon Jan 11 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.13c-1
+- Fix logic problem with transfer record loop.
+
 * Fri Jan  8 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.13b-1
 - Fix incorrect error response detection in gridftp-transfer probe.
 

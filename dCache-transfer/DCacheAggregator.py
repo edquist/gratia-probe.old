@@ -37,8 +37,8 @@ class DCacheAggregator:
     """
 
     _connection = None
-    # Don't select more than 1000 records at a time.
-    _maxSelect = 1000
+    # Don't select more than 10000 records at a time.
+    _maxSelect = 10000
     
     # Do not send in records older than 30 days
     _maxAge = 30
@@ -112,10 +112,11 @@ class DCacheAggregator:
 
         # For each record we found, try to send it to Gratia.
         numDone = 0
-        start = checkpt.lastDateStamp()
+        initDate = checkpt.lastDateStamp()
+        start = initDate
         now = datetime.datetime.now()
         
-        while(numDone == 0 and start<now) :
+        while(numDone < self._maxSelect and start<now) :
 
             datestr = str( start )
             start = start + datetime.timedelta(hours=12) # For next iteration
@@ -178,6 +179,12 @@ class DCacheAggregator:
                     self._log.warning("Unable to make a record out of the following SQL row: %s." % str(row))
                     numDone += 1 # Increment numDone, otherwise we will exit early.
                     continue
+        if numDone == self._maxSelect and initDate == start:
+            self._log.warning("Encountered " + str(self._maxSelect) + \
+                              " entries with the same date; increasing query limit to " + \
+                              str(self._maxSelect * 2))
+            self._maxSelect = self._maxSelect * 2
+
         self._log.debug( '_sendToGratia: numDone = %d' % numDone )
         return numDone
 
@@ -265,7 +272,14 @@ class DCacheAggregator:
         # _sendToGratia will embed the latest datestamp and transaction value
         # from the checkpoint where %s is embedded in the command.
         self._log.debug( "sendBillingInfoRecordsToGratia" )
-        selectCMD = """
+
+        # Store original value for later restoration
+        initMaxSelect = self._maxSelect;
+        maxSelect = 0;
+        while (self._maxSelect != maxSelect):
+            # self._maxSelect could be increased as necessary by __sendToGratia()
+            maxSelect = self._maxSelect
+            selectCMD = """
 SELECT
  b.datestamp AS datestamp,
  b.transaction AS transaction,
@@ -290,14 +304,17 @@ FROM
  LIMIT %i
  ) as b
 LEFT JOIN doorinfo d ON b.initiator = d.transaction;
-        """ \
+""" \
             % (datetime.datetime.now()- datetime.timedelta(self._maxAge, 0),
-               self._maxSelect)
+               maxSelect)
 
-        while self._sendToGratia(
-               'billinginfo', self._BIcheckpoint, selectCMD,
-               self._convertBillingInfoToGratiaUsageRecord ) == self._maxSelect:
-            self._log.debug( 'sendBillingInfoRecordsToGratia: looping' )
+            while self._sendToGratia(
+                'billinginfo', self._BIcheckpoint, selectCMD,
+                self._convertBillingInfoToGratiaUsageRecord ) == self._maxSelect:
+                self._log.debug( 'sendBillingInfoRecordsToGratia: looping' )
+
+        # Reset to original value.
+        self._maxSelect = initMaxSelect
 
 # end class dCacheRecordAggregator
 
