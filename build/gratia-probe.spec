@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.13c
+Version: 1.06.14a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -936,7 +936,7 @@ perl -wapi.bak -e 's&^python &%{pexec} &g' \
 
 %max_pending_files_check dCache-storage
 
- Configure crontab entry
+# Configure crontab entry
 %scrub_root_crontab dCache-storage
 
 (( min = $RANDOM % 60 ))
@@ -945,7 +945,7 @@ $min * * * * root \
 "${RPM_INSTALL_PREFIX1}/probe/dCache-storage/dCache-storage_meter.cron.sh"
 EOF
 
- End of dCache-storage post
+# End of dCache-storage post
 
 %preun dCache-storage%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
@@ -1239,6 +1239,9 @@ fi
 %endif # noarch
 
 %changelog
+* Tue Jan 19 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.14a-1
+- Fix bad comments after block restoration.
+
 * Mon Jan 11 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.13c-1
 - Fix logic problem with transfer record loop.
 
