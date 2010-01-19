@@ -26,13 +26,16 @@
     Title3="Tuning parameter"
 
     BundleSize="20"
+       Comments28="Number of records to be sent per envelope. Consider setting higher (up to 200)."
     MaxPendingFiles="100000"
     MaxStagedArchives="400"
        Comments30="The maximum of backload files is MaxPendingFiles * MaxStagedArchives per probe"
     UseSyslog="0"
 
     LogLevel="2"
+       Comments30a="Controls debug messages printed to log file."
     DebugLevel="0" 
+       Comments30b="Controls debug messages printed to screen."
     LogRotate="31"
     DataFileExpiration="31"
        Comments31="The number of days quarantined and unusable data files are kept"

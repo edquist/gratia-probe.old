@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.14a
+Version: 1.06.14b
 Release: 1
 License: GPL
 Group: Applications/System
@@ -843,6 +843,7 @@ m&^/>& and print <<EOF;
     EmailToList=""
     AggrLogLevel="warn"
     OnlySendInterSiteTransfers="true"
+    MaxBillingAgeDays="31"
 EOF
 m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
@@ -1239,6 +1240,10 @@ fi
 %endif # noarch
 
 %changelog
+* Tue Jan 19 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.14b-1
+- Config template documentation.
+- Add MaxBillingAgeDays to config file for dCache-transfer.
+
 * Tue Jan 19 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.14a-1
 - Fix bad comments after block restoration.
 
