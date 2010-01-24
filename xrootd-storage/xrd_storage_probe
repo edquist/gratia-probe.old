@@ -243,13 +243,15 @@ class GratiaHandler(object):
 
     def process(self):
         try:
+            log.debug("Will send new Gratia data in %i seconds." % SLEEP_TIME)
             time.sleep(SLEEP_TIME)
         except KeyboardInterrupt, SystemExit:
             raise
         except Exception, e:
             log.exception(e)
         try:
-            self.summary
+            log.debug("Creating a new Gratia report.")
+            self.summary()
         except KeyboardInterrupt, SystemExit:
             raise
         except Exception, e:
@@ -502,6 +504,8 @@ def parse_opts():
         "stdout.", default=False, action="store_true", dest="verbose")
     parser.add_option("--print_only", help="Only print data recieved; do not" \
         " send to Gratia.", dest="print_only", action="store_true")
+    parser.add_option("-r", "--report_period", help="Time in minutes between" \
+        " reports to Gratia.", dest="report_period", type="int")
 
     opts, args = parser.parse_args()
 
@@ -514,6 +518,11 @@ def parse_opts():
         opts.logfile = os.path.expanduser(opts.logfile)
     if opts.gratia_config:
         opts.gratia_config = os.path.expanduser(opts.gratia_config)
+
+    # Adjust sleep time as necessary
+    if opts.report_period:
+        global SLEEP_TIME
+        SLEEP_TIME = opts.report_period*60
 
     # Bootstrap Gratia home
     gratia_home = None
