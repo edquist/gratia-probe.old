@@ -26,6 +26,7 @@ SLEEP_TIME = 30*60
 XRD_NAME = 'Xrootd'
 XRD_AREA_NAME = '%s Area Tokens' % XRD_NAME
 XRD_STATUS = "Production"
+XRD_EXPIRE_MINUTES = 60 # Remove hosts that haven't reported in this many mins.
 
 class XrootdSummaryParser(ContentHandler):
 
@@ -136,6 +137,7 @@ class HostInfo(object):
         self.id_to_area = {}
         self.area_info = {}
         self.path_info = {}
+        self.timestamp = time.time()
 
     def add_path(self, id):
         self.path_info[id] = {}
@@ -169,6 +171,12 @@ class HostInfo(object):
     def get_hostname(self):
         return self.hostname
 
+    def update_time(self):
+        self.timestamp = time.time()
+
+    def get_timestamp(self):
+        return self.timestamp
+
     def __str__(self):
         out  = '\tHost: %s\n' % self.hostname
         out += '\t\tPaths:\n'
@@ -183,16 +191,41 @@ class HostInfo(object):
         return out
 
 def get_se():
-    config_se = Gratia.Config.getConfigAttribute("SEName")
+    config_se = Gratia.Config.getConfigAttribute("SiteName")
     if not config_se:
-        raise Exception("SEName attribute not found in ProbeConfig")
+        raise Exception("SiteName attribute not found in ProbeConfig")
     return config_se
 
+def get_vdt_version():
+    vdt_setup_file = Gratia.Config.getConfigAttribute("VDTSetupFile")
+    if vdt_setup_file:
+        prefix = "source %s; " % vdt_setup_file
+    else:
+        prefix = ""
+        if 'VDT_LOCATION' not in os.environ:
+            raise Exception("Unable to determine Xrootd version from VDT.")
+    fd = os.popen(prefix + "vdt-version")
+    output = fd.read()
+    if fd.close():
+        raise Exception("Unable to successfully query vdt-version for Xrootd "
+            "version information.")
+    xrd_re = re.compile("(Xrootd\s.*?)\s")
+    for line in output.splitlines():
+        m = xrd_re.match(line)
+        if m:
+            return m.groups()[0]
+
+version_cache = None
 def get_version():
+    global version_cache
+    if version_cache != None:
+        return version_cache
     config_version = Gratia.Config.getConfigAttribute("XrootdVersion")
     if not config_version:
-        raise Exception("XrootdVersion attribute not found in ProbeConfig")
-    return config_version
+        config_version = get_vdt_version()
+        #raise Exception("XrootdVersion attribute not found in ProbeConfig")
+    version_cache = config_version
+    return version_cache
 
 class GratiaHandler(object):
 
@@ -246,6 +279,7 @@ class GratiaHandler(object):
                if not self.cur_host_info:
                    self.cur_host_info = HostInfo(val)
                    self.host_info[val] = self.cur_host_info
+               self.cur_host_info.update_time()
         if not self.cur_host:
             return
 
@@ -277,6 +311,15 @@ class GratiaHandler(object):
         timestamp = time.time()
 
         print "%s Host info:" % XRD_NAME
+        to_delete = []
+        for host, host_info in self.host_info.items():
+            if timestamp - host_info.get_timestamp() > XRD_EXPIRE_MINUTES*60:
+                to_delete.append(host)
+        for host in to_delete:
+            del self.host_info[host]
+            print "** Deleted host %s that stopped reporting." % host
+
+        # Print out host info
         for host, host_info in self.host_info.items():
             print "**", host
             print str(host_info)
@@ -528,7 +571,7 @@ def parse_opts():
 
     # Initialize Gratia
     gratia_config = None
-    if opts.gratia_config and os.path.exists(gratia_config):
+    if opts.gratia_config and os.path.exists(opts.gratia_config):
         gratia_config = opts.gratia_config
     elif probe_home:
         tmp = os.path.join(probe_home, "ProbeConfig")
