@@ -1,0 +1,48 @@
+#!/bin/sh
+#
+# Startup script for xrd_storage_probe
+#
+# chkconfig: 345 85 15     - start or stop process definition within the boot process
+# description: Gratia storage accounting for an Xrootd SE
+# processname: xrd_storage_probe
+# pidfile: /var/run/xrd_storage_probe.pid
+
+# Source function library.      This creates the operating environment for the process to be started
+. /etc/rc.d/init.d/functions
+
+# Some Gratia-specific additions
+# The below line is properly set for a Pacman/VDT install.
+VDT_LOCATION=MAGIC_VDT_LOCATION
+# Fallback to default VDT location if this was an RPM-based install
+[ -d $VDT_LOCATION ] || VDT_LOCATION=/opt/vdt
+
+# The following adds the xrootd storage probe to the PATH.
+PATH=$PATH:$VDT_LOCATION/gratia/probe/xrootd-storage
+
+case "$1" in
+  start)
+        echo -n "Starting  process-name: "
+        daemon  xrd_storage_probe
+        echo
+        touch /var/lock/subsys/xrd_storage_probe
+        ;;
+  stop)
+        echo -n "Shutting down process-name: "
+        killproc xrd_storage_probe
+        echo
+        rm -f /var/lock/subsys/xrd_storage_probe
+        ;;
+  status)
+        status xrd_storage_probe
+        ;;
+  restart)
+        $0 stop
+        $0 start
+        ;;
+  *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+esac
+
+exit 0
+
