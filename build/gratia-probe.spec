@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.14b
+Version: 1.06.14c
 Release: 1
 License: GPL
 Group: Applications/System
@@ -87,6 +87,7 @@ Source15: %{name}-services-%{version}.tar.bz2
 Source16: %{name}-hadoop-storage-%{version}.tar.bz2
 Source17: %{name}-condor-events-%{version}.tar.bz2
 Source18: %{name}-xrootd-transfer-%{version}.tar.bz2
+Source19: %{name}-xrootd-storage-%{version}.tar.bz2
 Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
 Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
 Patch2: urCollector-2006-06-13-createTime-timezone.patch
@@ -151,6 +152,7 @@ cd urCollector-%{urCollector_version}
 %setup -q -D -T -a 16
 %setup -q -D -T -a 17
 %setup -q -D -T -a 18
+%setup -q -D -T -a 19
 
 %build
 %ifnarch noarch
@@ -174,7 +176,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
 
 %ifarch noarch
   # Obtain files
-  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer,services,hadoop-storage,condor-events,xrootd-transfer} \
+  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer,services,hadoop-storage,condor-events,xrootd-transfer,xrootd-storage} \
               "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
@@ -191,6 +193,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/hadoop-storage/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/condor-events/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-transfer/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-storage/ProbeConfig" \
       ; do
     %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
@@ -200,6 +203,11 @@ cd SQLAlchemy-%{sqlalchemy_version}
   %{__install} -d "${RPM_BUILD_ROOT}/etc/rc.d/init.d/"
   %{__install} -m 755 "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/gratia-dcache-transfer" "${RPM_BUILD_ROOT}/etc/rc.d/init.d/gratia-dcache-transfer"
   %{__rm} -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/dCache-transfer/gratia-dcache-transfer"
+
+  # Xrootd-storage init script
+  %{__install} -d "${RPM_BUILD_ROOT}/etc/rc.d/init.d/"
+  %{__install} -m 755 "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-storage/gratia-xrootd-storage" "${RPM_BUILD_ROOT}/etc/rc.d/init.d/gratia-xrootd-storage"
+  %{__rm} -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-storage/gratia-xrootd-storage"
 
   # YUM repository install
   install -d "${RPM_BUILD_ROOT}/etc/yum.repos.d"
@@ -1135,7 +1143,7 @@ Requires: %{name}-common >= 1.04.4e
 %if %{?python:0}%{!?python:1}
 Requires: python >= 2.3
 %endif
-Requires: %{name}-common%{?maybe_itb_suffix}
+Requires: %{name}-common
 License: See LICENSE.
 %{?config_itb:Obsoletes: %{name}-condor-events}
 %{!?config_itb:Obsoletes: %{name}-condor-events%{itb_suffix}}
@@ -1187,7 +1195,7 @@ Requires: %{name}-common >= 1.04.4e
 %if %{?python:0}%{!?python:1}
 Requires: python >= 2.3
 %endif
-Requires: %{name}-common%{?maybe_itb_suffix}
+Requires: %{name}-common
 License: See LICENSE.
 %{?config_itb:Obsoletes: %{name}-xrootd-transfer}
 %{!?config_itb:Obsoletes: %{name}-xrootd-transfer%{itb_suffix}}
@@ -1237,9 +1245,57 @@ fi
 #   End of xrootd-transfer preun
 # End of xrootd-transfer section
 
+# Start of xrootd-storage section
+%package xrootd-storage%{?maybe_itb_suffix}
+Summary: Gratia probe to monitor Xrootd storage usage.
+Group: Application/System
+Requires: %{name}-common >= 1.04.4e
+%if %{?python:0}%{!?python:1}
+Requires: python >= 2.3
+%endif
+Requires: %{name}-common
+License: See LICENSE.
+%{?config_itb:Obsoletes: %{name}-xrootd-storage}
+%{!?config_itb:Obsoletes: %{name}-xrootd-storage%{itb_suffix}}
+
+%description xrootd-storage%{?maybe_itb_suffix}
+Xrootd Transfer Probe for Gratia OSG accounting system.
+Contributed by Brian Bockelman at University of Nebraska Lincoln.
+Contributed as effort from OSG-Storage.
+
+%files xrootd-storage%{?maybe_itb_suffix}
+%defattr(-,root,root,-)
+/etc/rc.d/init.d/gratia-xrootd-storage
+%{default_prefix}/probe/xrootd-storage/xrd_storage_probe
+%config(noreplace) %{default_prefix}/probe/xrootd-storage/ProbeConfig
+
+%post xrootd-storage%{?maybe_itb_suffix}
+# /usr -> "${RPM_INSTALL_PREFIX0}"
+# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
+%if %{itb}
+  %global osg_collector %{default_osg_collector}
+  %global fnal_collector %{default_fnal_collector}
+%else
+  %global osg_collector gratia-osg-transfer.opensciencegrid.org
+  %global fnal_collector gratia-fermi-transfer.fnal.gov
+%endif
+%global collector_port %{default_collector_port}
+%configure_probeconfig_pre -d xrootd-storage -m xrootd-storage -M 600
+%configure_probeconfig_post
+
+%max_pending_files_check xrootd-storage
+
+# End of xrootd-storage post
+
 %endif # noarch
 
 %changelog
+* Mon Jan 25 2010 Brian Bockelman <bbockelm@cse.unl.edu> - 1.06.14c-1
+- Added new xrootd-storage probe
+- Corrected dependency on non-existent gratia-probe-common-itb to
+  gratia-probe-common for condor-events and xrootd-transfer
+
 * Tue Jan 19 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.14b-1
 - Config template documentation.
 - Add MaxBillingAgeDays to config file for dCache-transfer.

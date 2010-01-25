@@ -130,7 +130,7 @@ fi
 build/package-probe "${version}" common condor pbs-lsf psacct sge glexec \
                                  metric services hadoop-storage condor-events \
                                  dCache-transfer gridftp-transfer \
-                                 dCache-storage xrootd-transfer
+                                 dCache-storage xrootd-transfer xrootd-storage
 status=$?
 
 if (( $status == 0 )); then
