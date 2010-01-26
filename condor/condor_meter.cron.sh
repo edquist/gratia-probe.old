@@ -68,14 +68,6 @@ if [ ${NCMeter} -eq 0 ]; then
     fi
   done
   
-  # This is what we expect in a normal Gratia install
-  CondorLog_Dir="${VDT_LOCATION}/gratia/var/data"
-  if [ ! -d ${CondorLog_Dir} ]; then
-    ${Logger} "There is no ${CondorLog_Dir} directory"
-    exit -4
-  fi
-
-  
   pp_dir=$(cd "$Meter_BinDir/../common"; pwd)
   if test -n "$PYTHONPATH" ; then
     if echo "$PYTHONPATH" | grep -e ':$' >/dev/null 2>&1; then
@@ -98,16 +90,29 @@ if [ ${NCMeter} -eq 0 ]; then
     ${pp_dir}/DebugPrint.py -l -1 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
     exit 1
   fi
-    
-  #echo "Begin processing directory ${CondorLog_Dir}"
+
+  # This is what we expect in a normal Gratia install
+  DataFolder=`${pp_dir}/GetProbeConfigAttribute.py DataFolder`
+  if [ ! -d ${DataFolder} ]; then
+    ${Logger} "There is no ${DataFolder} directory (defined as DataFolder in ProbeConfig)."
+    exit -4
+  fi
+
+  WorkingFolder=`${pp_dir}/GetProbeConfigAttribute.py WorkingFolder`
+  if [ ! -d ${WorkingFolder} ]; then
+    ${Logger} "There is no ${WorkingFolder} directory (defined as WorkingFolder in ProbeConfig)."
+    exit -4
+  fi
+
+  #echo "Begin processing directory ${DataFolder}"
   # The '-d' option tells the meter to delete log files after they are
   #    reported to Gratia.
   # The '-s' option gives the location of the state file for globus-condor.log
   ./condor_meter.pl \
     -d \
     -v \
-    -s "${VDT_LOCATION}/gratia/var/tmp/globus-condor-log-state.dat" \
-    ${CondorLog_Dir} | ${pp_dir}/DebugPrint.py -l 1
+    -s "${WorkingFolder}/globus-condor-log-state.dat" \
+    ${DataFolder} | ${pp_dir}/DebugPrint.py -l 1
   ExitCode=$?
   # If the probe ended in error, report this in Syslog and exit
   if [ $ExitCode != 0 ]; then

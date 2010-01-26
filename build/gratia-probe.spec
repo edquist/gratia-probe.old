@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.14c
+Version: 1.06.15a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1291,6 +1291,9 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Tue Jan 26 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.15a-1
+- Fix to condor probe for standalone (non-VDT) operation.
+
 * Mon Jan 25 2010 Brian Bockelman <bbockelm@cse.unl.edu> - 1.06.14c-1
 - Added new xrootd-storage probe
 - Corrected dependency on non-existent gratia-probe-common-itb to
