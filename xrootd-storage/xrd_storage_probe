@@ -154,7 +154,7 @@ def print_handler(key, val):
 
 def udp_server(data_handler, port=3333, bind="0.0.0.0"):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    server_socket.bind((bind, 3333))
+    server_socket.bind((bind, port))
     try:
         buf = 4096
         while 1:
@@ -169,7 +169,7 @@ def test_udp_socket(port=3333, bind="0.0.0.0"):
     Will throw a "Address already in use" exception if it's not usable.
     """
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    server_socket.bind((bind, 3333))
+    server_socket.bind((bind, port))
     server_socket.close()
 
 class XrootdXmlParser(xml.sax.expatreader.ExpatParser):
@@ -553,9 +553,6 @@ class GratiaHandler(object):
             sar.Timestamp(timestamp)
             Gratia.Send(sa)
             Gratia.Send(sar)
-
-    def __del__(self):
-        self.summary()
 
 def parse_opts():
     parser = optparse.OptionParser()
