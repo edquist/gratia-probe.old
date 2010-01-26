@@ -20,6 +20,8 @@ VDT_LOCATION=MAGIC_VDT_LOCATION
 PATH=$PATH:$VDT_LOCATION/gratia/probe/xrootd-storage
 export VDT_LOCATION=$VDT_LOCATION
 
+export HOME=/
+
 case "$1" in
   start)
         echo -n "Starting  xrd_storage_probe: "
@@ -29,7 +31,8 @@ case "$1" in
         ;;
   stop)
         echo -n "Shutting down xrd_storage_probe: "
-        killproc -p $VDT_LOCATION/gratia/var/tmp/xrd_storage_probe.pid xrd_storage_probe
+        killproc -p $VDT_LOCATION/gratia/var/tmp/xrd_storage_probe.pid xrd_storage_probe -INT
+        sleep 1
         echo
         rm -f /var/lock/subsys/xrd_storage_probe
         ;;

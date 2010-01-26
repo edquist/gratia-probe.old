@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2.4
 
 import os
 import re
@@ -131,7 +131,8 @@ def gratia_log_traceback(lvl=0):
     tb = traceback.format_exception(exceptionType, exceptionValue,
         exceptionTraceback)
     tb_str = ''.join(tb)
-    DebugPrint(lvl, "Exit due to exception:\n%s" % tb_str)
+    if DebugPrint: # Do nothing if DebugPrint is not initialized
+        DebugPrint(lvl, "Exit due to exception:\n%s" % tb_str)
 
 invalid_xml_re = re.compile('</statistics toe="\d+">')
 class XrdDataHandler(object):
@@ -154,10 +155,13 @@ def print_handler(key, val):
 def udp_server(data_handler, port=3333, bind="0.0.0.0"):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.bind((bind, 3333))
-    buf = 4096
-    while 1:
-        data, addr = server_socket.recvfrom(buf)
-        data_handler.handle(data)
+    try:
+        buf = 4096
+        while 1:
+            data, addr = server_socket.recvfrom(buf)
+            data_handler.handle(data)
+    finally:
+        server_socket.close()
 
 def test_udp_socket(port=3333, bind="0.0.0.0"):
     """
@@ -307,34 +311,34 @@ class GratiaHandler(object):
         self.host_info = {}
         self.cur_host = None
         self.cur_host_info = None
-        t = threading.Thread(target=self.process)
+        DebugPrint(1, "Will send new Gratia data in %i seconds." % SLEEP_TIME)
+        t = threading.Timer(SLEEP_TIME, self.process)
         t.setDaemon(True)
         t.setName("Gratia Processing Thread")
         self.thread = t
         self.stop = False
         self.stop_exception = None
         t.start()
+        DebugPrint(4, "Finished with the GratiaHandler constructor.")
 
     def process(self):
-        try:
-            DebugPrint(0, "Will send new Gratia data in %i seconds." % SLEEP_TIME)
-            time.sleep(SLEEP_TIME)
-        except KeyboardInterrupt, SystemExit:
-            raise
-        except Exception, e:
-            gratia_log_traceback(lvl=1)
+        DebugPrint(4, "%s-storage probe woke from sleep." % XRD_NAME)
         try:
             DebugPrint(1, "Creating a new Xrootd Gratia report.")
             self.summary()
         except KeyboardInterrupt, SystemExit:
+            gratia_log_traceback(lvl=0)
+            self.stop_exception()
+            self.stop = True
             raise
         except Exception, e:
             gratia_log_traceback(lvl=1)
         try:
-            t = threading.Thread(target=self.process)
+            t = threading.Timer(SLEEP_TIME, self.process)
             t.setDaemon(True)
             t.setName("Gratia Processing Thread")
             self.thread = t
+            DebugPrint(1, "Will send new Gratia data in %i seconds." % SLEEP_TIME)
             t.start()
         except Exception, e:
             gratia_log_traceback(lvl=0)
@@ -681,11 +685,7 @@ def main():
         gratia_handler = GratiaHandler()
         my_handler = gratia_handler.handle
 
-    se = get_se()
-    version = get_version()
-    DebugPrint(1, "Running %s version %s for SE %s." % (XRD_NAME, version, se))
-
-    handler = XrdDataHandler(my_handler)
+    # Do all the daemon-specific tests.
     if not opts.input:
         if opts.daemon:
             # Test the socket first before we daemonize and lose the ability
@@ -696,7 +696,23 @@ def main():
                 "xrd_storage_probe.pid")
             open(pidfile, 'w').close()
             daemonize(pidfile)
-        udp_server(handler, port=opts.port, bind=opts.bind)
+            # Must re-initialize here because we changed processes and lost
+            # the previous thread
+            if not opts.print_only:
+                gratia_handler = GratiaHandler()
+                my_handler = gratia_handler.handle
+
+    se = get_se()
+    version = get_version()
+    DebugPrint(1, "Running %s version %s for SE %s." % (XRD_NAME, version, se))
+
+    handler = XrdDataHandler(my_handler)
+    if not opts.input:
+        try:
+            udp_server(handler, port=opts.port, bind=opts.bind)
+        finally:
+            if not opts.print_only:
+                gratia_handler.summary()
     else:
         input = opts.input
         try:
@@ -704,10 +720,11 @@ def main():
         except Exception, e:
             raise Exception("Could not open input file, %s, for read due to " \
                 "exception %s." % (input, str(e)))
-        file_handler(my_handler, opts.input)
-
-    if not opts.print_only:
-        gratia_handler.summary()
+        try:
+            file_handler(my_handler, opts.input)
+        finally:
+            if not opts.print_only:
+                gratia_handler.summary()
 
 if __name__ == '__main__':
     try:
