@@ -31,7 +31,7 @@ def configure():
 
     for pathElement in sys.path:
        if ( pathElement.find("probe/common") != -1 ):
-           gratia_path = pathElement="../../"
+           gratia_path = pathElement+"/../../"
            break
 
     if ( gratia_path == None ):
