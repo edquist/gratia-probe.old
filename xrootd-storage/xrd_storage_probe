@@ -132,7 +132,7 @@ def gratia_log_traceback(lvl=0):
         exceptionTraceback)
     tb_str = ''.join(tb)
     if DebugPrint: # Do nothing if DebugPrint is not initialized
-        DebugPrint(lvl, "Exit due to exception:\n%s" % tb_str)
+        DebugPrint(lvl, "Encountered exception:\n%s" % tb_str)
 
 invalid_xml_re = re.compile('</statistics toe="\d+">')
 class XrdDataHandler(object):
@@ -615,6 +615,9 @@ def parse_opts():
     logfile = os.path.join(gratia_home, "var", "logs", "xrootd-storage.log")
     if opts.logfile:
         logfile = opts.logfile
+    path, _ = os.path.split(logfile)
+    if path and not os.path.exists(path):
+        os.makedirs(path)
     try:
         fp = open(logfile, 'w')
     except Exception, e:

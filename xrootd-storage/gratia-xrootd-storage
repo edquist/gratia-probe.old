@@ -2,12 +2,12 @@
 #
 # Startup script for xrd_storage_probe
 #
-# chkconfig: 345 85 15     - start or stop process definition within the boot process
+# chkconfig: 345 85 15
 # description: Gratia storage accounting for an Xrootd SE
 # processname: xrd_storage_probe
-# pidfile: /var/run/xrd_storage_probe.pid
+# pidfile: /opt/vdt/gratia/var/tmp/xrd_storage_probe.pid
 
-# Source function library.      This creates the operating environment for the process to be started
+# Source function library.
 . /etc/rc.d/init.d/functions
 
 # Some Gratia-specific additions
