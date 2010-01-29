@@ -1,7 +1,7 @@
 dCache info providers content to Gratia StorageElement and StorageElemenRecord
 map.
 
-Please uncomment and edit GratiaLocation, InfoProviderUrl attributes as set inside
+Please uncomment and edit InfoProviderUrl attribute as set inside
 ProbeConfig file. 
 
 The probe reports two types of record structures: StorageElemenmt and
