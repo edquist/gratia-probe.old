@@ -25,7 +25,7 @@ export HOME=/
 case "$1" in
   start)
         echo -n "Starting xrd_transfer_probe: "
-        daemon --pidfile $VDT_LOCATION/gratia/var/tmp/xrd_transfer_probe.pid xrd_transfer_probe -d -r 5
+        daemon --pidfile $VDT_LOCATION/gratia/var/tmp/xrd_transfer_probe.pid xrd_transfer_probe -d -r 10
         echo
         touch /var/lock/subsys/xrd_transfer_probe
         ;;

@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.15a
+Version: 1.06.15b
 Release: 1
 License: GPL
 Group: Applications/System
@@ -208,6 +208,12 @@ cd SQLAlchemy-%{sqlalchemy_version}
   %{__install} -d "${RPM_BUILD_ROOT}/etc/rc.d/init.d/"
   %{__install} -m 755 "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-storage/gratia-xrootd-storage" "${RPM_BUILD_ROOT}/etc/rc.d/init.d/gratia-xrootd-storage"
   %{__rm} -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-storage/gratia-xrootd-storage"
+
+  # Xrootd-transfer init script
+  %{__install} -d "${RPM_BUILD_ROOT}/etc/rc.d/init.d/"
+  %{__install} -m 755 "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-transfer/gratia-xrootd-transfer" "${RPM_BUILD_ROOT}/etc/rc.d/init.d/gratia-xrootd-transfer"
+  %{__rm} -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-transfer/gratia-xrootd-transfer"
+
 
   # YUM repository install
   install -d "${RPM_BUILD_ROOT}/etc/yum.repos.d"
@@ -1206,6 +1212,8 @@ Contributed by University of Nebraska Lincoln.
 
 %files xrootd-transfer%{?maybe_itb_suffix}
 %defattr(-,root,root,-)
+/etc/rc.d/init.d/gratia-xrootd-transfer
+%{default_prefix}/probe/xrootd-transfer/xrd_transfer_probe
 %{default_prefix}/probe/xrootd-transfer/watchXrootdLogs.py
 %config(noreplace) %{default_prefix}/probe/xrootd-transfer/ProbeConfig
 
@@ -1226,23 +1234,8 @@ Contributed by University of Nebraska Lincoln.
 
 %max_pending_files_check xrootd-transfer
 
-%scrub_root_crontab xrootd-transfer
-
-(( min = $RANDOM % 10 ))
-%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-xrootd-transfer.cron <<EOF
-$min,$(( $min + 10 )),$(( $min + 20 )),$(( $min + 30 )),$(( $min + 40 )),$(( $min + 50 )) * * * * root \
-/usr/bin/python "${RPM_INSTALL_PREFIX1}/probe/xrootd-transfer/watchXrootdLogs.py" -c "${RPM_INSTALL_PREFIX1}/probe/xrootd-transfer/ProbeConfig" 2> /dev/null > /dev/null
-EOF
-
 # End of xrootd-transfer post
 
-
-%preun xrootd-transfer%{?maybe_itb_suffix}
-# Only execute this if we're uninstalling the last package of this name
-if [ $1 -eq 0 ]; then
-  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-xrootd-transfer.cron
-fi
-#   End of xrootd-transfer preun
 # End of xrootd-transfer section
 
 # Start of xrootd-storage section
@@ -1291,6 +1284,10 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Thu Jan 28 2010 Brian Bockelman <bbockelm@cse.unl.edu> - 1.06.15b-1
+- Added redesigned xrootd-transfer probe
+- Minor updates for the xrootd-storage probe found in testing.
+
 * Tue Jan 26 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.15a-1
 - Fix to condor probe for standalone (non-VDT) operation.
 
