@@ -1,0 +1,51 @@
+#!/bin/sh
+#
+# Startup script for xrd_transfer_probe
+#
+# chkconfig: 345 85 15
+# description: Gratia storage accounting for an Xrootd SE
+# processname: xrd_transfer_probe
+# pidfile: /opt/vdt/gratia/var/tmp/xrd_transfer_probe.pid
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+# Some Gratia-specific additions
+# The below line is properly set for a Pacman/VDT install.
+VDT_LOCATION=MAGIC_VDT_LOCATION
+# Fallback to default VDT location if this was an RPM-based install
+[ -d $VDT_LOCATION ] || VDT_LOCATION=/opt/vdt
+
+# The following adds the xrootd storage probe to the PATH.
+PATH=$PATH:$VDT_LOCATION/gratia/probe/xrootd-transfer
+export VDT_LOCATION=$VDT_LOCATION
+
+export HOME=/
+
+case "$1" in
+  start)
+        echo -n "Starting xrd_transfer_probe: "
+        daemon --pidfile $VDT_LOCATION/gratia/var/tmp/xrd_transfer_probe.pid xrd_transfer_probe -d -r 5
+        echo
+        touch /var/lock/subsys/xrd_transfer_probe
+        ;;
+  stop)
+        echo -n "Shutting down xrd_transfer_probe: "
+        killproc -p $VDT_LOCATION/gratia/var/tmp/xrd_transfer_probe.pid xrd_transfer_probe -INT
+        sleep 1
+        echo
+        rm -f /var/lock/subsys/xrd_transfer_probe
+        ;;
+  status)
+        status xrd_transfer_probe
+        ;;
+  restart)
+        $0 stop
+        $0 start
+        ;;
+  *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+esac
+
+exit 0
