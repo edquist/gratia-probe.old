@@ -133,4 +133,5 @@ if __name__ == '__main__':
   print fileName
   f = file(fileName)
   pyO = Xml2ObjectBuilder(f)
+  print pyO.get().b
 

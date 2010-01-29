@@ -9,43 +9,47 @@ import datetime
 import optparse
 import ConfigParser
 import GratiaConnector
+import Gratia
 import XmlBuilder
 
 # Bootstrap hadoop
 if 'JAVA_HOME' not in os.environ:
     os.environ['JAVA_HOME'] = '/usr/java/default'
 
-os.environ['CLASSPATH'] = GratiaConnector.gratia_path+"/../common/jlib/xalan.jar"
+class Config(Gratia.ProbeConfiguration):
+
+      def __init__(self):
+          Gratia.ProbeConfiguration.__init__(self)
+
+      def __getattr__(self,name):
+          return self.getConfigAttribute(name)
 
 def configure():
-    usage="usage: %prog [-c|--config=] <probe storage config file location>\nProbe config must contain InfoProviderUrl attribute in the dCache section.\nIt may also contain ReportPoolUsage attribute. If set to false , probe will not report pool statistics"
-    parser = optparse.OptionParser(usage=usage)
-    parser.add_option("-c", "--config", dest="config", help="Config file to use." )
-    options, args = parser.parse_args()
+    cp = Config()
 
-    if ( len(sys.argv) < 2 ):
-      parser.print_help()
-      sys.exit(0)
+    gratia_path = None
 
-    config = options.config
-    if not os.path.exists(config):
-        raise Exception("Config file %s does not exist." % config)
-    try:
-        open(config, 'r').read()
-    except:
-        raise Exception("Config file %s exists, but an error occurred when " \
-            "trying to read it." % config)
-    cp = ConfigParser.ConfigParser()
-    cp.read(config)
+    for pathElement in sys.path:
+       if ( pathElement.find("probe/common") != -1 ):
+           gratia_path = pathElement="../../"
+           break
+
+    if ( gratia_path == None ):
+      raise Exception("gratia_path can not be determined from python path")
+
+    if not os.path.exists(gratia_path):
+       raise Exception("GratiaLocation attribute in ProbeConfig file must point to the corrent gratie probe directory")
+
+    cp.GratiaLocation = gratia_path
+
+    os.environ['CLASSPATH'] = gratia_path+"/common/lib/xalan.jar:"+gratia_path+"/common/lib/serializer.jar"
+
+    sys.path.append(gratia_path+"/probe/services")
     return cp
 
 def _get_se(cp):
     try:
-        return cp.get('Gratia', 'SiteName')
-    except:
-        pass
-    try:
-        return Gratia.Config.get_SiteName()
+        return cp.SiteName
     except:
         pass
     try:
@@ -67,11 +71,11 @@ def main():
 
     gConnector = GratiaConnector.GratiaConnector(cp)
 
-    dCacheUrl = cp.get('dCache', 'InfoProviderUrl')
+    dCacheUrl = cp.InfoProviderUrl
 
     poolsUsage = None
     try:
-      poolsUsage = cp.get('dCache', 'ReportPoolUsage')
+      poolsUsage = cp.ReportPoolUsage
     except:
       pass
 
@@ -87,7 +91,7 @@ def main():
     import time
     timeNow = int(time.time())
 
-    cmd = "java  org.apache.xalan.xslt.Process %s -PARAM now %d -PARAM SE %s -XSL %s/../dCache-storage/create_se_record.xsl -IN %s " % ( noPoolsArg, timeNow, get_se(cp) ,GratiaConnector.gratia_path, dCacheUrl )
+    cmd = "java  org.apache.xalan.xslt.Process %s -PARAM now %d -PARAM SE %s -XSL %s/probe/dCache-storage/create_se_record.xsl -IN %s " % ( noPoolsArg, timeNow, get_se(cp) ,cp.GratiaLocation, dCacheUrl )
 
     print cmd
 
