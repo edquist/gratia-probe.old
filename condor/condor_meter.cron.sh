@@ -48,7 +48,6 @@ else
 fi
 
 # Need to be sure there is not one of these running already
-#   This may not be the best way to test this for the long term ??? ###
 NCMeter=`ps -ef | grep condor_meter.pl | grep -v grep | wc -l`
 eval `grep WorkingFolder ./ProbeConfig`
 if [ ${NCMeter} -ne 0 -a -e ${WorkingFolder}/condor_meter.cron.pid ]; then

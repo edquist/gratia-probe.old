@@ -21,14 +21,6 @@ do
   fi
 done
 
-# Need to be sure there is not one of these running already
-#   This may not be the best way to test this for the long term ??? ###
-NCMeter=`ps -ef | grep dCache_storage_probe.py | grep -v grep | wc -l`
-if [ ${NCMeter} -ne 0 ]; then
-  ${Logger} "There is a dCache_storage_probe.py running already"
-  exit 1
-fi
-
 # Set the working directory, where we expect to find the following
 #    necessary files.
 if [ -d ${Meter_BinDir} ]; then
@@ -36,6 +28,22 @@ if [ -d ${Meter_BinDir} ]; then
 else
   ${Logger} "No such directory ${Meter_BinDir}"
   exit -1
+fi
+
+# Need to be sure there is not one of these running already
+NCMeter=`ps -ef | grep dCache_storage_probe.py | grep -v grep | wc -l`
+eval `grep WorkingFolder ./ProbeConfig`
+if [ ${NCMeter} -ne 0 -a -e ${WorkingFolder}/dCache-storage_meter.cron.pid ]; then
+  # We might have a condor_meter.pl running, let's verify that we 
+  # started it.
+  
+  otherpid=`cat ${WorkingFolder}/dCache-storage_meter.cron.pid`
+  NCCron=`ps -ef | grep ${otherpid} | grep dCache-storage_meter.cron | wc -l`
+  if [ ${NCCron} -ne 0 ]; then 
+ 
+    ${Logger} "There is a dCache_storage_probe.py running already"
+    exit 1
+  fi
 fi
 
 # We need to locate the probe script
@@ -77,6 +85,23 @@ if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
   ${pp_dir}/common/DebugPrint.py -l 0 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
   exit 1
 fi
+
+WorkingFolder=`${pp_dir}/GetProbeConfigAttribute.py WorkingFolder`
+if [ ! -d ${WorkingFolder} ]; then
+  if [ "x${WorkingFolder}" != "x" ] ; then 
+    mkdir -p ${WorkingFolder}
+  else
+    ${Logger} "There is no WorkingFolder directory defined in $Meter_BinDir/ProbeConfig."
+    exit -4
+  fi
+fi
+
+echo $$ > ${WorkingFolder}/dCache-storage_meter.cron.pid
+(( status = $? ))
+if (( $status != 0 )); then
+   ${Logger} "dCache-storage_meter.cron.sh failed to store the pid in  ${WorkingFolder}/dCache-storage_meter.cron.pid"
+   exit -2
+fi 
 
 #--- run the probes ----
 python ./dCache_storage_probe.py -c storage.cfg

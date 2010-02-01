@@ -39,76 +39,96 @@ do
   fi
 done
 
-# Need to be sure there is not one of these running already
-#   This may not be the best way to test this for the long term ??? ###
-NCMeter=`ps -ef | grep sge_meter.py | grep -v grep | wc -l`
-if [ ${NCMeter} -eq 0 ]; then
-  
-  # Set the working directory, where we expect to find the following
-  #    necessary files.
-  if [ -d ${Meter_BinDir} ]; then
-    cd ${Meter_BinDir}
-  else
-    ${Logger} "No such directory ${Meter_BinDir}"
-    exit -1
-  fi
-  
-  # We need to locate the sge probe script and it must be executable
-  if [ ! -x sge_meter.py ]; then
-    ${Logger} "The sge_meter.py file is not in this directory: $(pwd)"
-    exit -2
-  fi
-  
-  # We need to locate these files and they must be readable
-  for Needed_File in ProbeConfig
-  do
-    if [ ! -f ${Needed_File} ]; then
-      ${Logger} \
-       "The ${Needed_File} file is not in this directory: $(pwd)"
-      exit -3
-    fi
-  done
-  
-  # This is what we expect in a normal Gratia install
-  pp_dir=$(cd "$Meter_BinDir/../common"; pwd)
-  if test -n "$PYTHONPATH" ; then
-    if echo "$PYTHONPATH" | grep -e ':$' >/dev/null 2>&1; then
-      PYTHONPATH="${PYTHONPATH}${pp_dir}:"
-    else
-      PYTHONPATH="${PYTHONPATH}:${pp_dir}"
-    fi
-  else
-    PYTHONPATH="${pp_dir}"
-  fi
-  export PYTHONPATH
-
-  enabled=`${pp_dir}/GetProbeConfigAttribute.py EnableProbe`
-  (( status = $? ))
-  if (( $status != 0 )); then
-    echo "ERROR checking probe configuration!" 1>&2
-    exit $status
-  fi
-  if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
-    ${pp_dir}/DebugPrint.py -l -1 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
-    exit 1
-  fi
-
-  # Note: location of accounting file should be specified in ProbeConfig
-  ./sge_meter.py -c
-  ExitCode=$?
-  # If the probe ended in error, report this in Syslog and exit
-  if [ $ExitCode != 0 ]; then
-    ${pp_dir}/DebugPrint.py -l -1 "ALERT: $0 exited abnormally with [$ExitCode]"
-    exit $ExitCode
-  fi
-    
-  # Possibly loop to see if there are any new files before exiting. ??? ###
-    
-  # The following debug statement needs to be removed after testing. ###
-  # ls -ltrAF /tmp/py*
+# Set the working directory, where we expect to find the following
+#    necessary files.
+if [ -d ${Meter_BinDir} ]; then
+  cd ${Meter_BinDir}
 else
-  ${Logger} "There is a 'sge_meter.py' task running already."
+  ${Logger} "No such directory ${Meter_BinDir}"
+  exit -1
+fi
+  
+# Need to be sure there is not one of these running already
+NCMeter=`ps -ef | grep sge_meter.py | grep -v grep | wc -l`
+eval `grep WorkingFolder ./ProbeConfig`
+if [ ${NCMeter} -ne 0 -a -e ${WorkingFolder}/sge_meter.cron.pid ]; then
+  # We might have a condor_meter.pl running, let's verify that we 
+  # started it.
+  
+  otherpid=`cat ${WorkingFolder}/sge_meter.cron.pid`
+  NCCron=`ps -ef | grep ${otherpid} | grep sge_meter.cron | wc -l`
+  if [ ${NCCron} -ne 0 ]; then 
+ 
+     ${Logger} "There is a 'sge_meter.py' task running already."
+     exit 0
+  fi
 fi
 
+# We need to locate the sge probe script and it must be executable
+if [ ! -x sge_meter.py ]; then
+  ${Logger} "The sge_meter.py file is not in this directory: $(pwd)"
+  exit -2
+fi
+  
+# We need to locate these files and they must be readable
+for Needed_File in ProbeConfig
+do
+  if [ ! -f ${Needed_File} ]; then
+    ${Logger} \
+     "The ${Needed_File} file is not in this directory: $(pwd)"
+    exit -3
+  fi
+done
+  
+# This is what we expect in a normal Gratia install
+pp_dir=$(cd "$Meter_BinDir/../common"; pwd)
+if test -n "$PYTHONPATH" ; then
+  if echo "$PYTHONPATH" | grep -e ':$' >/dev/null 2>&1; then
+    PYTHONPATH="${PYTHONPATH}${pp_dir}:"
+  else
+    PYTHONPATH="${PYTHONPATH}:${pp_dir}"
+  fi
+else
+  PYTHONPATH="${pp_dir}"
+fi
+export PYTHONPATH
+
+enabled=`${pp_dir}/GetProbeConfigAttribute.py EnableProbe`
+(( status = $? ))
+if (( $status != 0 )); then
+  echo "ERROR checking probe configuration!" 1>&2
+  exit $status
+fi
+if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
+  ${pp_dir}/DebugPrint.py -l -1 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
+  exit 1
+fi
+
+WorkingFolder=`${pp_dir}/GetProbeConfigAttribute.py WorkingFolder`
+if [ ! -d ${WorkingFolder} ]; then
+  if [ "x${WorkingFolder}" != "x" ] ; then 
+    mkdir -p ${WorkingFolder}
+  else
+    ${Logger} "There is no WorkingFolder directory defined in $Meter_BinDir/ProbeConfig."
+    exit -4
+  fi
+fi
+
+echo $$ > ${WorkingFolder}/sge_meter.cron.pid
+(( status = $? ))
+if (( $status != 0 )); then
+   ${Logger} "sge_meter.cron.sh failed to store the pid in ${WorkingFolder}/sge_meter.cron.pid"
+   exit -2
+fi 
+
+# Note: location of accounting file should be specified in ProbeConfig
+./sge_meter.py -c
+ExitCode=$?
+# If the probe ended in error, report this in Syslog and exit
+if [ $ExitCode != 0 ]; then
+  ${pp_dir}/DebugPrint.py -l -1 "ALERT: $0 exited abnormally with [$ExitCode]"
+  exit $ExitCode
+fi
+    
 exit 0
 
