@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.15c
+Version: 1.06.15d
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1050,7 +1050,7 @@ fi
 #   End of gridftp-transfer preun
 # End of gridftp-transfer section
 
-%package services%{?maybe_itb_suffix}
+%package services
 Summary: Gratia OSG accounting system probe API for services.
 Group: Application/System
 Requires: %{name}-common >= 1.04.4e
@@ -1058,14 +1058,13 @@ Requires: %{name}-common >= 1.04.4e
 Requires: python >= 2.3
 %endif
 License: See LICENSE.
-%{?config_itb:Obsoletes: %{name}-services}
-%{!?config_itb:Obsoletes: %{name}-services%{itb_suffix}}
+Obsoletes: %{name}-services%{itb_suffix}
 
-%description services%{?maybe_itb_suffix}
+%description services
 Gratia OSG accounting system probe API for services.
 Contributed by University of Nebraska Lincoln.
 
-%files services%{?maybe_itb_suffix}
+%files services
 %defattr(-,root,root,-)
 %{default_prefix}/probe/services/ComputeElement.py      
 %{default_prefix}/probe/services/ComputeElementRecord.py
@@ -1075,7 +1074,7 @@ Contributed by University of Nebraska Lincoln.
 %{default_prefix}/probe/services/storageReport          
 %config(noreplace) %{default_prefix}/probe/services/ProbeConfig
 
-%post services%{?maybe_itb_suffix}
+%post services
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
 
@@ -1091,7 +1090,7 @@ Contributed by University of Nebraska Lincoln.
 
 # End of services post
 
-%preun services%{?maybe_itb_suffix}
+%preun services
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
   %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-services.cron
@@ -1294,6 +1293,14 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Tue Feb  2 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.15d-1
+- Fix from Andrew for CLASSPATH, etc.
+- Fix to cron scripts for WorkingFolder discovery in dCache-storage and
+-  gridftp-transfer cron scripts.
+
+* Tue Feb  2 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.15c-2
+- Remove erroneous ITB tag for services API package.
+
 * Tue Feb  2 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.15c-1
 - Better use of lock files in *_cron.sh.
 - Fixes and updates to dCache-storage probe, including addition of
