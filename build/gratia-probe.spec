@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.15b
+Version: 1.06.15c
 Release: 1
 License: GPL
 Group: Applications/System
@@ -420,6 +420,7 @@ Common files and examples for Gratia OSG accounting system probes.
 %doc common/samplemeter_multi.py
 %doc common/ProbeConfigTemplate
 %{default_prefix}/probe/common/jlib/xalan.jar
+%{default_prefix}/probe/common/jlib/serializer.jar
 %{default_prefix}/probe/common/DebugPrint.py
 %{default_prefix}/probe/common/GRAM/JobManagerGratia.pm
 %{default_prefix}/probe/common/GRAM/README.txt
@@ -820,6 +821,8 @@ Contributed by Greg Sharp and the dCache project.
 %files dCache-transfer%{?maybe_itb_suffix}
 %defattr(-,root,root,-)
 /etc/rc.d/init.d/gratia-dcache-transfer
+%doc dCache-transfer/README-experts-only.txt
+%doc dCache-transfer/README
 %{default_prefix}/probe/dCache-transfer/README-experts-only.txt
 %{default_prefix}/probe/dCache-transfer/README
 %{default_prefix}/probe/dCache-transfer/Alarm.py
@@ -907,9 +910,10 @@ to start the service." 1>&2
 %package dCache-storage%{?maybe_itb_suffix}
 Summary: Gratia OSG accounting system probe for dCache storage.
 Group: Application/System
-Requires: %{name}-common >= 1.04.4e
+Requires: %{name}-common >= 1.06.15c
 Requires: %{name}-extra-libs
 Requires: %{name}-extra-libs-arch-spec
+Requires: %{name}-services
 License: See LICENSE.
 %{?config_itb:Obsoletes: %{name}-dCache-storage}
 %{!?config_itb:Obsoletes: %{name}-dCache-storage%{itb_suffix}}
@@ -920,12 +924,13 @@ Contributed by Andrei Baranovksi of the OSG Storage team.
 
 %files dCache-storage%{?maybe_itb_suffix}
 %defattr(-,root,root,-)
+%doc dCache-storage/README.txt
+%{default_prefix}/probe/dCache-storage/README.txt
 %{default_prefix}/probe/dCache-storage/GratiaConnector.py
 %{default_prefix}/probe/dCache-storage/XmlBuilder.py
 %{default_prefix}/probe/dCache-storage/create_se_record.xsl
 %{default_prefix}/probe/dCache-storage/dCache-storage_meter.cron.sh
 %{default_prefix}/probe/dCache-storage/dCache_storage_probe.py
-%config(noreplace) %{default_prefix}/probe/dCache-storage/storage.cfg
 %config(noreplace) %{default_prefix}/probe/dCache-storage/ProbeConfig
 
 %post dCache-storage%{?maybe_itb_suffix}
@@ -942,6 +947,11 @@ Contributed by Andrei Baranovksi of the OSG Storage team.
 %global collector_port %{default_collector_port}
 %configure_probeconfig_pre -d dCache-storage -m dcache-storage -M 600
 (m&\bVDTSetupFile\b& or m&\bUserVOMapFile\b&) and next; # Skip, not needed
+m&^/>& and print <<EOF;
+    TitleDCacheStorage="dCache-storage-specific attributes"
+    InfoProviderUrl="http://DCACHE_HOST:2288/info"
+    ReportPoolUsage="0"
+EOF
 m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
@@ -1284,6 +1294,11 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Tue Feb  2 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.15c-1
+- Better use of lock files in *_cron.sh.
+- Fixes and updates to dCache-storage probe, including addition of
+-  README file to package.
+
 * Thu Jan 28 2010 Brian Bockelman <bbockelm@cse.unl.edu> - 1.06.15b-1
 - Added redesigned xrootd-transfer probe
 - Minor updates for the xrootd-storage probe found in testing.
@@ -1294,7 +1309,7 @@ Contributed as effort from OSG-Storage.
 * Mon Jan 25 2010 Brian Bockelman <bbockelm@cse.unl.edu> - 1.06.14c-1
 - Added new xrootd-storage probe
 - Corrected dependency on non-existent gratia-probe-common-itb to
-  gratia-probe-common for condor-events and xrootd-transfer
+-  gratia-probe-common for condor-events and xrootd-transfer
 
 * Tue Jan 19 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.14b-1
 - Config template documentation.
