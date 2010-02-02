@@ -42,7 +42,7 @@ def configure():
 
     cp.GratiaLocation = gratia_path
 
-    os.environ['CLASSPATH'] = gratia_path+"/common/lib/xalan.jar:"+gratia_path+"/common/lib/serializer.jar"
+    os.environ['CLASSPATH'] = gratia_path+"/probe/common/jlib/xalan.jar:"+gratia_path+"/probe/common/jlib/serializer.jar"
 
     sys.path.append(gratia_path+"/probe/services")
     return cp
