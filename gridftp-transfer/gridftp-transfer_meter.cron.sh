@@ -86,7 +86,7 @@ if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
   exit 1
 fi
 
-WorkingFolder=`${pp_dir}/GetProbeConfigAttribute.py WorkingFolder`
+WorkingFolder=`${pp_dir}/common/GetProbeConfigAttribute.py WorkingFolder`
 if [ ! -d ${WorkingFolder} ]; then
   if [ "x${WorkingFolder}" != "x" ] ; then 
     mkdir -p ${WorkingFolder}
