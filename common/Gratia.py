@@ -118,9 +118,9 @@ class ProbeConfiguration:
             return self.__CollectorHost
         coll = self.__getConfigAttribute('CollectorHost')
         soap = self.__getConfigAttribute('SOAPHost')
-        if ( coll == "gratia-osg.fnal.gov:8880" and (soap and soap != "gratia-osg.fnal.gov:8880") ):
+        if ( coll == "gratia-osg.fnal.gov:8880" and (soap != None and soap != '' and soap != "gratia-osg.fnal.gov:8880") ):
             self.__CollectorHost = soap
-        elif ( coll ):
+        elif ( coll != None and coll != '' ):
             self.__CollectorHost = coll
         else:
             self.__CollectorHost = soap
