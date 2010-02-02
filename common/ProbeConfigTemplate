@@ -53,6 +53,8 @@
     GratiaCertificateFile="gratia.probecert.pem"
     GratiaKeyFile="gratia.probekey.pem"
     
+    InfoProviderUrl="http://DCACHE_HOST:2288/info"
+    ReportPoolUsage="0"
 
     Title5="File and directory location"
 
