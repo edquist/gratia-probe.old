@@ -42,16 +42,13 @@ class GratiaConnector:
 
     Gratia.Initialize()
     try:
-        Gratia.Config.setSiteName(cp.SiteName)
-    except:
         if Gratia.Config.get_SiteName().lower().find('generic') >= 0:
             Gratia.Config.setSiteName(socket.getfqdn())
-    try:
-        Gratia.Config._ProbeConfiguration__CollectorHost = cp.Collector
     except:
         pass
     try:
-        Gratia.Config.setMeterName('dCache-storage:%s' % socket.getfqdn())
+        if Gratia.Config.get_ProbeName().lower().find('generic') >= 0:
+            Gratia.Config.setProbeName('dCache-storage:%s' % socket.getfqdn())
     except:
         pass
 
