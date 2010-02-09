@@ -222,9 +222,10 @@ foreach $name_arg (@ARGV) {
 }
 
 # Remove old temporary files (if still there) used for debugging
-foreach $tmp_file ( "/tmp/py.out", "/tmp/py.in") {
+my $gram_log_dir = dirname($gram_log_state_file);
+foreach $tmp_file ( $gram_log_dir."/tmp.out", $gram_log_dir."/tmp_in.py") {
   if ( -e $tmp_file ) {
-    unlink $tmp_file
+    unlink($tmp_file)
       or warn "Unable to delete old file: $tmp_file\n";
   }
 }
@@ -381,7 +382,7 @@ foreach $logfile (@logfiles) {
         } else {
           $last_was_c = 0;
         }
-        if (/<a n="([^"]+)">/) { # Attribute line --------------------
+        if (/<a n="([^\"]+)">/) { # Attribute line --------------------
           my $attr = $1;
 
           # In the XML version of log files, the Cluster ID was
@@ -391,7 +392,7 @@ foreach $logfile (@logfiles) {
           $attr = 'ProcId' if ($attr =~ /^Proc$/);
 
           if (/<s>([^<]+)<\/s>/) {
-            $event_hash{$attr} = $1;
+            $event_hash{$attr} = "'''".$1."'''";
           } elsif (/<i>([^<]+)<\/i>/) {
             $event_hash{$attr} = int($1);
           } elsif (/<b v="([tf])"\/>/) {
@@ -683,6 +684,39 @@ sub Check_Constraint {
 }
 
 #------------------------------------------------------------------
+# Subroutine PythonStringLiteral
+#   This routine takes a string as an argument and escapes it
+#   properly for safe usage in Python.
+# -----------------------------------------------------------------
+sub PythonStringLiteral {
+    my $s = shift;
+	
+    $s =~ s/\\/\\\\/g;   # escape \'s first, MUST be done first
+    $s =~ s/'/\\'/g;     #        single quotes
+    $s =~ s/\n/\\n/g;    #        new-lines, and everything next
+    $s =~ s/([^[:print:]])/sprintf("\\x%02x", ord $1)/eg;
+
+    return "$s" ;
+}
+
+# -----------------------------------------------------------------
+# Subroutine Create_Try_Except($function_call, $value (supposedly
+# numerical), $description)
+# Creates the try.. catch Python block for making sure that
+# $value is numerical; otherwise it will be annotated by  
+# "possible malicious content". 
+#------------------------------------------------------------------
+sub Create_Try_Except {
+  my $fun = shift;
+  my $value = shift;
+  my $description = shift;
+  my $block = qq/try: $fun(float(\"%s\"%\"/. $value.qq/\"), \"$description\")\n/;
+  $block = $block.qq/except: $fun(0, \"$description\", "possible malicious content")\n/;
+  return $block
+}
+
+
+#------------------------------------------------------------------
 # Subroutine Feed_Gratia ($hash_ref)
 #   This routine will take a hash of condor log data and push that
 # data out to Gratia. Returns 1 if a record was successfully sent,
@@ -705,6 +739,7 @@ sub Feed_Gratia {
                        $hash{'GridMonitorJob'} =~ /(?:t|true|1)/i)?
                          'GridMonitor':
                            'Batch';
+  
   print $py "r = Gratia.UsageRecord(\"$resource_type\")\n";
 
   # 2.1 RecordIdentity must be set by Philippe's module?
@@ -787,8 +822,8 @@ sub Feed_Gratia {
   # 2.10 WallDuration - "Wall clock time that elpased while the job was running."
   if ( defined ($hash{'RemoteWallClockTime'})) {
     # Sample: RemoteWallClockTime = 10251.000000
-    print $py qq/r.WallDuration(int(/ . $hash{'RemoteWallClockTime'} .
-      qq/),\"Was entered in seconds\")\n/;
+    print $py qq/r.WallDuration(int(float(/ . $hash{'RemoteWallClockTime'} .
+                                          qq/)),\"Was entered in seconds\")\n/;
   }
 
   # TimeDuration - According to Gratia.py, "an additional measure
@@ -799,65 +834,59 @@ sub Feed_Gratia {
   #       not fail due to an undefined value.
   if ( defined ($hash{'RemoteUserCpu'})) {
     # Sample: RemoteUserCpu = 9231.000000
-    print $py qq/r.TimeDuration(/ . $hash{'RemoteUserCpu'} .
-      qq/, \"RemoteUserCpu\")\n/;
+    print $py Create_Try_Except("r.TimeDuration", $hash{'RemoteUserCpu'}, "RemoteUserCpu");
   } else {
     $hash{'RemoteUserCpu'} = 0;
   }
   if ( defined ($hash{'LocalUserCpu'})) {
     # Sample: LocalUserCpu = 0.000000
-    print $py qq/r.TimeDuration(/ . $hash{'LocalUserCpu'} .
-      qq/, \"LocalUserCpu\")\n/;
+    print $py Create_Try_Except("r.TimeDuration", $hash{'LocalUserCpu'}, "LocalUserCpu");
   } else {
     $hash{'LocalUserCpu'} = 0;
   }
   if ( defined ($hash{'RemoteSysCpu'})) {
     # Sample: RemoteSysCpu = 36.000000
-    print $py qq/r.TimeDuration(/  . $hash{'RemoteSysCpu'} .
-      qq/, \"RemoteSysCpu\")\n/;
+    print $py Create_Try_Except("r.TimeDuration", $hash{'RemoteSysCpu'}, "RemoteSysCpu");
   } else {
     $hash{'RemoteSysCpu'} = 0;
   }
   if ( defined ($hash{'LocalSysCpu'})) {
     # Sample: LocalSysCpu = 0.000000
-    print $py qq/r.TimeDuration(/  . $hash{'LocalSysCpu'} .
-      qq/, \"LocalSysCpu\")\n/;
+    print $py Create_Try_Except("r.TimeDuration", $hash{'LocalSysCpu'}, "LocalSysCpu");
   } else {
     $hash{'LocalSysCpu'} = 0;
   }
 
   if ( defined ($hash{'CumulativeSuspensionTime'})) {
     # Sample: CumulativeSuspensionTime = 0
-    print $py qq/r.TimeDuration(/ . $hash{'CumulativeSuspensionTime'} .
-      qq/, \"CumulativeSuspensionTime\")\n/;
+    print $py Create_Try_Except("r.TimeDuration", $hash{'CumulativeSuspensionTime'}, "CumulativeSuspensionTime");
   }
   if ( defined ($hash{'CommittedTime'})) {
     # Sample: CommittedTime = 0
-    print $py qq/r.TimeDuration(/ . $hash{'CommittedTime'} .
-      qq/, \"CommittedTime\")\n/;
+    print $py Create_Try_Except("r.TimeDuration", $hash{'CommittedTime'}, "CommittedTime");
   }
 
   # 2.11 CpuDuration - "CPU time used, summed over all processes in the job"
   $hash{'SysCpuTotal'} = $hash{'RemoteSysCpu'} + $hash{'LocalSysCpu'};
-  print $py qq/r.CpuDuration(int(/ . $hash{'SysCpuTotal'} .
-    qq/), "system", "Was entered in seconds")\n/;
+  print $py qq/r.CpuDuration(int(float(/ . $hash{'SysCpuTotal'} .
+    qq/)), "system", "Was entered in seconds")\n/;
   $hash{'UserCpuTotal'} = $hash{'RemoteUserCpu'} + $hash{'LocalUserCpu'};
-  print $py qq/r.CpuDuration(int(/ . $hash{'UserCpuTotal'} .
-    qq/), "user", "Was entered in seconds")\n/;
+  print $py qq/r.CpuDuration(int(float(/ . $hash{'UserCpuTotal'} .
+    qq/)), "user", "Was entered in seconds")\n/;
 
   # 2.12 EndTime - "The time at which the job completed"
   if ( (defined($hash{'CompletionDate'})) &&
        ($hash{'CompletionDate'} != 0) )
   {
     # Sample: CompletionDate = 1126898099
-    print $py qq/r.EndTime(/ . $hash{'CompletionDate'} .
+    print $py qq/r.EndTime(/ . int($hash{'CompletionDate'}) .
       qq/,\"Was entered in seconds\")\n/;
   }
 
   # 2.13 StartTime - The time at which the job started"
   if ( defined ($hash{'JobStartDate'})) {
     # Sample: JobStartDate = 1126887848
-    print $py qq/r.StartTime(/ . $hash{'JobStartDate'} .
+    print $py qq/r.StartTime(/ . int($hash{'JobStartDate'}) .
       qq/,\"Was entered in seconds\")\n/;
   }
 
@@ -894,7 +923,7 @@ sub Feed_Gratia {
   #      sample: JobUniverse = 5
   if ( defined ($hash{'JobUniverse'})) {
     print $py qq/r.Queue(\"/ . $hash{'JobUniverse'} . 
-      qq/\", \"Condor's JobUniverse field\")\n/;
+      qq/\", \"Condor\'s JobUniverse field\")\n/;
   }
 
   # 2.18 - ProjectName - optional, effective GID (string)
@@ -1004,8 +1033,8 @@ sub Read_ClassAd {
         $value = $1;
       }
 
-      # Place attribute in the hash
-      $condor_hist_data{$element} = $value;
+      # Place attribute in the hash and escape it properly
+      $condor_hist_data{$element} = PythonStringLiteral($value);
     } elsif ($line =~ /\S+/) {
       warn "Invalid line in ClassAd: $line\n";
       return ();
@@ -1123,6 +1152,10 @@ sub create_unique_id(\%) {
   my ($condor_hist_data) = @_;
 
   if ($condor_hist_data->{'GlobalJobId'}) {
+	if ($condor_hist_data->{'GlobalJobId'} =~ /"(.*)"/) {
+        $condor_hist_data->{'GlobalJobId'} = $1;
+
+      }
     $condor_hist_data->{'UniqGlobalJobId'} =
       'condor.' . $condor_hist_data->{'GlobalJobId'};
     if ($verbose && $debug_mode) {
@@ -1435,7 +1468,7 @@ sub generate_ws_stubs {
       $record_buffer = "";
       next;
     }
-    if (m&^\s*<a\s+n="([^"]+)">&) { # Attribute line
+    if (m&^\s*<a\s+n="([^\"]+)">&) { # Attribute line
       my $attr = $1;
       $attr = 'ClusterId' if ($attr =~ /^Cluster$/);
       if (/<s>([^<]+)<\/s>/) {
@@ -1544,8 +1577,12 @@ sub close_py_and_cleanup {
 sub open_new_py {
   close_py_and_cleanup();
   $py = new FileHandle;
-  my $tmp_py = "/tmp/py.in";
-  $py->open("| tee \"$tmp_py\" | python -u >/tmp/py.out 2>&1");
+  # Temporary file for debug purposes only.
+  my $tmp_py = $debug_mode?printf("tee \"%s/tmp.py\" |",
+                                  dirname($gram_log_state_file)):"";
+  my $py_out = $debug_mode?printf(">\"%s/py.out\" 2>&1",
+                                  dirname($gram_log_state_file)):">/dev/null 2>&1";
+  $py->open("|$tmp_py python -u $py.out");
   autoflush $py 1;
   print $py "import Gratia\n\n";
   print $py "Gratia.RegisterReporter(\"condor_meter.pl\", \"",
