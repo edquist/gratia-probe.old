@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 1.06.15d
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -1255,7 +1255,7 @@ Requires: %{name}-common >= 1.04.4e
 %if %{?python:0}%{!?python:1}
 Requires: python >= 2.3
 %endif
-Requires: %{name}-common
+Requires: %{name}-services%{?maybe_itb_suffix}
 License: See LICENSE.
 %{?config_itb:Obsoletes: %{name}-xrootd-storage}
 %{!?config_itb:Obsoletes: %{name}-xrootd-storage%{itb_suffix}}
@@ -1293,6 +1293,9 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Wed Feb 17 2010 Brian Bockelman <bbockelm@cse.unl.edu> - 1.06.15d-2
+- Add gratia-probe-services as a dependency to the xrootd-storage probe
+
 * Tue Feb  2 2010 Christopher Green <greenc@gratia01.fnal.gov> - 1.06.15d-1
 - Fix from Andrew for CLASSPATH, etc.
 - Fix to cron scripts for WorkingFolder discovery in dCache-storage and
