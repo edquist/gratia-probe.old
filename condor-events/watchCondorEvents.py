@@ -149,7 +149,7 @@ class ClassAdHandler(ContentHandler):
                 cluster = cur.get("Cluster", "-1")
                 proc = cur.get("Proc", "-1")
                 job = "%s.%s" % (str(cluster), str(proc))
-                mytime = str(int(time.time()))
+                mytime = "0"
                 cur['GlobalJobId'] = "#".join([hostname, job, mytime])
             self.handler(cur['GlobalJobId'], cur)
             return
