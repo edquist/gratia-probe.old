@@ -3,6 +3,7 @@
 import os
 import sys
 import time
+import socket
 import xml.sax
 import threading
 import ConfigParser
@@ -141,9 +142,16 @@ class ClassAdHandler(ContentHandler):
         # Just one event
         if prev == None:
             if 'GlobalJobId' not in cur:
-                print "Ignoring event:\n%s" % cur
-            else:
-                self.handler(cur['GlobalJobId'], cur)
+                try:           
+                    hostname = socket.getfqdn()
+                except:        
+                    hostname = "UNKNOWN"
+                cluster = cur.get("Cluster", "-1")
+                proc = cur.get("Proc", "-1")
+                job = "%s.%s" % (str(cluster), str(proc))
+                mytime = str(int(time.time()))
+                cur['GlobalJobId'] = "#".join([hostname, job, mytime])
+            self.handler(cur['GlobalJobId'], cur)
             return
         if prev == None:
             prev = {}
@@ -259,8 +267,8 @@ class CondorUploader(object):
         record.UserKeyInfo(info.get('x509userproxysubject', info.get('Owner', 'UNKNOWN')))
         record.GlobalUsername(info.get('x509userproxysubject', info.get('Owner', 'UNKNOWN')))
         record.Queue(info.get('AccountingGroup', info.get('Owner', 'UNKNOWN')))
-        record.Processors(info['CurrentHosts'])
-        record.NodeCount(info['CurrentHosts'], description="Number of nodes used")
+        record.Processors(info.get('CurrentHosts', 0))
+        record.NodeCount(info.get('CurrentHosts', 0), description="Number of nodes used")
         toSend = True
         if etype == 12:
             record.Status("held")
@@ -279,8 +287,12 @@ class CondorUploader(object):
             record.Status("started")
         elif etype == 13:
             record.Status("started")
-        else:
+        elif etype == 7:
+            record.Status("Error")
+        elif etype == 6 or etype == 28:
             toSend = False
+        else:
+            record.Status(str(etype))
 
         if toSend == True:
             print Gratia.Send(record)
