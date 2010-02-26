@@ -705,13 +705,53 @@ sub PythonStringLiteral {
 # Creates the try.. catch Python block for making sure that
 # $value is numerical; otherwise it will be annotated by  
 # "possible malicious content". 
+# the following args can be null; then the string will be 
+# interpreted as float. "int" for int interpretation, "ifloat" for
+# int(float(..)). The last two possible arguments are $fun_args,
+# which indicates the number of additional arguments the 
+# Gratia function can take (makes a difference for the "except"
+# statement), and further direct arguments for the Gratia function.
 #------------------------------------------------------------------
-sub Create_Try_Except {
-  my $fun = shift;
-  my $value = shift;
-  my $description = shift;
-  my $block = qq/try: $fun(float(\"%s\"%\"/. $value.qq/\"), \"$description\")\n/;
-  $block = $block.qq/except: $fun(0, \"$description\", "possible malicious content")\n/;
+sub Create_Try_Except {  
+  my $arg_size = scalar(@_);
+
+  my $fun = shift; # 1
+  my $value = shift; # 2 
+  my $description = shift; # 3
+  
+  my $encap = qq/\"%s\"%\"/.$value.qq/\"/;
+  if ($arg_size > 3) {
+  	my $what = shift; 
+  	if ($what eq "int"){
+  	  $encap = qq/int($encap)/;
+  	} else {
+  	  $encap = qq/int(float($encap))/;	
+  	} 
+  } else {
+  	$encap = qq/float($encap)/;
+  }   
+  
+  my $fun_args = 2;
+  if ($arg_size > 4 ) {
+  	$fun_args = shift; 
+  }
+  
+  my $add_description = "";
+  if ($fun_args > 2) {
+  	$add_description = shift;
+  } 
+  
+  my $block = "";
+  if ($add_description eq "") {
+  	$block = qq/try: $fun($encap, \"$description\")\n/;
+  } else {
+  	$block = qq/try: $fun($encap, \"$description\", \"$add_description\")\n/;
+  }
+  if ($fun_args < 2) {
+  	$block = $block.qq/except: $fun(0, \"$description(possible malicious content)\")\n/;
+  } else {
+  	$block = $block.qq/except: $fun(0, \"$description\", \"$add_description(possible malicious content)\")\n/;
+  }
   return $block
 }
 
@@ -868,26 +908,22 @@ sub Feed_Gratia {
 
   # 2.11 CpuDuration - "CPU time used, summed over all processes in the job"
   $hash{'SysCpuTotal'} = $hash{'RemoteSysCpu'} + $hash{'LocalSysCpu'};
-  print $py qq/r.CpuDuration(int(float(/ . $hash{'SysCpuTotal'} .
-    qq/)), "system", "Was entered in seconds")\n/;
+  print $py Create_Try_Except("r.CpuDuration", $hash{'SysCpuTotal'}, "system", "ifloat", 3, "Was entered in seconds");  
+  
   $hash{'UserCpuTotal'} = $hash{'RemoteUserCpu'} + $hash{'LocalUserCpu'};
-  print $py qq/r.CpuDuration(int(float(/ . $hash{'UserCpuTotal'} .
-    qq/)), "user", "Was entered in seconds")\n/;
-
+  print $py Create_Try_Except("r.CpuDuration", $hash{'UserCpuTotal'}, "user", "ifloat", 3, "Was entered in seconds");
   # 2.12 EndTime - "The time at which the job completed"
   if ( (defined($hash{'CompletionDate'})) &&
        ($hash{'CompletionDate'} != 0) )
   {
     # Sample: CompletionDate = 1126898099
-    print $py qq/r.EndTime(/ . int($hash{'CompletionDate'}) .
-      qq/,\"Was entered in seconds\")\n/;
+    print $py Create_Try_Except("r.EndTime", $hash{'CompletionDate'}, "Was entered in seconds", "int", 1);
   }
 
   # 2.13 StartTime - The time at which the job started"
   if ( defined ($hash{'JobStartDate'})) {
     # Sample: JobStartDate = 1126887848
-    print $py qq/r.StartTime(/ . int($hash{'JobStartDate'}) .
-      qq/,\"Was entered in seconds\")\n/;
+    print $py Create_Try_Except("r.StartTime", $hash{'JobStartDate'}, "Was entered in seconds", "int", 1);  
   }
 
   # ?.?? TimeInstant - According to Gratia.py, "a discrete time that
@@ -1578,11 +1614,11 @@ sub open_new_py {
   close_py_and_cleanup();
   $py = new FileHandle;
   # Temporary file for debug purposes only.
-  my $tmp_py = $debug_mode?printf("tee \"%s/tmp.py\" |",
+  my $tmp_py = $debug_mode ? sprintf("tee \"%s/tmp.py\" |",
                                   dirname($gram_log_state_file)):"";
-  my $py_out = $debug_mode?printf(">\"%s/py.out\" 2>&1",
+  my $py_out = $debug_mode ? sprintf(">\"%s/py.out\" 2>&1",
                                   dirname($gram_log_state_file)):">/dev/null 2>&1";
-  $py->open("|$tmp_py python -u $py.out");
+  $py->open("|${tmp_py} python -u ${py_out}");
   autoflush $py 1;
   print $py "import Gratia\n\n";
   print $py "Gratia.RegisterReporter(\"condor_meter.pl\", \"",
