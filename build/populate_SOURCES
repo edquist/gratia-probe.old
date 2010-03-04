@@ -8,25 +8,21 @@
 ########################################################################
 
 rpmbuild_top=/usr/src/redhat
-urCollector_dir=./build/urCollector
 dCache_dir=./build/dCache
 
 function usage() {
   echo "usage: ${0##*/} -h" 1>&2
-  echo "       ${0##*/} [-u <urCollector-dir>] [-r <rpmbuild-top>] [tarfiles]" 1>&2
+  echo "       ${0##*/} [-r <rpmbuild-top>] [tarfiles]" 1>&2
   exit 1
 }
 
-while getopts :hu:r: OPT; do
+while getopts :hr: OPT; do
     case $OPT in
 	h)
 	    usage
 	    ;;
 	r)
 	    rpmbuild_top="$OPTARG"
-	    ;;
- 	u)
-	    urCollector_dir="$OPTARG"
 	    ;;
 	*)
 	    usage
