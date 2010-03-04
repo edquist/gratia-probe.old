@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.15d
-Release: 2
+Version: 1.06.15f
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -17,6 +17,7 @@ BuildRequires: postgresql-devel
 %endif
 BuildRequires: gcc-c++
 
+# Required for dCache transfer probe.
 %global sqlalchemy_version 0.4.1
 %global psycopg2_version 2.0.6
 %global setuptools_source setuptools-0.6c3-py2.3.egg
@@ -26,16 +27,18 @@ BuildRequires: gcc-c++
 
 %global ProbeConfig_template_marker <!-- This probe has not yet been configured -->
 %global pbs_lsf_template_marker # Temporary RPM-generated template marker
-%global urCollector_version 2006-06-13
 
+# Mechanism to allow for ITB-flavored RPMS with different collectors configured on post-install.
 %{?config_itb: %global maybe_itb_suffix -itb }
 %{?config_itb: %global itb 1}
 %{!?config_itb: %global itb 0}
+
+# Python version.
 %{?python: %global pexec %{python}}
 %{!?python: %global pexec python }
 
+# Default probe configuration items for post-install.
 %global default_collector_port 80
-
 %global metric_port 8880
 %if %{itb}
   %global default_osg_collector gratia-osg-itb.opensciencegrid.org
@@ -49,31 +52,36 @@ BuildRequires: gcc-c++
   %global metric_collector rsv.grid.iu.edu
 %endif
 
+# VDT_LOCATION and associated settings for post-install
 %{?vdt_loc: %global vdt_loc_set 1}
 %{!?vdt_loc: %global vdt_loc /opt/vdt}
 %{!?default_prefix: %global default_prefix %{vdt_loc}/gratia}
-
 %global osg_attr %{vdt_loc}/monitoring/osg-attributes.conf
-
 %{!?site_name: %global site_name \$(( if [[ -r \"%{osg_attr}\" ]]; then . \"%{osg_attr}\" ; echo \"${OSG_SITE_NAME}\"; else echo \"Generic Site\"; fi ) )}
 
+# Default ProbeName
 %{!?meter_name: %global meter_name `hostname -f`}
 
+# Macro to scrub crontab
 %define scrub_root_crontab() tmpfile=`mktemp /tmp/gratia-cleanup.XXXXXXXXXX`; crontab -l 2>/dev/null | %{__grep} -v -e 'gratia/probe/%1' > "$tmpfile" 2>/dev/null; crontab "$tmpfile" 2>/dev/null 2>&1; %{__rm} -f "$tmpfile"; if %{__grep} -re '%1_meter.cron\.sh' ${RPM_INSTALL_PREFIX2}/crontab ${RPM_INSTALL_PREFIX2}/cron.??* >/dev/null 2>&1; then echo "WARNING: non-standard installation of %1 probe in ${RPM_INSTALL_PREFIX2}/crontab or ${RPM_INSTALL_PREFIX2}/cron.*. Please check and remove to avoid clashes with root's crontab" 1>&2; fi
 
+# Macro for post-install message.
 %define final_post_message() [[ "%1" == *ProbeConfig* ]] && echo "IMPORTANT: please check %1 and remember to set EnableProbe = \"1\" to start operation." 1>&2
 
+# Macro for check of MaxPendingFiles variable
 %define max_pending_files_check() (( mpf=`sed -ne 's/^[ 	]*MaxPendingFiles[ 	]*=[ 	]*\\"\\{0,1\\}\\([0-9]\\{1,\\}\\)\\"\\{0,1\\}.*$/\\1/p' "${RPM_INSTALL_PREFIX1}/probe/%1/ProbeConfig"` )); if (( $mpf < 100000 )); then printf "NOTE: Given the small size of gratia files (<1K), MaxPendingFiles can\\nbe safely increased to 100K or more to facilitate better tolerance of collector outages.\\n"; fi
 
+# Macros for configuring ProbeConfig.
 %define configure_probeconfig_pre(p:d:m:M:h:) site_name=%{site_name}; %{__grep} -le '^%{ProbeConfig_template_marker}\$' "${RPM_INSTALL_PREFIX1}/probe/%{-d*}/ProbeConfig"{,.rpmnew} %{*} 2>/dev/null | while read config_file; do test -n "$config_file" || continue; if [[ -n "%{-M*}" ]]; then chmod %{-M*} "$config_file"; fi; %{__perl} -wni.orig -e 'my $meter_name = %{meter_name}; chomp $meter_name; my $install_host = `hostname -f`; $install_host = "${meter_name}" unless $install_host =~ m&\\.&; chomp $install_host; my $collector_host = ($install_host =~ m&\\.fnal\\.&i)?"%{fnal_collector}":("%{-h*}" || "%{osg_collector}"); my $collector_port = "%{-p*}" || "%{collector_port}"; s&^(\\s*(?:CollectorHost|SOAPHost|SSLRegistrationHost)\\s*=\\s*).*$&${1}"${collector_host}:${collector_port}"&; s&^(\\s*SSLHost\\s*=\\s*).*$&${1}""&; s&((?:MeterName|ProbeName)\\s*=\\s*)\\"[^\\"]*\\"&${1}"%{-m*}:${meter_name}"&; s&(SiteName\\s*=\\s*)\\"[^\\"]*\\"&${1}"'"${site_name}"'"&;
 
 %define configure_probeconfig_post(g:) s&MAGIC_VDT_LOCATION/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; %{?vdt_loc_set: s&MAGIC_VDT_LOCATION&%{vdt_loc}&;} s&/opt/vdt/gratia(/?)&$ENV{RPM_INSTALL_PREFIX1}${1}&; my $grid = "%{-g*}" || "%{grid}"; s&(Grid\\s*=\\s*)\\\"[^\\\"]*\\\"&${1}"${grid}"&; m&%{ProbeConfig_template_marker}& or print; ' "$config_file" >/dev/null 2>&1; %{expand: %final_post_message $config_file }; %{__rm} -f "$config_file.orig"; done
 
+########################################################################
+# Source and patch specifications
 Source0: %{name}-common-%{version}.tar.bz2
 Source1: %{name}-condor-%{version}.tar.bz2
 Source2: %{name}-psacct-%{version}.tar.bz2
 Source3: %{name}-pbs-lsf-%{version}.tar.bz2
-Source4: urCollector-%{urCollector_version}.tgz
 Source5: %{name}-sge-%{version}.tar.bz2
 Source6: %{name}-glexec-%{version}.tar.bz2
 Source7: %{name}-metric-%{version}.tar.bz2
@@ -88,55 +96,21 @@ Source16: %{name}-hadoop-storage-%{version}.tar.bz2
 Source17: %{name}-condor-events-%{version}.tar.bz2
 Source18: %{name}-xrootd-transfer-%{version}.tar.bz2
 Source19: %{name}-xrootd-storage-%{version}.tar.bz2
-Patch0: urCollector-2006-06-13-pcanal-fixes-1.patch
-Patch1: urCollector-2006-06-13-greenc-fixes-1.patch
-Patch2: urCollector-2006-06-13-createTime-timezone.patch
-Patch3: urCollector-2006-06-13-nodect.patch
-Patch4: urCollector-2006-06-13-modules-1.patch
-Patch5: urCollector-2006-06-13-modules-2.patch
-Patch6: urCollector-2006-06-13-xmlUtil.h-gcc4.1-fixes.patch
-Patch7: urCollector-2006-06-13-tac-race.patch
-Patch8: urCollector-2006-06-13-parser-improve.patch
-Patch9: urCollector-2006-06-13-mppwidth.patch
-Patch10: urCollector-2006-06-13-walltime.patch
-Patch11: urCollector-2006-06-13-libexec-fix.patch
-Patch12: urCollector-2006-06-13-lonely-cr-fix.patch
-Patch13: urCollector-2006-06-13-processors-global-fix.patch
-Patch14: urCollector-2006-06-13-account.patch
-Patch15: urCollector-2006-06-13-invoke-gratia-internal.patch
-Patch16: urCollector-2006-06-13-2009-09-03-fixes.patch
-Patch17: urCollector-2006-06-13-mpp-fixes-2009-09-10.patch
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
+########################################################################
 
+# Build settings.
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Prefix: /usr
 Prefix: %{default_prefix}
 Prefix: /etc
 
+# Build preparation.
 %prep
 %setup -q -c
 %setup -q -D -T -a 1
 %setup -q -D -T -a 2
 %ifnarch noarch
 %setup -q -D -T -a 3
-%setup -q -D -T -a 4
-cd urCollector-%{urCollector_version}
-%patch -P 0 -p1 -b .pcanal-fixes-1
-%patch -P 1 -b .greenc-fixes-1
-%patch -P 2 -b .createTime-timezone-1
-%patch -P 3 -b .nodect
-%patch -P 4 -b .modules-1
-%patch -P 5 -b .modules-2
-%patch -P 6 -b .xmlUtil.h-gcc4.1-fixes
-%patch -P 7 -b .tac-race
-%patch -P 8 -b .parser-improve
-%patch -P 9 -b .mppwidth
-%patch -P 10 -b .walltime
-%patch -P 11 -b .libexec
-%patch -P 12 -b .lonely-cr
-%patch -P 13 -b .processors
-%patch -P 14 -b .account
-%patch -P 15 -b .invoke-gratia
-%patch -P 16 -b .2009-09-03-fixes
 %setup -q -D -T -a 9
 %endif
 %setup -q -D -T -a 5
@@ -156,7 +130,7 @@ cd urCollector-%{urCollector_version}
 
 %build
 %ifnarch noarch
-cd urCollector-%{urCollector_version}
+cd pbs-lsf/urCollector-src
 %{__make} clean
 %{__make}
 %if %{?no_dcache:0}%{!?no_dcache:1}
@@ -214,6 +188,8 @@ cd SQLAlchemy-%{sqlalchemy_version}
   %{__install} -m 755 "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-transfer/gratia-xrootd-transfer" "${RPM_BUILD_ROOT}/etc/rc.d/init.d/gratia-xrootd-transfer"
   %{__rm} -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-transfer/gratia-xrootd-transfer"
 
+  # gridftp-transfer unneeded file.
+  %{__rm} -f "${RPM_BUILD_ROOT}%{default_prefix}/probe/gridftp-transfer/GridftpTransferProbe.sh"
 
   # YUM repository install
   install -d "${RPM_BUILD_ROOT}/etc/yum.repos.d"
@@ -227,6 +203,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
 
   # PBS / LSF probe install
   %{__cp} -pR pbs-lsf "${RPM_BUILD_ROOT}%{default_prefix}/probe"
+  %{__rm} -rf "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector-src"
   for probe_config in \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/ProbeConfig" \
       ; do
@@ -237,14 +214,16 @@ cd SQLAlchemy-%{sqlalchemy_version}
   cd "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf"
   cd - >/dev/null
 
-   # Get urCollector software
-  cd urCollector-%{urCollector_version}
+  # Install urCollector software
+  cd pbs-lsf/urCollector-src
   %{__cp} -p urCreator urCollector.pl \
   "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf"
   %{__install} -m 0644 LICENSE \
   "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf"
   %{__cp} -p urCollector.conf-template \
   "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector.conf"
+  %{__cp} -p urCollector.conf-template \
+  "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector.conf-template"
   echo "%{pbs_lsf_template_marker}" >> \
        "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector.conf"
   %{__mkdir_p} "${RPM_BUILD_ROOT}%{default_prefix}/probe/pbs-lsf/urCollector"
@@ -329,11 +308,10 @@ This product includes software developed by The EU EGEE Project
 %dir %{default_prefix}/var/lock
 %dir %{default_prefix}/var/tmp
 %dir %{default_prefix}/var/tmp/urCollector
-%doc urCollector-%{urCollector_version}/LICENSE
-%doc urCollector-%{urCollector_version}/urCollector.conf-template
+%doc %{default_prefix}/probe/pbs-lsf/LICENSE
+%doc %{default_prefix}/probe/pbs-lsf/urCollector.conf-template
 %doc pbs-lsf/README
 %{default_prefix}/probe/pbs-lsf/README
-%{default_prefix}/probe/pbs-lsf/LICENSE
 %{default_prefix}/probe/pbs-lsf/pbs-lsf.py
 %{default_prefix}/probe/pbs-lsf/pbs-lsf_meter.cron.sh
 %{default_prefix}/probe/pbs-lsf/pbs-lsf_meter.pl
@@ -349,7 +327,7 @@ This product includes software developed by The EU EGEE Project
 %post pbs-lsf%{?maybe_itb_suffix}
 # /usr -> "${RPM_INSTALL_PREFIX0}"
 # %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
-# /etc -> "${RPM_INSTALL_PREFIX2}"
+# /etc -> "${RPM_INSTALL_PREFIX2}",
 
 # Configure urCollector.conf
 %{__cat} <<EOF | while read config_file; do
@@ -1293,6 +1271,12 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Thu Mar  4 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15f-1
+- EGEE-provided probe is now version-controlled instead of unpackaged
+-  and patched from source.
+- Unused GridftpTransfer.sh script removed prior to final packaging.
+- Condor probe security fixes from Wisconsin.
+
 * Wed Feb 17 2010 Brian Bockelman <bbockelm@cse.unl.edu> - 1.06.15d-2
 - Add gratia-probe-services as a dependency to the xrootd-storage probe
 

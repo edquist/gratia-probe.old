@@ -281,8 +281,8 @@ string seconds2ISO8601  (int s)
 
 int ISO86012seconds (string s)
 {
-        unsigned int endMark = string::npos;
-        unsigned int beginMark = string::npos;
+        string::size_type endMark = string::npos;
+        string::size_type beginMark = string::npos;
         size_t buffer = 0;
         if ( s.find("P") == string::npos || s.find("T") == string::npos )
         {
@@ -331,7 +331,7 @@ string parseAttribute ( string a, attrType& m)
 {
         string buff = "";
         string attr;            
-        unsigned int pos = a.find_first_of(":");
+        string::size_type pos = a.find_first_of(":");
         if ( pos != string::npos )
         {
                 //there's a ':' scope delimiter

@@ -17,4 +17,4 @@ install: urCreator
 	cp urCollector.pl $(INSTALLDIR_SBIN)
 	cp urCollector.conf-template $(INSTALLDIR_ETC)
 clean : 
-	( rm -f urCreator )
+	rm -f urCreator
