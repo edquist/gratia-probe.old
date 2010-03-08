@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 1.06.15f
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -889,8 +889,6 @@ to start the service." 1>&2
 Summary: Gratia OSG accounting system probe for dCache storage.
 Group: Application/System
 Requires: %{name}-common >= 1.06.15c
-Requires: %{name}-extra-libs
-Requires: %{name}-extra-libs-arch-spec
 Requires: %{name}-services
 License: See LICENSE.
 %{?config_itb:Obsoletes: %{name}-dCache-storage}
@@ -1271,6 +1269,9 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Mon Mar  8 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15f-2
+- Remove unecessary dependencies from dCache-storage probe.
+
 * Thu Mar  4 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15f-1
 - EGEE-provided probe is now version-controlled instead of unpackaged
 -  and patched from source.
