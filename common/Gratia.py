@@ -3535,8 +3535,17 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
 
     # 2. Certinfo
     if vo_info and ((not VOName) or VOName[0] != r'/'):
-        DebugPrint(4, "DEBUG: Received values " + vo_info['VOName'] +
-                   " and " + vo_info['ReportableVOName'])
+        if vo_info['VOName'] and vo_info['ReportableVOName']):
+           DebugPrint(4, "DEBUG: Received values " + vo_info['VOName'] +
+                      " and " + vo_info['ReportableVOName'])
+        elif (vo_info['VOName']):
+           DebugPrint(4, "DEBUG: Received values " + vo_info['VOName'] +
+                      " and no reportableVOName")
+        elif (vo_info['ReportableVOName']):
+           DebugPrint(4, "DEBUG: Received values (no VOName specified)" +
+                      " and " + vo_info['ReportableVOName'])
+        else:
+           DebugPrint(4, "DEBUG: Received no VOName nor any ReportableVOName")
         DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: DONE")
         VONameNodes[0].firstChild.data = vo_info['VOName']
         VOName = vo_info['VOName']
