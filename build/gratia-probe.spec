@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.15g
+Version: 1.06.15h
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1269,6 +1269,9 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Mon Mar 15 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15h-1
+- Robustness fix to GetNodeData function in Gratia.py.
+
 * Mon Mar 15 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15g-1
 - Fix for exception in debug statements in Gratia.py.
 - Increase default BundleSize to 100 in ProbeConfigTemplate and Gratia.py.
