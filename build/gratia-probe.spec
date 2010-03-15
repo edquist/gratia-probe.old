@@ -1270,7 +1270,7 @@ Contributed as effort from OSG-Storage.
 
 %changelog
 * Mon Mar 15 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15g-1
-- Fix from Philippe for exception in debug statements in Gratia.py.
+- Fix for exception in debug statements in Gratia.py.
 - Increase default BundleSize to 100 in ProbeConfigTemplate and Gratia.py.
 
 * Mon Mar  8 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15f-2

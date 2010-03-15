@@ -490,12 +490,10 @@ class ProbeConfiguration:
     def get_BundleSize(self):
         global BundleSize
         result = self.__getConfigAttribute("BundleSize")
-        DebugPrint(-1, "result = " + str(result))
         if result:
             BundleSize = int(result)
         elif result == None or result == "":
             BundleSize = 100
-        DebugPrint(-1, "BundleSize = " + str(BundleSize))
         maxpending = self.get_MaxPendingFiles()
         if (BundleSize > maxpending):
             BundleSize = maxpending
@@ -3519,11 +3517,12 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
     DebugPrint(4, "DEBUG: Calling verifyFromCertInfo")
     vo_info = verifyFromCertInfo(xmlDoc, userIdentityNode,
                                  namespace, prefix)
+    DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: DONE")
     if (vo_info != None):
         result['has_certinfo'] = 1
         if (vo_info and not ( vo_info['VOName'] or
                               vo_info['ReportableVOName'])):
-            DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: No VOName data")
+            DebugPrint(4, "DEBUG: No VOName data from verifyFromCertInfo")
             vo_info = None # Reset if no output.
 
     # 1. Initial values
@@ -3539,18 +3538,8 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
 
     # 2. Certinfo
     if vo_info and ((not VOName) or VOName[0] != r'/'):
-        if vo_info['VOName'] and vo_info['ReportableVOName']:
-           DebugPrint(4, "DEBUG: Received values " + vo_info['VOName'] +
-                      " and " + vo_info['ReportableVOName'])
-        elif (vo_info['VOName']):
-           DebugPrint(4, "DEBUG: Received values " + vo_info['VOName'] +
-                      " and no reportableVOName")
-        elif (vo_info['ReportableVOName']):
-           DebugPrint(4, "DEBUG: Received values (no VOName specified)" +
-                      " and " + vo_info['ReportableVOName'])
-        else:
-           DebugPrint(4, "DEBUG: Received no VOName nor any ReportableVOName")
-        DebugPrint(4, "DEBUG: Calling verifyFromCertInfo: DONE")
+        DebugPrint(4, "DEBUG: Received values VOName: " + str(vo_info['VOName']) +
+                   " and ReportableVOName: " + str(vo_info['ReportableVOName']))
         VONameNodes[0].firstChild.data = vo_info['VOName']
         VOName = vo_info['VOName']
         ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
