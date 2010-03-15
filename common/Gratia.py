@@ -3896,7 +3896,7 @@ def GetNode(nodeList, nodeIndex = 0):
     return nodeList.item(0)
 
 def GetNodeData(nodeList, nodeIndex = 0):
-    if (nodeList == None) or (nodeList.length <= nodeIndex): return None
+    if (nodeList == None) or (nodeList.length <= nodeIndex) or (nodeList.item(0).firstChild == None): return None
     return nodeList.item(0).firstChild.data
 
 def FixDN(DN):
