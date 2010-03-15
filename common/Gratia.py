@@ -490,8 +490,12 @@ class ProbeConfiguration:
     def get_BundleSize(self):
         global BundleSize
         result = self.__getConfigAttribute("BundleSize")
+        DebugPrint(-1, "result = " + str(result))
         if result:
             BundleSize = int(result)
+        elif result == None or result == "":
+            BundleSize = 100
+        DebugPrint(-1, "BundleSize = " + str(BundleSize))
         maxpending = self.get_MaxPendingFiles()
         if (BundleSize > maxpending):
             BundleSize = maxpending
@@ -3535,7 +3539,7 @@ def CheckAndExtendUserIdentity(xmlDoc, userIdentityNode, namespace, prefix):
 
     # 2. Certinfo
     if vo_info and ((not VOName) or VOName[0] != r'/'):
-        if vo_info['VOName'] and vo_info['ReportableVOName']):
+        if vo_info['VOName'] and vo_info['ReportableVOName']:
            DebugPrint(4, "DEBUG: Received values " + vo_info['VOName'] +
                       " and " + vo_info['ReportableVOName'])
         elif (vo_info['VOName']):

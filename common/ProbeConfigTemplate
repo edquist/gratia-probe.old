@@ -25,7 +25,7 @@
 
     Title3="Tuning parameter"
 
-    BundleSize="20"
+    BundleSize="100"
        Comments28="Number of records to be sent per envelope. Consider setting higher (up to 200)."
     MaxPendingFiles="100000"
     MaxStagedArchives="400"
