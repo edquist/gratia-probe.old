@@ -559,6 +559,11 @@ class GratiaHandler(object):
             self.auth_info[xrdMon.user][1] = time.time()
 
     def send_gratia_record(self, evt):
+
+        # We sometimes get idle records ... ignore these
+        if evt.read_bytes+evt.write_bytes == 0:
+            return
+
         user = evt.user
         hostname = None
         if user:
