@@ -20,6 +20,9 @@ import datetime
 from Checkpoint import Checkpoint
 from Alarm import Alarm
 
+import TimeBinRange
+import Collapse
+
 #import pkg_resources
 #pkg_resources.require( 'sqlalchemy >= 0.3.8' )
 #pkg_resources.require( 'psycopg2   >= 2.0.5.1' )
@@ -70,6 +73,10 @@ class DCacheAggregator:
                 True )
 
         self._maxAge = configuration.get_MaxBillingHistoryDays()
+        try:
+          self._summarize = configuration.get_Summarize();
+        except:
+          self._summarize = 1
 
         # Connect to the dCache postgres database.
         try:
@@ -124,8 +131,15 @@ class DCacheAggregator:
          
             # Run the sql query with last checkpointed date stamp
             self._log.debug( '_sendToGratia: will execute ' + selectCMD % (datestr,datestr_end) )
-            result = self._connection.execute( selectCMD % (datestr,datestr_end) )
+            preResult = self._connection.execute( selectCMD % (datestr,datestr_end) )
             self._log.debug( '_sendToGratia: returned from sql' )
+            # 'DN','VO','Probe/Source','Destination' (i.e. RemoteSite), 'Protocol','Status','Grid','IsNew' 
+            # add njobs field , set it to 1
+            if ( self._summarize ):
+                result = Collapse.collapse(preResult,TimeBinRange.DictRecordAggregator(['initiator','client', 'protocol','errorcode','isnew' ],['njobs','transfersize','connectiontime']))
+            else:
+                result = preResult
+ 
             for row in result:
                 try:
                     newDate = row['datestamp']
@@ -226,6 +240,7 @@ class DCacheAggregator:
             isNew = 0
 
         r = Gratia.UsageRecord( 'Storage' )
+        r.Njobs(row['njobs'])
         r.AdditionalInfo( 'Source', srcHost )
         r.AdditionalInfo( 'Destination', dstHost )
         r.AdditionalInfo( 'Protocol', row['protocol'] )
