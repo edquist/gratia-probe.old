@@ -377,6 +377,7 @@ sub processLrmsLogs {
 
 	    &processLrmsLogFile($thisLogFile, $newestFile,
 				$_[0], $_[1], $_[2], $_[3]);
+      $newestFile = 0;
       # Call Gratia processing internally now to avoid leaving huge numbers of files unprocessed
       system("./pbs-lsf_meter.pl 2>&1");
       # Note we can't update the state buffer becuse of the crazy way we
