@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.15h
+Version: 1.06.15i
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1269,6 +1269,9 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Mon Mar 29 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15i-1
+- Fix mechanism intended to avoid corruption caused by reading in-progress log.
+
 * Mon Mar 15 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15h-1
 - Robustness fix to GetNodeData function in Gratia.py.
 
