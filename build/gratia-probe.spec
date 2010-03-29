@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.15i
+Version: 1.06.15j
 Release: 1
 License: GPL
 Group: Applications/System
@@ -808,6 +808,8 @@ Contributed by Greg Sharp and the dCache project.
 %{default_prefix}/probe/dCache-transfer/CheckpointTest.py
 %{default_prefix}/probe/dCache-transfer/DCacheAggregator.py
 %{default_prefix}/probe/dCache-transfer/dCacheBillingAggregator.py
+%{default_prefix}/probe/dCache-transfer/Collapse.py
+%{default_prefix}/probe/dCache-transfer/TimeBinRange.py
 %config(noreplace) %{default_prefix}/probe/dCache-transfer/ProbeConfig
 
 %post dCache-transfer%{?maybe_itb_suffix}
@@ -1269,6 +1271,9 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Mon Mar 29 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15j-1
+- Test release for storage group.
+
 * Mon Mar 29 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15i-1
 - Fix mechanism intended to avoid corruption caused by reading in-progress log.
 
