@@ -394,7 +394,7 @@ sub processLrmsLogs {
 sub processLrmsLogFile {
 
     my $filename = $_[0];
-    my $newestF = $_[1];
+    my $skipFile = $_[1];
 
     my $startJob = $_[2];
     my $startTimestamp = $_[3];
@@ -429,10 +429,25 @@ sub processLrmsLogFile {
 
     my $line = "";
     my $line_counter = 0;
+
+    my ($log_year, $log_month, $log_day) = ($filename =~ m&^(?:.*/)?(\d{4})(\d{2})(\d{2})&);
+    if ($log_year and $log_month and $log_day) {
+        my @datime = (localtime);
+        if (int($log_year) == ($datime[5] + 1900) and
+            int($log_month) == ($datime[4] + 1)
+            and int($log_day) == $datime[3]) {
+            # Skip this even if it's not the most recently modified file.
+            $skipFile = 1;
+        } else {
+            # Can avoid skipping last entry of most recent file if it's a PBS log not for today
+            $skipFile = 0;
+        }
+    }
+
     while ($line = <LRMSLOGFILE>) {
       ++$line_counter;
       # Ignore the first record: pick it up next time
-      $newestF and $line_counter == 1 and next;
+      $skipFile and $line_counter == 1 and next;
 
 	if ($useGGFformat) {
 	    %urGridInfo = ();    # reset grid-related info
@@ -502,12 +517,11 @@ sub processLrmsLogFile {
 	    return 0;
     } else {
 	    # need to process the job:
-	    if ( $firstJobId && $_[1] ) {    # $_[1] = $newestF
+	    if ( $firstJobId && $_[1] ) {
 
 		$_[4] = $targetJobId; # $lastJob, i.e. newest job processed
 		$_[5] = $lrmsEventTimestamp; # $lastTimestamp, i.e. of newest job
 		$firstJobId = 0;
-		$_[1] = 0; # $newestF; next file (if any) isn't the newest
 
 		print "".localtime().": This is the most recent job to process: $targetJobId; LRMS log event time: $lrmsEventTimeString (=$lrmsEventTimestamp)\n";
 	    }
