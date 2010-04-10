@@ -22,6 +22,7 @@ def collapse(records,agg):
   tr = TimeBinRange.TimeBinRange(agg)
 
   for r in records:
+     r = dict(r)
      recordTime = int(time.mktime( r['datestamp'].timetuple() ))
      r.setdefault("njobs", 1)
      tr.add(recordTime, r)

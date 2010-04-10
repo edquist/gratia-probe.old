@@ -61,6 +61,12 @@ class dCacheProbeConfig( Gratia.ProbeConfiguration ):
     def get_DCacheServerHost( self ):
         return self.getConfigAttribute( 'DCacheServerHost' )
 
+    def get_Summarize(self):
+        try:
+            return int(self.getConfigAttribute("Summarize"))
+        except:
+            return False
+
     # This is the name of a host that is running an SMTP server to which
     # email messages can be submitted.
     def get_EmailServerHost( self ):

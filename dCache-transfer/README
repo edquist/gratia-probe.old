@@ -15,6 +15,13 @@ to alter the "billinginfo" table by adding an index on the pair of columns
 and to alter the "doorinfo" table by adding an index on the (transaction)
 column.  This should speed up the search for newly added records.
 
+Here's the suggested indexes:
+
+create index transaction on doorinfo(transaction);
+create index dates_di on doorinfo(datestamp);
+create index initiator on billinginfo(initiator);
+create index dates on billinginfo(datestamp);
+
 FILES AND DIRECTORIES:
 =====================
 This package is normally installed in

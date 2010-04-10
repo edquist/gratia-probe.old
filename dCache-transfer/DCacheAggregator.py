@@ -6,7 +6,7 @@
 # This is a first attempt at a python program that reads the dCache billing
 # database, aggregates any new content, and posts it to Gratia.
 
-import os.path
+import os
 import sys
 import logging
 import time
@@ -25,6 +25,9 @@ import Collapse
 
 DCACHE_AGG_FIELDS = ['initiator', 'client', 'protocol', 'errorcode', 'isnew']
 DCACHE_SUM_FIELDS = ['njobs','transfersize','connectiontime']
+
+# If the DB query takes more than this amount of time, something is very wrong!
+MAX_QUERY_TIME_SECS = 180
 
 import warnings
 warnings.simplefilter( 'ignore', FutureWarning )
@@ -56,10 +59,11 @@ class DCacheAggregator:
         self._stopFileName = configuration.get_StopFileName()
         self._dCacheSvrHost = configuration.get_DCacheServerHost()
         # Create the billinginfo database checkpoint.
+        self._maxAge = configuration.get_MaxBillingHistoryDays()
         billinginfoChkpt = 'chkpt_dcache_xfer_DoNotDelete'
         if chkptdir != None:
-            billinginfoChkpt = os.path.join( chkptdir, billinginfoChkpt )
-        self._BIcheckpoint = Checkpoint( billinginfoChkpt )
+            billinginfoChkpt = os.path.join(chkptdir, billinginfoChkpt)
+        self._BIcheckpoint = Checkpoint(billinginfoChkpt, self._maxAge)
 
         self._sendAlarm = Alarm(
                 configuration.get_EmailServerHost(),
@@ -71,11 +75,10 @@ class DCacheAggregator:
                 1800, # Max of once per half hour complaining
                 True )
 
-        self._maxAge = configuration.get_MaxBillingHistoryDays()
         try:
           self._summarize = configuration.get_Summarize();
         except:
-          self._summarize = 1
+          self._summarize = False
 
         # Connect to the dCache postgres database.
         try:
@@ -120,31 +123,44 @@ class DCacheAggregator:
         numDone = 0
         initDate = checkpt.lastDateStamp()
         start = initDate
-        now = datetime.datetime.now()
+        now = datetime.datetime.now() - datetime.timedelta(1, 75*60)
         dictRecordAgg = TimeBinRange.DictRecordAggregator(DCACHE_AGG_FIELDS, DCACHE_SUM_FIELDS)
 
         while(numDone < self._maxSelect and start<now) :
 
-            datestr = str( start )
-            start = start + datetime.timedelta(hours=12) # For next iteration
-            datestr_end = str( start )
+            datestr = str(start)
+            start = start + datetime.timedelta(hours=1) # For next iteration
+            datestr_end = str(start)
          
             # Run the sql query with last checkpointed date stamp
             self._log.debug('_sendToGratia: will execute ' + selectCMD % (datestr, datestr_end))
-            result = self._connection.execute(selectCMD % (datestr, datestr_end))
+            select_time = -time.time()
+            result = self._connection.execute(selectCMD % (datestr, datestr_end)).fetchall()
+            select_time += time.time()
+            if select_time > MAX_QUERY_TIME_SECS:
+                raise Exception("Postgres query took %i seconds, more than " \
+                    "the maximum allowable of %i; this is a sign the DB is " \
+                    "not properly optimized!" % (int(select_time),
+                    MAX_QUERY_TIME_SECS))
             self._log.debug('_sendToGratia: returned from sql')
+            if not result:
+                self._log.debug("No results from %s to %s." % (datestr, datestr_end))
+                continue
             # 'DN','VO','Probe/Source','Destination' (i.e. RemoteSite), 'Protocol','Status','Grid','IsNew' 
             # add njobs field , set it to 1
             if self._summarize:
-                result = Collapse.collapse(preResult, dictRecordAgg)
- 
+                self._log.debug("Summarizing records.  Started with %i records." % len(result))
+                result = Collapse.collapse(result, dictRecordAgg)
+
+            self._log.info("dCache BillingDB query returned %i results." % len(result))
+
             for row in result:
                 try:
                     newDate = row['datestamp']
                     newTxn = row['transaction']
 
                     # We checkpoint everything, just in case...
-                    checkpt.createPending( newDate, newTxn )
+                    checkpt.createPending(newDate, newTxn)
                     # Skip intra-site transfers if required, or if this is the same
                     # record as the last checkpoint.
                     if self._skipIntraSiteXfer(row) or txn == newTxn :
@@ -154,12 +170,19 @@ class DCacheAggregator:
                         numDone = numDone + 1
                         continue
 
-                    usageRecord = makeRecord( row )
+                    usageRecord = makeRecord(row)
+
+                    njobs = 1
+                    try:        
+                        njobs = row['njobs'] 
+                    except:     
+                        pass
 
                     # Send to gratia, and see what it says.
-                    response = Gratia.Send( usageRecord )
+                    response = Gratia.Send(usageRecord)
                     baseMsg = tableName + ' record: ' + \
-                              str( newDate ) + ', ' + newTxn
+                              str( newDate ) + ', ' + newTxn + ", njobs " + \
+                              str(njobs)
                     if response ==  "Fatal Error: too many pending files":
                         # The server is currently not accepting record and
                         # Gratia.py was not able to store the record, we will
@@ -187,8 +210,11 @@ class DCacheAggregator:
                     # Check to see if the stop file has been created.
                     if os.path.exists( self._stopFileName ):
                         break
-                except:
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except Exception, e:
                     self._log.warning("Unable to make a record out of the following SQL row: %s." % str(row))
+                    self._log.exception(e)
                     numDone += 1 # Increment numDone, otherwise we will exit early.
                     continue
         if numDone == self._maxSelect and initDate == start:
@@ -238,7 +264,12 @@ class DCacheAggregator:
             isNew = 0
 
         r = Gratia.UsageRecord( 'Storage' )
-        r.Njobs(row['njobs'])
+        njobs = 1
+        try:
+            njobs = row['njobs']
+        except:
+            pass
+        r.Njobs(njobs)
         r.AdditionalInfo( 'Source', srcHost )
         r.AdditionalInfo( 'Destination', dstHost )
         r.AdditionalInfo( 'Protocol', row['protocol'] )
@@ -258,7 +289,7 @@ class DCacheAggregator:
         if row['initiator'] != 'unknown':
             r.DN( row['initiator'] )
         # if the initiator host is "unknown", make it "Unknown".
-        initiatorHost = row['initiatorHost']
+        initiatorHost = row['initiatorhost']
         if initiatorHost == 'unknown':
             initiatorHost = 'Unknown'
         r.SubmitHost( initiatorHost )
@@ -292,6 +323,9 @@ class DCacheAggregator:
         while (self._maxSelect != maxSelect):
             # self._maxSelect could be increased as necessary by __sendToGratia()
             maxSelect = self._maxSelect
+            minTime = datetime.datetime.now()- datetime.timedelta(self._maxAge, 0)
+            minTime = datetime.datetime(minTime.year, minTime.month,
+                minTime.day, minTime.hour, 0, 0)
             selectCMD = """
 SELECT
  b.datestamp AS datestamp,
@@ -318,8 +352,7 @@ FROM
  ) as b
 LEFT JOIN doorinfo d ON b.initiator = d.transaction;
 """ \
-            % (datetime.datetime.now()- datetime.timedelta(self._maxAge, 0),
-               maxSelect)
+            % (minTime, maxSelect)
 
             while self._sendToGratia(
                 'billinginfo', self._BIcheckpoint, selectCMD,

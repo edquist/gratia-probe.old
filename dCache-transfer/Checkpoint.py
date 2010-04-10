@@ -11,7 +11,7 @@ import os
 import logging
 import stat
 import cPickle
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class Checkpoint:
@@ -29,7 +29,7 @@ class Checkpoint:
     _pending_transaction = None
     _pending = False
 
-    def __init__( self, tablename ):
+    def __init__(self, tablename, maxAge=30):
         """
         Tablename is the name of the table in db for which we are keeping
         a checkpoint. It is used to locate the file with the pickled record
@@ -37,9 +37,19 @@ class Checkpoint:
         """
         self._tablename = tablename
         self._tmpFile = tablename + ".pending"
+
+        now = datetime.now()
+        now = datetime(now.year, now.month, now.day, 0, 0, 0)
+        minDay = now - timedelta(maxAge, 0)
+
         try:
             pklFile = open( tablename, 'rb' )
             self._dateStamp, self._transaction = cPickle.load( pklFile )
+            if self._dateStamp < minDay:
+                self._dateStamp = minDay
+            ds = self._dateStamp
+            self._dateStamp = datetime(ds.year, ds.month, ds.day, ds.hour,
+                0, 0)
             pklFile.close()
         except IOError, (errno, strerror):
             # This is not really an error, since it might be the first
@@ -51,6 +61,7 @@ class Checkpoint:
                   ( tablename, strerror )
             msg += "\nThis is okay the first time you run the probe."
             log.warn( msg )
+            self._dateStamp = minDay
 
 
     def createPending( self, datestamp, txn ):
