@@ -29,6 +29,34 @@ DCACHE_SUM_FIELDS = ['njobs','transfersize','connectiontime']
 # If the DB query takes more than this amount of time, something is very wrong!
 MAX_QUERY_TIME_SECS = 180
 
+BILLINGDB_SELECT_CMD = """
+    SELECT
+        b.datestamp AS datestamp,
+        b.transaction AS transaction,
+        b.cellname AS cellname,
+        b.action AS action,
+        b.transfersize AS transfersize,
+        b.connectiontime AS connectiontime,
+        b.isnew AS isnew,
+        b.client AS client,
+        b.errorcode AS errorcode,
+        b.protocol AS protocol,
+        b.initiator AS doorlink,
+        COALESCE(d.owner, 'unknown') AS initiator,
+        COALESCE(d.client, 'Unknown') AS initiatorHost,
+        d.mappeduid as mappeduid
+    FROM
+        (
+            SELECT *
+            FROM billinginfo b
+            WHERE '%%s' <= b.datestamp AND b.datestamp <= '%%s'
+            AND b.datestamp >= '%s'
+            ORDER BY datestamp
+            LIMIT %i
+        ) as b
+    LEFT JOIN doorinfo d ON b.initiator = d.transaction;
+"""
+
 import warnings
 warnings.simplefilter( 'ignore', FutureWarning )
 
@@ -43,6 +71,8 @@ class DCacheAggregator:
 
     _connection = None
     # Don't select more than 10000 records at a time.
+    # If you change this value, duplicate record detection will break for
+    # summarized records.
     _maxSelect = 10000
     
     # Do not send in records older than 30 days
@@ -116,7 +146,6 @@ class DCacheAggregator:
 
     def _sendToGratia( self, tableName, checkpt, selectCMD, makeRecord ):
         # Pull up the _maxSelect records that are newer than the last checkpoint
-
         txn = checkpt.lastTransaction()
 
         # For each record we found, try to send it to Gratia.
@@ -124,18 +153,31 @@ class DCacheAggregator:
         initDate = checkpt.lastDateStamp()
         start = initDate
         now = datetime.datetime.now() - datetime.timedelta(1, 75*60)
-        dictRecordAgg = TimeBinRange.DictRecordAggregator(DCACHE_AGG_FIELDS, DCACHE_SUM_FIELDS)
+        dictRecordAgg = TimeBinRange.DictRecordAggregator(DCACHE_AGG_FIELDS,
+            DCACHE_SUM_FIELDS)
 
-        while(numDone < self._maxSelect and start<now) :
+        # Iterate by one hour time intervals.  Stop when there are either
+        # _maxSelect records (we will increase maxSelect next round) or we
+        # have completely caught up.
+        while (numDone < self._maxSelect) and (start < now):
 
+            # Regardless of where the start happens within the hour, try to
+            # make the end align with the beginning of the next hour.
             datestr = str(start)
-            start = start + datetime.timedelta(hours=1) # For next iteration
+            start = start + datetime.timedelta(hours=1)
+            start = datetime.datetime(start.year, start.month, start.hour, 0, 0)
             datestr_end = str(start)
+            # start is already aligned with the hour.
+            if datestr == datestr_end:
+                start += datetime.timedelta(0, 3600)
+                datestr_end = str(start)
          
             # Run the sql query with last checkpointed date stamp
-            self._log.debug('_sendToGratia: will execute ' + selectCMD % (datestr, datestr_end))
+            self._log.debug('_sendToGratia: will execute ' + selectCMD % \
+                (datestr, datestr_end))
             select_time = -time.time()
-            result = self._connection.execute(selectCMD % (datestr, datestr_end)).fetchall()
+            result = self._connection.execute(selectCMD % (datestr,
+                datestr_end)).fetchall()
             select_time += time.time()
             if select_time > MAX_QUERY_TIME_SECS:
                 raise Exception("Postgres query took %i seconds, more than " \
@@ -144,39 +186,42 @@ class DCacheAggregator:
                     MAX_QUERY_TIME_SECS))
             self._log.debug('_sendToGratia: returned from sql')
             if not result:
-                self._log.debug("No results from %s to %s." % (datestr, datestr_end))
+                self._log.debug("No results from %s to %s." % (datestr,
+                    datestr_end))
                 continue
-            # 'DN','VO','Probe/Source','Destination' (i.e. RemoteSite), 'Protocol','Status','Grid','IsNew' 
+            # 'DN','VO','Probe/Source','Destination' (i.e. RemoteSite), 
+            # 'Protocol','Status','Grid','IsNew' 
             # add njobs field , set it to 1
             if self._summarize:
-                self._log.debug("Summarizing records.  Started with %i records." % len(result))
+                self._log.debug("Summarizing records.  Started with %i " \
+                    "records." % len(result))
                 result = Collapse.collapse(result, dictRecordAgg)
 
-            self._log.info("dCache BillingDB query returned %i results." % len(result))
+            self._log.info("dCache BillingDB query returned %i results." % \
+                len(result))
 
             for row in result:
                 try:
                     newDate = row['datestamp']
                     newTxn = row['transaction']
 
+                    try:
+                        njobs = row['njobs']
+                    except:
+                        njobs = 1
+
                     # We checkpoint everything, just in case...
                     checkpt.createPending(newDate, newTxn)
-                    # Skip intra-site transfers if required, or if this is the same
-                    # record as the last checkpoint.
-                    if self._skipIntraSiteXfer(row) or txn == newTxn :
-                        # We have to count this because of the way the return value
-                        # will be used.
+                    # Skip intra-site transfers if required, or if this is the
+                    # same record as the last checkpoint.
+                    if self._skipIntraSiteXfer(row) or (txn == newTxn):
+                        # We have to count this because of the way the return
+                        # value will be used.
                         checkpt.commit()
-                        numDone = numDone + 1
+                        numDone += njobs
                         continue
 
                     usageRecord = makeRecord(row)
-
-                    njobs = 1
-                    try:        
-                        njobs = row['njobs'] 
-                    except:     
-                        pass
 
                     # Send to gratia, and see what it says.
                     response = Gratia.Send(usageRecord)
@@ -189,40 +234,41 @@ class DCacheAggregator:
                         # need to resend it.
                         # For now take a long nap and then by 'break' we
                         # force a retry for this record.
-                        self._log.error( 'Error sending : too many pending files' )
+                        self._log.error('Error sending : too many pending ' \
+                            'files')
                         longsleep = 15*60
-                        self._log.warn( "sleeping for = "  + str( longsleep ) + " seconds" )
-                        time.sleep( longsleep )
+                        self._log.warn("sleeping for = "  + str( longsleep ) + \
+                            " seconds")
+                        time.sleep(longsleep)
                         break
-                    elif response.startswith( 'Fatal Error' ) or \
-                       response.startswith( 'Internal Error' ):
+                    elif response.startswith('Fatal Error') or \
+                            response.startswith('Internal Error'):
                         self._log.critical( 'error sending ' + baseMsg + \
                                             '\ngot response ' + response )
-                        sys.exit( 2 )
+                        sys.exit(2)
                     self._log.debug( 'sent ' + baseMsg )
-                    checkpt.commit()
                     # If we got a non-fatal error, slow down since the server
                     # might be overloaded.
-                    if response[0:2] != 'OK':
+                    if response[:2] != 'OK':
                         self._log.error( 'error sending ' + baseMsg + \
                                         '\ngot response ' + response )
-                    numDone = numDone + 1
+                    numDone += njobs
                     # Check to see if the stop file has been created.
                     if os.path.exists( self._stopFileName ):
                         break
                 except (KeyboardInterrupt, SystemExit):
                     raise
                 except Exception, e:
-                    self._log.warning("Unable to make a record out of the following SQL row: %s." % str(row))
+                    self._log.warning("Unable to make a record out of the " \
+                        "following SQL row: %s." % str(row))
                     self._log.exception(e)
-                    numDone += 1 # Increment numDone, otherwise we will exit early.
+                    # Increment numDone, otherwise we will exit early.
+                    numDone += njobs
                     continue
-        if numDone == self._maxSelect and initDate == start:
-            self._log.warning("Encountered " + str(self._maxSelect) + \
-                              " entries with the same date; increasing query limit to " + \
-                              str(self._maxSelect * 2))
-            self._maxSelect = self._maxSelect * 2
 
+        # We only commit the checkpoint if the entire interval is done;
+        # otherwise, we don't know where to start up from.
+        checkpt.commit()
         self._log.debug( '_sendToGratia: numDone = %d' % numDone )
         return numDone
 
@@ -312,55 +358,21 @@ class DCacheAggregator:
         return r
 
 
-    def sendBillingInfoRecordsToGratia( self ):
+    def sendBillingInfoRecordsToGratia(self):
         # _sendToGratia will embed the latest datestamp and transaction value
         # from the checkpoint where %s is embedded in the command.
         self._log.debug( "sendBillingInfoRecordsToGratia" )
 
-        # Store original value for later restoration
-        initMaxSelect = self._maxSelect;
-        maxSelect = 0;
-        while (self._maxSelect != maxSelect):
-            # self._maxSelect could be increased as necessary by __sendToGratia()
-            maxSelect = self._maxSelect
-            minTime = datetime.datetime.now()- datetime.timedelta(self._maxAge, 0)
-            minTime = datetime.datetime(minTime.year, minTime.month,
-                minTime.day, minTime.hour, 0, 0)
-            selectCMD = """
-SELECT
- b.datestamp AS datestamp,
- b.transaction AS transaction,
- b.cellname AS cellname,
- b.action AS action,
- b.transfersize AS transfersize,
- b.connectiontime AS connectiontime,
- b.isnew AS isnew,
- b.client AS client,
- b.errorcode AS errorcode,
- b.protocol AS protocol,
- b.initiator AS doorlink,
- COALESCE(d.owner, 'unknown') AS initiator,
- COALESCE(d.client, 'Unknown') AS initiatorHost,
- d.mappeduid as mappeduid
-FROM
- (SELECT *
- FROM billinginfo b
- WHERE '%%s' <= b.datestamp AND b.datestamp <= '%%s'
- AND b.datestamp >= '%s'
- ORDER BY datestamp
- LIMIT %i
- ) as b
-LEFT JOIN doorinfo d ON b.initiator = d.transaction;
-""" \
-            % (minTime, maxSelect)
+        numDone = self._maxSelect
+        minTime = datetime.datetime.now() - datetime.timedelta(self._maxAge, 0)
+        minTime = datetime.datetime(minTime.year, minTime.month, minTime.day,
+            minTime.hour, 0, 0)
+        selectCMD = BILLINGDB_SELECT_CMD % (minTime, self._maxSelect)
 
-            while self._sendToGratia(
-                'billinginfo', self._BIcheckpoint, selectCMD,
-                self._convertBillingInfoToGratiaUsageRecord ) == self._maxSelect:
-                self._log.debug( 'sendBillingInfoRecordsToGratia: looping' )
-
-        # Reset to original value.
-        self._maxSelect = initMaxSelect
+        while numDone == self._maxSelect:
+            numDone = self._sendToGratia('billinginfo', self._BIcheckpoint,
+                selectCMD, self._convertBillingInfoToGratiaUsageRecord)
+            self._log.debug('sendBillingInfoRecordsToGratia: looping')
 
 # end class dCacheRecordAggregator
 
