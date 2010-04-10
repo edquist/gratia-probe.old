@@ -23,9 +23,8 @@ from Alarm import Alarm
 import TimeBinRange
 import Collapse
 
-#import pkg_resources
-#pkg_resources.require( 'sqlalchemy >= 0.3.8' )
-#pkg_resources.require( 'psycopg2   >= 2.0.5.1' )
+DCACHE_AGG_FIELDS = ['initiator', 'client', 'protocol', 'errorcode', 'isnew']
+DCACHE_SUM_FIELDS = ['njobs','transfersize','connectiontime']
 
 import warnings
 warnings.simplefilter( 'ignore', FutureWarning )
@@ -122,7 +121,8 @@ class DCacheAggregator:
         initDate = checkpt.lastDateStamp()
         start = initDate
         now = datetime.datetime.now()
-        
+        dictRecordAgg = TimeBinRange.DictRecordAggregator(DCACHE_AGG_FIELDS, DCACHE_SUM_FIELDS)
+
         while(numDone < self._maxSelect and start<now) :
 
             datestr = str( start )
@@ -130,15 +130,13 @@ class DCacheAggregator:
             datestr_end = str( start )
          
             # Run the sql query with last checkpointed date stamp
-            self._log.debug( '_sendToGratia: will execute ' + selectCMD % (datestr,datestr_end) )
-            preResult = self._connection.execute( selectCMD % (datestr,datestr_end) )
-            self._log.debug( '_sendToGratia: returned from sql' )
+            self._log.debug('_sendToGratia: will execute ' + selectCMD % (datestr, datestr_end))
+            result = self._connection.execute(selectCMD % (datestr, datestr_end))
+            self._log.debug('_sendToGratia: returned from sql')
             # 'DN','VO','Probe/Source','Destination' (i.e. RemoteSite), 'Protocol','Status','Grid','IsNew' 
             # add njobs field , set it to 1
-            if ( self._summarize ):
-                result = Collapse.collapse(preResult,TimeBinRange.DictRecordAggregator(['initiator','client', 'protocol','errorcode','isnew' ],['njobs','transfersize','connectiontime']))
-            else:
-                result = preResult
+            if self._summarize:
+                result = Collapse.collapse(preResult, dictRecordAgg)
  
             for row in result:
                 try:

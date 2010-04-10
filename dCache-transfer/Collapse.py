@@ -1,24 +1,38 @@
+
+"""
+The Collapse module primarily exports one function, collapse, that aggregates
+similar records (where each record is assumed to be a python dictionary
+"""
+
 import time
-import TimeBinRange
 import random
 import datetime
 
+import TimeBinRange
 
 def collapse(records,agg):
+  """
+  Aggregate together records based upon timebins using TimeBinRange.
+
+  @param records: A list of records (dictionaries) to aggregate.
+  @param agg: An aggregator (DictRecordAggregator) compatible with the records.
+  @return: A list of aggregated records (usually aggregated by hour).
+  """
 
   tr = TimeBinRange.TimeBinRange(agg)
 
   for r in records:
      recordTime = int(time.mktime( r['datestamp'].timetuple() ))
-     r['njobs'] = 1
-     tr.add(recordTime,r)
+     r.setdefault("njobs", 1)
+     tr.add(recordTime, r)
       
   result = tr.list()
   for r in result:
-      makeTransaction(r,agg)
+      makeTransaction(r, agg)
 
+  now = int(time.time())
   while 1:
-      if ( len(result) > 0  and result[-1]['tm'] > int(time.time()) - 2*TimeBinRange.step):
+      if ( len(result) > 0  and result[-1]['tm'] > now - 2*TimeBinRange.RANGE_SIZE_SECS):
          del result[-1]
       else:
          break
@@ -27,7 +41,7 @@ def collapse(records,agg):
 
 def makeTransaction(record,agg):
    
-   transaction = str(record['tm']/TimeBinRange.step)
+   transaction = str(record['tm']/TimeBinRange.RANGE_SIZE_SECS)
    hashCode = 0
    for aggField in agg.aggFields:
       tupl = (hashCode, hash(record[aggField]))
@@ -38,6 +52,10 @@ def makeTransaction(record,agg):
    record['datestamp'] = datetime.datetime.fromtimestamp(record['tm'])
 
 def generateResult():
+
+  """
+  Generate a bunch of data; this is used to test the aggregation.
+  """
 
   aggFields = { 'initiator' : [ 'I1' ,'I2','I3' ], 'client' : [  'C2' ,'C1','C3'] , 'protocol' : [ 'P1' ] , 'errorcode' :  [ 0 ] , 'isnew' : [ 0 ] }
 
