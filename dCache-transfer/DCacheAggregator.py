@@ -179,7 +179,7 @@ class DCacheAggregator:
             self._log.warning("Limit hit; increasing from %i to %i." % \
                 (maxSelect, maxSelect*2))
             endtime, result = self._execute(starttime, endtime, maxSelect*2)
-            assert endtime > result
+            assert endtime > starttime
             return endtime, result
 
         return endtime, result
