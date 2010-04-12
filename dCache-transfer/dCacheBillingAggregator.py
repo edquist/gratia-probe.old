@@ -135,7 +135,7 @@ def warn_of_signal( signum, frame ):
         logger.critical( "Going down on signal " + str( signum ) );
     if terminationAlarm != None:
         terminationAlarm.event()
-    sys.exit( 1 )
+    os._exit( 1 )
 
 
 if __name__ == '__main__':
@@ -244,6 +244,8 @@ if __name__ == '__main__':
             stats.print_stats()
 
         logger.warn( ProgramName + " stop file detected." )
+    except (KeyboardInterrupt, SystemExit):
+        raise
     except:
         # format the traceback into a string
         tblist = traceback.format_exception( sys.exc_type,

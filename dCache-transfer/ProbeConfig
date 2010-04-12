@@ -32,6 +32,7 @@
     LogRotate="31"
     UseSyslog="0"
 
+    Summarize="0"
     UpdateFrequency="120"
     DBHostName="localhost"
     DBLoginName="srmdcache"

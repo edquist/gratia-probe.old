@@ -29,6 +29,9 @@ DCACHE_SUM_FIELDS = ['njobs','transfersize','connectiontime']
 # If the DB query takes more than this amount of time, something is very wrong!
 MAX_QUERY_TIME_SECS = 180
 
+STARTING_MAX_SELECT = 10000
+MAX_SELECT = 512000
+
 BILLINGDB_SELECT_CMD = """
     SELECT
         b.datestamp AS datestamp,
@@ -49,8 +52,7 @@ BILLINGDB_SELECT_CMD = """
         (
             SELECT *
             FROM billinginfo b
-            WHERE '%%s' <= b.datestamp AND b.datestamp <= '%%s'
-            AND b.datestamp >= '%s'
+            WHERE b.datestamp > '%s' AND b.datestamp <= '%s'
             ORDER BY datestamp
             LIMIT %i
         ) as b
@@ -70,10 +72,7 @@ class DCacheAggregator:
     """
 
     _connection = None
-    # Don't select more than 10000 records at a time.
-    # If you change this value, duplicate record detection will break for
-    # summarized records.
-    _maxSelect = 10000
+    _maxSelect = STARTING_MAX_SELECT
     
     # Do not send in records older than 30 days
     _maxAge = 30
@@ -105,10 +104,7 @@ class DCacheAggregator:
                 1800, # Max of once per half hour complaining
                 True )
 
-        try:
-          self._summarize = configuration.get_Summarize();
-        except:
-          self._summarize = False
+        self._summarize = configuration.get_Summarize();
 
         # Connect to the dCache postgres database.
         try:
@@ -123,17 +119,7 @@ class DCacheAggregator:
             self._log.error( errmsg )
             raise
 
-
-    def _isIntraSiteTransfer( self, row ) :
-        """
-        This static method encapsulates the mysterious definition of an
-        intra-site transfer. Once we know what that definition should be,
-        it should be defined here...
-        Returns true if this record appears to be for an intra-site transfer
-        and false if it appears to be for an inter-site transfer.
-        """
-        return str(row['protocol']).startswith( 'DCap' )
-
+        self._grid = configuration.get_Grid()
 
     def _skipIntraSiteXfer( self, row ) :
         """
@@ -141,160 +127,155 @@ class DCacheAggregator:
         intra-site transfer and we the configuration file said to skip
         such records.
         """
-        return self._skipIntraSite and self._isIntraSiteTransfer( row )
+        return self._skipIntraSite and row['protocol'].startswith("DCap")
 
+    def _execute(self, starttime, endtime, maxSelect):
+        """
+        Execute the select command against the Billing DB; process the results.
 
-    def _sendToGratia( self, tableName, checkpt, selectCMD, makeRecord ):
-        # Pull up the _maxSelect records that are newer than the last checkpoint
-        txn = checkpt.lastTransaction()
+        It is guaranteed this function will return an endtime greater than the
+        starttime, but not guaranteed by how much.
 
-        # For each record we found, try to send it to Gratia.
-        numDone = 0
-        initDate = checkpt.lastDateStamp()
-        start = initDate
-        now = datetime.datetime.now() - datetime.timedelta(1, 75*60)
+        @param starttime: Datetime object for the start of the query interval.
+        @param endtime: Datetime object for the end of the query interval.
+        @param maxSelect: The maximum number of rows to select
+        @return: Tuple containing the greatest end-time of the records and the
+           results
+        """
+        assert starttime < endtime
+        if maxSelect > MAX_SELECT:
+            raise Exception("Fatal error - more than %i transfers in a single" \
+                " millisecond." % MAX_SELECT)
+        datestr = str(starttime)
+        datestr_end = str(endtime)
+       
         dictRecordAgg = TimeBinRange.DictRecordAggregator(DCACHE_AGG_FIELDS,
             DCACHE_SUM_FIELDS)
+ 
+        # Query the database.  If it takes more than MAX_QUERY_TIME_SECS, then
+        # have the probe self-destruct.
+        #self._log.debug('_sendToGratia: will execute ' + BILLINGDB_SELECT_CMD \
+        #    % (datestr, datestr_end, maxSelect))
+        select_time = -time.time()
+        result = self._connection.execute(BILLINGDB_SELECT_CMD % (datestr,
+            datestr_end, maxSelect)).fetchall()
+        select_time += time.time()
+        if select_time > MAX_QUERY_TIME_SECS:
+            raise Exception("Postgres query took %i seconds, more than " \
+                "the maximum allowable of %i; this is a sign the DB is " \
+                "not properly optimized!" % (int(select_time),
+                MAX_QUERY_TIME_SECS))
+        self._log.debug("BillingDB query finished in %.02f seconds and " \
+            "returned %i records." % (select_time, len(result)))
 
-        # Iterate by one hour time intervals.  Stop when there are either
-        # _maxSelect records (we will increase maxSelect next round) or we
-        # have completely caught up.
-        while (numDone < self._maxSelect) and (start < now):
+        if not result:
+            self._log.debug("No results from %s to %s." % (starttime, endtime))
+            return endtime, result
 
-            # Regardless of where the start happens within the hour, try to
-            # make the end align with the beginning of the next hour.
-            datestr = str(start)
-            start = start + datetime.timedelta(hours=1)
-            start = datetime.datetime(start.year, start.month, start.hour, 0, 0)
-            datestr_end = str(start)
-            # start is already aligned with the hour.
-            if datestr == datestr_end:
-                start += datetime.timedelta(0, 3600)
-                datestr_end = str(start)
-         
-            # Run the sql query with last checkpointed date stamp
-            self._log.debug('_sendToGratia: will execute ' + selectCMD % \
-                (datestr, datestr_end))
-            select_time = -time.time()
-            result = self._connection.execute(selectCMD % (datestr,
-                datestr_end)).fetchall()
-            select_time += time.time()
-            if select_time > MAX_QUERY_TIME_SECS:
-                raise Exception("Postgres query took %i seconds, more than " \
-                    "the maximum allowable of %i; this is a sign the DB is " \
-                    "not properly optimized!" % (int(select_time),
-                    MAX_QUERY_TIME_SECS))
-            self._log.debug('_sendToGratia: returned from sql')
-            if not result:
-                self._log.debug("No results from %s to %s." % (datestr,
-                    datestr_end))
-                continue
-            # 'DN','VO','Probe/Source','Destination' (i.e. RemoteSite), 
-            # 'Protocol','Status','Grid','IsNew' 
-            # add njobs field , set it to 1
-            if self._summarize:
-                self._log.debug("Summarizing records.  Started with %i " \
-                    "records." % len(result))
-                result = Collapse.collapse(result, dictRecordAgg)
+        # If we hit our limit, there's no telling how many identical records
+        # there are on the final millisecond; we must re-query with higher
+        # limits.
+        if len(result) == maxSelect:
+            self._log.warning("Limit hit; increasing from %i to %i." % \
+                (maxSelect, maxSelect*2))
+            endtime, result = self._execute(starttime, endtime, maxSelect*2)
+            assert endtime > result
+            return endtime, result
 
-            self._log.info("dCache BillingDB query returned %i results." % \
-                len(result))
+        return endtime, result
 
-            for row in result:
-                try:
-                    newDate = row['datestamp']
-                    newTxn = row['transaction']
-
-                    try:
-                        njobs = row['njobs']
-                    except:
-                        njobs = 1
-
-                    # We checkpoint everything, just in case...
-                    checkpt.createPending(newDate, newTxn)
-                    # Skip intra-site transfers if required, or if this is the
-                    # same record as the last checkpoint.
-                    if self._skipIntraSiteXfer(row) or (txn == newTxn):
-                        # We have to count this because of the way the return
-                        # value will be used.
-                        checkpt.commit()
-                        numDone += njobs
-                        continue
-
-                    usageRecord = makeRecord(row)
-
-                    # Send to gratia, and see what it says.
-                    response = Gratia.Send(usageRecord)
-                    baseMsg = tableName + ' record: ' + \
-                              str( newDate ) + ', ' + newTxn + ", njobs " + \
-                              str(njobs)
-                    if response ==  "Fatal Error: too many pending files":
-                        # The server is currently not accepting record and
-                        # Gratia.py was not able to store the record, we will
-                        # need to resend it.
-                        # For now take a long nap and then by 'break' we
-                        # force a retry for this record.
-                        self._log.error('Error sending : too many pending ' \
-                            'files')
-                        longsleep = 15*60
-                        self._log.warn("sleeping for = "  + str( longsleep ) + \
-                            " seconds")
-                        time.sleep(longsleep)
-                        break
-                    elif response.startswith('Fatal Error') or \
-                            response.startswith('Internal Error'):
-                        self._log.critical( 'error sending ' + baseMsg + \
-                                            '\ngot response ' + response )
-                        sys.exit(2)
-                    self._log.debug( 'sent ' + baseMsg )
-                    # If we got a non-fatal error, slow down since the server
-                    # might be overloaded.
-                    if response[:2] != 'OK':
-                        self._log.error( 'error sending ' + baseMsg + \
-                                        '\ngot response ' + response )
-                    numDone += njobs
-                    # Check to see if the stop file has been created.
-                    if os.path.exists( self._stopFileName ):
-                        break
-                except (KeyboardInterrupt, SystemExit):
-                    raise
-                except Exception, e:
-                    self._log.warning("Unable to make a record out of the " \
-                        "following SQL row: %s." % str(row))
-                    self._log.exception(e)
-                    # Increment numDone, otherwise we will exit early.
-                    numDone += njobs
-                    continue
-
-        # We only commit the checkpoint if the entire interval is done;
-        # otherwise, we don't know where to start up from.
-        checkpt.commit()
-        self._log.debug( '_sendToGratia: numDone = %d' % numDone )
+    def _processResults(self, results):
+        """
+        Process all of the results
+        """
+        numDone = 0
+        for row in results:
+            row = dict(row)
+            row.setdefault("njobs", 1)
+            try:
+                numDone += self._processDBRow(row)
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception, e:
+                self._log.warning("Unable to make a record out of the " \
+                    "following SQL row: %s." % str(row))
+                self._log.exception(e)
+                # Increment numDone, otherwise we will exit early.
+                numDone += row['njobs']
         return numDone
 
+    def _processDBRow(self, row):
+        """
+        Completely process a single DB row.  Take the row, convert it to a 
+        UsageRecord, and send it up to Gratia.  Process any errors which
+        occurred during the process.
 
-    def _convertBillingInfoToGratiaUsageRecord( self, row ):
+        @return: The number of jobs in this row, regardless of whether we sent
+           them successfully or not.
+        """
+        # Skip intra-site transfers if required
+        if self._skipIntraSiteXfer(row):
+            return row['njobs']
+
+        usageRecord = self._convertBillingInfoToGratiaUsageRecord(\
+                        row)
+
+        # Send to gratia, and see what it says.
+        response = Gratia.Send(usageRecord)
+        baseMsg = "Record: %s, %s, njobs %i" % (str(row['datestamp']),
+            row['transaction'], row['njobs'])
+        if response == "Fatal Error: too many pending files":
+            # The server is currently not accepting record and
+            # Gratia.py was not able to store the record, we will
+            # need to resend it.
+            # For now take a long nap and then by 'break' we
+            # force a retry for this record.
+            self._log.error("Error sending : too many pending files")
+            longsleep = 15*60
+            self._log.warn("sleeping for = %i seconds." % longsleep)
+            time.sleep(longsleep)
+        elif response.startswith('Fatal Error') or \
+            response.startswith('Internal Error'):
+            self._log.critical( 'error sending ' + baseMsg + \
+                '\ngot response ' + response )
+            sys.exit(2)
+            self._log.debug( 'sent ' + baseMsg )
+        # If we got a non-fatal error, slow down since the server
+        # might be overloaded.
+        if response[:2] != 'OK':
+                        self._log.error( 'error sending ' + baseMsg + \
+                                        '\ngot response ' + response )
+
+        return row['njobs']
+
+    def _convertBillingInfoToGratiaUsageRecord(self, row):
+        """
+        Take a record returned from the database and convert it to a Gratia
+        UsageRecord
+
+        @param row: A dictionary-like object describing the Billing DB entry.
+        @return: UsageRecord equivalent to the input row
+        """
         # Convert date to utc. This can't be done perfectly, alas, since we
         # don't have the original timezone. We assume localtime.
         # This code is horrible, but it should work. row['datestamp'] should
         # be a datetime.datetime object.
         # make the time into a float
-        fltTime = time.mktime( row['datestamp'].timetuple() )
-        startTime = time.strftime( '%Y-%m-%dT%H:%M:%S', time.gmtime(fltTime) )
+        fltTime = time.mktime(row['datestamp'].timetuple())
+        startTime = time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime(fltTime))
         # NOTE WELL: we need the time accurate to milliseconds. So we
         # add it back to the UTC time.
         startTime = startTime + "." + \
-                    locale.format( "%06d", row['datestamp'].microsecond ) + \
-                    "Z"
+                    locale.format("%06d", row['datestamp'].microsecond) + "Z"
 
         # convert the connection time in milliseconds to a decimal in seconds
-        connectTime = float( row['connectiontime'] ) / 1000.0
+        connectTime = float(row['connectiontime']) / 1000.0
         connectionTimeStr = 'PT' + str(connectTime) + 'S'
 
         # Check for the link to the doorinfo table being bad and log a
         # warning in the hope that somebody notices a bug has crept in.
         if row['doorlink'] == '<undefined>' and \
-                   not row['protocol'].startswith( 'DCap' ):
+                   not row['protocol'].startswith('DCap'):
             self._log.warn( 'billinginfo record with datestamp ' + \
                         startTime + ' contained undefined initiator field' );
 
@@ -309,27 +290,21 @@ class DCacheAggregator:
             dstHost = row['client']
             isNew = 0
 
-        r = Gratia.UsageRecord( 'Storage' )
-        njobs = 1
-        try:
-            njobs = row['njobs']
-        except:
-            pass
-        r.Njobs(njobs)
-        r.AdditionalInfo( 'Source', srcHost )
-        r.AdditionalInfo( 'Destination', dstHost )
-        r.AdditionalInfo( 'Protocol', row['protocol'] )
-        r.AdditionalInfo( 'IsNew', isNew )
-        r.LocalJobId( row['transaction'] )
-        if self._isIntraSiteTransfer( row ):
-            r.Grid( "Local" )
+        r = Gratia.UsageRecord('Storage')
+        r.Njobs(row['njobs'])
+        r.AdditionalInfo('Source', srcHost)
+        r.AdditionalInfo('Destination', dstHost)
+        r.AdditionalInfo('Protocol', row['protocol'])
+        r.AdditionalInfo('IsNew', isNew)
+        r.LocalJobId(row['transaction'])
+        if row['protocol'].startswith("DCap"):
+            r.Grid("Local")
         else:
-            r.Grid( "OSG" )
+            r.Grid("OSG")
         r.StartTime( startTime )
-        r.Network( row['transfersize'], 'b',
-                   connectionTimeStr, 'total',
-                   row['action'] )
-        r.WallDuration( connectionTimeStr )
+        r.Network(row['transfersize'], 'b', connectionTimeStr, 'total',
+            row['action'])
+        r.WallDuration(connectionTimeStr)
 
         # only send the initiator if it is known.
         if row['initiator'] != 'unknown':
@@ -338,13 +313,13 @@ class DCacheAggregator:
         initiatorHost = row['initiatorhost']
         if initiatorHost == 'unknown':
             initiatorHost = 'Unknown'
-        r.SubmitHost( initiatorHost )
-        r.Status( row['errorcode'] )
+        r.SubmitHost(initiatorHost)
+        r.Status(row['errorcode'])
         # If we included the mapped uid as the local user id, then
         # Gratia will make a best effort to map this to the VO name.
         mappedUID = row['mappeduid']
         try:
-            if mappedUID != None and int( mappedUID ) > 0:
+            if mappedUID != None and int(mappedUID) > 0:
                 try:
                     info = pwd.getpwuid(int(mappedUID))
                 except:
@@ -353,26 +328,114 @@ class DCacheAggregator:
                         "the same UIDs!" % str(int(mappedUID)))
                     raise
                 r.LocalUserId( info[0] )
+        except (KeyboardInterrupt, SystemExit):
+            raise
         except Exception, e:
             self._log.info("Failed to map UID %s to VO." % mappedUID)
         return r
 
 
     def sendBillingInfoRecordsToGratia(self):
-        # _sendToGratia will embed the latest datestamp and transaction value
-        # from the checkpoint where %s is embedded in the command.
         self._log.debug( "sendBillingInfoRecordsToGratia" )
 
-        numDone = self._maxSelect
+        # Query no more than a set number of days in the past
         minTime = datetime.datetime.now() - datetime.timedelta(self._maxAge, 0)
         minTime = datetime.datetime(minTime.year, minTime.month, minTime.day,
             minTime.hour, 0, 0)
-        selectCMD = BILLINGDB_SELECT_CMD % (minTime, self._maxSelect)
 
-        while numDone == self._maxSelect:
-            numDone = self._sendToGratia('billinginfo', self._BIcheckpoint,
-                selectCMD, self._convertBillingInfoToGratiaUsageRecord)
-            self._log.debug('sendBillingInfoRecordsToGratia: looping')
+        # The latest allowed record is 75 minutes in the past, in order to make
+        # sure we only query complete intervals
+        latestAllowed = datetime.datetime.now() - datetime.timedelta(0, 75*60)
+
+        starttime = max(self._BIcheckpoint.lastDateStamp(), minTime)
+        self._log.info("Starting queries at time %s." % starttime)
+
+        dictRecordAgg = TimeBinRange.DictRecordAggregator(DCACHE_AGG_FIELDS,
+            DCACHE_SUM_FIELDS)
+
+        nextSummary = self._determineNextEndtime(starttime, summary=True)
+        if self._summarize:
+            self._log.debug("Next summary send time: %s." % nextSummary)
+
+        results = []
+        endtime = self._determineNextEndtime(starttime)
+        totalRecords = 0
+        # Loop until we have caught up to latestAllowed.
+        while starttime <= latestAllowed:
+            assert starttime < endtime
+            self._log.debug('sendBillingInfoRecordsToGratia: Processing ' \
+                'starting at %s.' % starttime)
+            # We are guaranteed that starttime will move forward every
+            # time we call execute.
+            next_starttime, rows = self._execute(starttime, endtime,
+                self._maxSelect)
+            results += rows
+            totalRecords += len(rows)
+            if self._summarize:
+                # Summarize the partial results
+                results = Collapse.collapse(results, dictRecordAgg)
+            assert next_starttime > starttime
+            next_endtime = self._determineNextEndtime(next_starttime)
+
+            # If we're not summarizing, we send up records each loop.
+            if not self._summarize and results:
+                totalRecords = 0
+                # We now have all the rows we want; process them
+                self._BIcheckpoint.createPending(endtime, '')
+                self._processResults(results)
+                self._BIcheckpoint.commit()
+                results = []
+            # If we are summarizing, send records only per hour of data
+            elif (next_endtime > nextSummary) and results:
+                num_agg = totalRecords - len(results)
+                if num_agg:
+                    self._log.info("Aggregated %i of %i records for time " \
+                        "interval ending in %s" % (num_agg, totalRecords,
+                        nextSummary))
+                else:
+                    self._log.debug("Unable to aggregate any of %i records" \
+                        % totalRecords)
+                totalRecords = 0
+                self._BIcheckpoint.createPending(nextSummary, '')
+                self._processResults(results)
+                self._BIcheckpoint.commit()
+                nextSummary = self._determineNextEndtime(next_starttime,
+                    summary=True)
+                results = []
+
+            endtime = next_endtime
+            starttime = next_starttime
+
+            # Check to see if the stop file has been created.  If so, break
+            if os.path.exists(self._stopFileName):
+                break
+
+
+    def _determineNextEndtime(self, starttime, summary=False):
+        """
+        Given a starttime, determine the next full minute.
+        Examples:
+           - 01:06:00 -> 01:07:00
+           - 01:00:40 -> 01:01:00
+           - 01:59:59 -> 02:00:00
+
+        If summary=True, determine the next full hour instead.
+        """
+        assert isinstance(starttime, datetime.datetime)
+        if summary:
+            endtime = datetime.datetime(starttime.year, starttime.month,
+                starttime.day, starttime.hour, starttime.minute, 0)
+            if endtime <= starttime:
+                endtime += datetime.timedelta(0, 3600)
+        else:
+            endtime = datetime.datetime(starttime.year, starttime.month,
+                starttime.day, starttime.hour, starttime.minute, 0)
+            if endtime <= starttime:
+                endtime += datetime.timedelta(0, 60)
+        # Watch out for DST issues
+        if endtime == starttime:
+            endtime += datetime.timedelta(0, 7200)
+        return endtime
 
 # end class dCacheRecordAggregator
 

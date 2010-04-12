@@ -84,6 +84,10 @@ class TimeBinRange:
     Class that holds (and ultimately aggregates) a range of time bins
 
     Timebins are aligned to the global RANGE_SIZE_SECS
+
+    Due to how the DB querying works, anything on the edge of a bin gets kicked
+    back to the previous bin; i.e., 06:00:00 is part of the 05:00:00 bin.
+
     """
 
     def __init__(self, agg):
@@ -102,6 +106,8 @@ class TimeBinRange:
        @param item: Dictionary to add to the TimeBin.
        """
        alignedTm = int(tm/RANGE_SIZE_SECS)*RANGE_SIZE_SECS
+       if tm % RANGE_SIZE_SECS == 0:
+           alignedTm -= RANGE_SIZE_SECS
        b = self.bins.setdefault(alignedTm, Bin(alignedTm, self.agg))
        b.add(item)
 
