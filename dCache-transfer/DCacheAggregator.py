@@ -52,7 +52,7 @@ BILLINGDB_SELECT_CMD = """
         (
             SELECT *
             FROM billinginfo b
-            WHERE b.datestamp > '%s' AND b.datestamp <= '%s'
+            WHERE b.datestamp >= '%s' AND b.datestamp < '%s'
             ORDER BY datestamp
             LIMIT %i
         ) as b
@@ -377,7 +377,7 @@ class DCacheAggregator:
         endtime = self._determineNextEndtime(starttime)
         totalRecords = 0
         # Loop until we have caught up to latestAllowed.
-        while starttime <= latestAllowed:
+        while starttime < latestAllowed:
             assert starttime < endtime
             self._log.debug('sendBillingInfoRecordsToGratia: Processing ' \
                 'starting at %s.' % starttime)
