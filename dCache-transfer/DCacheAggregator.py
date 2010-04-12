@@ -60,7 +60,7 @@ BILLINGDB_SELECT_CMD = """
 """
 
 import warnings
-warnings.simplefilter( 'ignore', FutureWarning )
+warnings.simplefilter('ignore', FutureWarning)
 
 class DCacheAggregator:
     """
@@ -131,7 +131,8 @@ class DCacheAggregator:
 
     def _execute(self, starttime, endtime, maxSelect):
         """
-        Execute the select command against the Billing DB; process the results.
+        Execute the select command against the Billing DB return the results
+        (possibly summarized)
 
         It is guaranteed this function will return an endtime greater than the
         starttime, but not guaranteed by how much.
@@ -142,21 +143,23 @@ class DCacheAggregator:
         query.   In the current implementation, it is the same as entime, since
         we extend the query until all record fit and in consequence:
 
-           Let's say endtime = the parameter, endtime2 = max of starttimes in the 
-               select query
-           if endtime2 < endtime and len(result) < maxSelect, then we know that there are 
-               no records between (endtime2, endtime].  Hence, we can return endtime.
-           if endtime2 < endtime and len(result) == maxSelect, then we don't know if we 
-               got all the records at time value endtime2, so we increase maxSelect and 
-               try again.
-           Assuming a finite number of records, you eventually increase maxSelect until you return endtime or throw an exception.
+           Let's say endtime = the parameter, endtime2 = max of starttimes in 
+               the results of the select query
+           if endtime2 < endtime and len(result) < maxSelect, then we know that 
+               there are no records between (endtime2, endtime].  Hence, we can
+               return endtime.
+           if endtime2 < endtime and len(result) == maxSelect, then we don't 
+               know if we got all the records at time value endtime2, so we
+               increase maxSelect and try again.
+           Assuming a finite number of records, you eventually increase
+           maxSelect until you return endtime or throw an exception.
            Finally, if endtime2 == endtime, you can just return endtime.
 
         @param starttime: Datetime object for the start of the query interval.
         @param endtime: Datetime object for the end of the query interval.
         @param maxSelect: The maximum number of rows to select
-        @return: Tuple containing the a time that is greater than all the records and the
-           results
+        @return: Tuple containing the a time that is greater than all the 
+           records and the results
         """
         assert starttime < endtime
         if maxSelect > MAX_SELECT:
@@ -381,8 +384,8 @@ class DCacheAggregator:
             assert starttime < endtime
             self._log.debug('sendBillingInfoRecordsToGratia: Processing ' \
                 'starting at %s.' % starttime)
-            # We are guaranteed that starttime will move forward every
-            # time we call execute.
+            # We are guaranteed that starttime will move forward to the value of
+            # endtime every time we call execute.
             next_starttime, rows = self._execute(starttime, endtime,
                 self._maxSelect)
             results += rows
