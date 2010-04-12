@@ -135,11 +135,27 @@ class DCacheAggregator:
 
         It is guaranteed this function will return an endtime greater than the
         starttime, but not guaranteed by how much.
+        
+        Note on the time returned as the first part of the tuple:
+        This is time that is guaranted to be after all the record included in 
+        select and it thus suitable to use as the start time of the next select
+        query.   In the current implementation, it is the same as entime, since
+        we extend the query until all record fit and in consequence:
+
+           Let's say endtime = the parameter, endtime2 = max of starttimes in the 
+               select query
+           if endtime2 < endtime and len(result) < maxSelect, then we know that there are 
+               no records between (endtime2, endtime].  Hence, we can return endtime.
+           if endtime2 < endtime and len(result) == maxSelect, then we don't know if we 
+               got all the records at time value endtime2, so we increase maxSelect and 
+               try again.
+           Assuming a finite number of records, you eventually increase maxSelect until you return endtime or throw an exception.
+           Finally, if endtime2 == endtime, you can just return endtime.
 
         @param starttime: Datetime object for the start of the query interval.
         @param endtime: Datetime object for the end of the query interval.
         @param maxSelect: The maximum number of rows to select
-        @return: Tuple containing the greatest end-time of the records and the
+        @return: Tuple containing the a time that is greater than all the records and the
            results
         """
         assert starttime < endtime
@@ -424,14 +440,12 @@ class DCacheAggregator:
         assert isinstance(starttime, datetime.datetime)
         if summary:
             endtime = datetime.datetime(starttime.year, starttime.month,
-                starttime.day, starttime.hour, starttime.minute, 0)
-            if endtime <= starttime:
-                endtime += datetime.timedelta(0, 3600)
+                starttime.day, starttime.hour, 0, 0)
+            endtime += datetime.timedelta(0, 3600)
         else:
             endtime = datetime.datetime(starttime.year, starttime.month,
                 starttime.day, starttime.hour, starttime.minute, 0)
-            if endtime <= starttime:
-                endtime += datetime.timedelta(0, 60)
+            endtime += datetime.timedelta(0, 60)
         # Watch out for DST issues
         if endtime == starttime:
             endtime += datetime.timedelta(0, 7200)
