@@ -50,8 +50,8 @@ def __disconnect_at_exit__():
     This includes sending any outstanding records and printing the statistics
     """
 
-    if __bundleSize__ > 1 and __currentBundle__.nItems > 0:
-        (responseString, response) = ProcessBundle(__currentBundle__)
+    if __bundleSize__ > 1 and CurrentBundle.nItems > 0:
+        (responseString, response) = ProcessBundle(CurrentBundle)
         DebugPrint(0, responseString)
         DebugPrint(0, '***********************************************************')
     __disconnect()
@@ -660,7 +660,7 @@ __maxConnectionRetries__ = 2
 __maxFilesToReprocess__ = 100000
 __xmlRecordCheckers__ = []
 __handshakeReg__ = []
-__currentBundle__ = None
+CurrentBundle = None
 __bundleSize__ = 0
 
 # Instantiate a global connection object so it can be reused for
@@ -745,7 +745,7 @@ def Initialize(customConfig='ProbeConfig'):
 
     global Config
     global __bundleSize__
-    global __currentBundle__
+    global CurrentBundle
     if len(__backupDirList__) == 0:
 
         # This has to be the first thing done (DebugPrint uses
@@ -760,7 +760,7 @@ def Initialize(customConfig='ProbeConfig'):
         atexit.register(__disconnect_at_exit__)
 
         __bundleSize__ = Config.get_BundleSize()
-        __currentBundle__ = Bundle()
+        CurrentBundle = Bundle()
 
         Handshake()
 
@@ -790,8 +790,8 @@ def Maintenance():
 
     Reprocess()
 
-    if __bundleSize__ > 1 and __currentBundle__.nItems > 0:
-        (responseString, response) = ProcessBundle(__currentBundle__)
+    if __bundleSize__ > 1 and CurrentBundle.nItems > 0:
+        (responseString, response) = ProcessBundle(CurrentBundle)
         DebugPrint(0, responseString)
         DebugPrint(0, '***********************************************************')
 
@@ -1829,7 +1829,7 @@ def InitDirList():
 def AddOutstandingRecord(filename):
     '''Add the file to the outstanding list, unless it is'''
 
-    if not (__bundleSize__ > 1 and __currentBundle__.hasFile(filename)):
+    if not (__bundleSize__ > 1 and CurrentBundle.hasFile(filename)):
         __outstandingRecord__[filename] = 1
 
 
@@ -1921,17 +1921,17 @@ def SearchOutstandingRecord():
         # Let's decompress one of the tar file (if any)
 
         needmorefiles = __outstandingStagedRecordCount__ == 0 or __outstandingRecordCount__ \
-            + __outstandingStagedRecordCount__ <= __currentBundle__.nFiles
+            + __outstandingStagedRecordCount__ <= CurrentBundle.nFiles
         if needmorefiles and len(stagedfiles) > 0:
 
             # the staged/outbox is empty and we have some staged tar files
 
             instore = __outstandingStagedRecordCount__ - prevOutstandingStagedRecordCount
-            if instore != 0 and __currentBundle__.nFiles > 0:
-                (responseString, response) = ProcessBundle(__currentBundle__)
+            if instore != 0 and CurrentBundle.nFiles > 0:
+                (responseString, response) = ProcessBundle(CurrentBundle)
                 DebugPrint(0, responseString)
                 DebugPrint(0, '***********************************************************')
-                if __currentBundle__.nItems > 0:
+                if CurrentBundle.nItems > 0:
 
                     # The upload did not work, there is no need to proceed with the record collection
 
@@ -3319,7 +3319,7 @@ def ReprocessList():
     currentFailedCount = 0
     currentSuccessCount = 0
     currentBundledCount = 0
-    prevBundled = __currentBundle__.nItems
+    prevBundled = CurrentBundle.nItems
     prevQuarantine = quarantinedFiles
 
     responseString = r''
@@ -3369,7 +3369,7 @@ def ReprocessList():
 
             # Delay the sending until we have 'bundleSize' records.
 
-            (addReponseString, response) = __currentBundle__.addReprocess(failedRecord, xmlData)
+            (addReponseString, response) = CurrentBundle.addReprocess(failedRecord, xmlData)
 
             if response.getCode() == Response.BundleNotSupported:
 
@@ -3377,17 +3377,17 @@ def ReprocessList():
 
                 break
             elif response.getCode() != 0:
-                currentFailedCount += __currentBundle__.nLastProcessed - prevBundled
-                currentBundledCount = __currentBundle__.nItems
+                currentFailedCount += CurrentBundle.nLastProcessed - prevBundled
+                currentBundledCount = CurrentBundle.nItems
                 prevBundled = 0
                 if __connectionError__:
                     DebugPrint(1,
                                'Connection problems: reprocessing suspended; new record processing shall continue'
                                )
             else:
-                if __currentBundle__.nReprocessed != 0:
-                    currentSuccessCount += __currentBundle__.nLastProcessed - prevBundled
-                    currentBundledCount = __currentBundle__.nItems
+                if CurrentBundle.nReprocessed != 0:
+                    currentSuccessCount += CurrentBundle.nLastProcessed - prevBundled
+                    currentBundledCount = CurrentBundle.nItems
                     prevBundled = 0
                 else:
                     currentBundledCount += 1
@@ -3523,7 +3523,7 @@ def SendHandshake(record):
 
         # Delay the sending until we have 'bundleSize' records.
 
-        (responseString, response) = __currentBundle__.addHandshake(usageXmlString)
+        (responseString, response) = CurrentBundle.addHandshake(usageXmlString)
     else:
 
         # Attempt to send the record to the collector. Note that this must
@@ -3668,7 +3668,7 @@ def Send(record):
 
             # Delay the sending until we have 'bundleSize' records.
 
-            (responseString, response) = __currentBundle__.addRecord(f.name, usageXmlString)
+            (responseString, response) = CurrentBundle.addRecord(f.name, usageXmlString)
         else:
 
             # Attempt to send the record to the collector
@@ -3715,7 +3715,7 @@ def Send(record):
         DebugPrint(0, responseString)
         DebugPrint(0, '***********************************************************')
 
-        if (connectionProblem or __hasMoreOutstandingRecord__) and __currentBundle__.nItems == 0 \
+        if (connectionProblem or __hasMoreOutstandingRecord__) and CurrentBundle.nItems == 0 \
             and response.getCode() == 0:
 
             # Reprocess failed records before attempting more new ones
@@ -3887,7 +3887,7 @@ def SendXMLFiles(fileDir, removeOriginal=False, resourceType=None):
 
             # Delay the sending until we have 'bundleSize' records.
 
-            (responseString, response) = __currentBundle__.addRecord(f.name, usageXmlString)
+            (responseString, response) = CurrentBundle.addRecord(f.name, usageXmlString)
         else:
 
             # If XMLFiles can ever be anything else than Update messages,
