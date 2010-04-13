@@ -654,8 +654,8 @@ __hasMoreOutstandingRecord__ = False
 __outstandingRecordCount__ = 0
 __outstandingStagedRecordCount__ = 0
 __outstandingStagedTarCount__ = 0
-__recordPid__ = os.getpid()
-__recordId__ = 0
+RecordPid = os.getpid()
+RecordId = 0
 __maxConnectionRetries__ = 2
 __maxFilesToReprocess__ = 100000
 XmlRecordCheckers = []
@@ -1902,7 +1902,7 @@ def SearchOutstandingRecord():
 def GenerateFilename(prefix, current_dir):
     '''Generate a filename of the for gratia/r$UNIQUE.$pid.gratia.xml'''
 
-    filename = prefix + str(__recordPid__) + '.' + Config.getFilenameFragment() + '.' + Config.get_GratiaExtension() \
+    filename = prefix + str(RecordPid) + '.' + Config.getFilenameFragment() + '.' + Config.get_GratiaExtension() \
         + '__XXXXXXXXXX'
     filename = os.path.join(current_dir, filename)
     mktemp_pipe = os.popen('mktemp -q "' + filename + '"')
@@ -2255,7 +2255,7 @@ class ProbeDetails(Record):
         super(self.__class__, self).XmlAddMembers()
 
     def XmlCreate(self):
-        global __recordId__
+        global RecordId
         global __handshakeReg__
 
         self.XmlAddMembers()
@@ -2266,9 +2266,9 @@ class ProbeDetails(Record):
 
         # Add the record indentity
 
-        self.XmlData.append('<RecordIdentity recordId="' + socket.getfqdn() + ':' + str(__recordPid__) + '.'
-                            + str(__recordId__) + '" createTime="' + TimeToString(time.gmtime()) + '" />\n')
-        __recordId__ = __recordId__ + 1
+        self.XmlData.append('<RecordIdentity recordId="' + socket.getfqdn() + ':' + str(RecordPid) + '.'
+                            + str(RecordId) + '" createTime="' + TimeToString(time.gmtime()) + '" />\n')
+        RecordId = RecordId + 1
 
         for data in self.RecordData:
             self.XmlData.append('\t')
@@ -2683,7 +2683,7 @@ class UsageRecord(Record):
                     self.UserId = self.AddToList(self.UserId, key, r'', vo_info[key])
 
     def XmlCreate(self):
-        global __recordId__
+        global RecordId
 
         self.XmlAddMembers()
 
@@ -2697,9 +2697,9 @@ class UsageRecord(Record):
 
         # Add the record indentity
 
-        self.XmlData.append('<RecordIdentity urwg:recordId="' + socket.getfqdn() + ':' + str(__recordPid__) + '.'
-                            + str(__recordId__) + '" urwg:createTime="' + TimeToString(time.gmtime()) + '" />\n')
-        __recordId__ = __recordId__ + 1
+        self.XmlData.append('<RecordIdentity urwg:recordId="' + socket.getfqdn() + ':' + str(RecordPid) + '.'
+                            + str(RecordId) + '" urwg:createTime="' + TimeToString(time.gmtime()) + '" />\n')
+        RecordId = RecordId + 1
 
         if len(self.JobId) > 0:
             self.XmlData.append('<JobIdentity>\n')
@@ -3873,7 +3873,7 @@ def FindBestJobId(usageRecord, namespace):
         if globalJobIdNodes and globalJobIdNodes[0].firstChild and globalJobIdNodes[0].firstChild.data:
             return [globalJobIdNodes[0].localName, globalJobIdNodes[0].firstChild.data]
 
-    recordIdNodes = usageRecord.getElementsByTagNameNS(namespace, '__recordId__')
+    recordIdNodes = usageRecord.getElementsByTagNameNS(namespace, 'RecordId')
     if recordIdNodes and recordIdNodes[0].firstChild and recordIdNodes[0].firstChild.data:
         return [recordIdNodes[0].localName, recordIdNodes[0].firstChild.data]
 
