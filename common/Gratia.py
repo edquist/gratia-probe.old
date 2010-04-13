@@ -648,19 +648,22 @@ class Response:
         self._message = message
 
 
+# Externally accesible
+RecordPid = os.getpid()
+RecordId = 0
+XmlRecordCheckers = []
+CurrentBundle = None
+
+# Private
 __backupDirList__ = []
 __outstandingRecord__ = {}
 __hasMoreOutstandingRecord__ = False
 __outstandingRecordCount__ = 0
 __outstandingStagedRecordCount__ = 0
 __outstandingStagedTarCount__ = 0
-RecordPid = os.getpid()
-RecordId = 0
 __maxConnectionRetries__ = 2
 __maxFilesToReprocess__ = 100000
-XmlRecordCheckers = []
 __handshakeReg__ = []
-CurrentBundle = None
 __bundleSize__ = 0
 
 # Instantiate a global connection object so it can be reused for
@@ -875,6 +878,8 @@ def createCertificate(
     return cert
 
 
+
+def escapeXML(xmlData):
 ##
 ## escapeXML
 ##
@@ -886,20 +891,9 @@ def createCertificate(
 ## param - xmlData:  The xml to encode
 ## returns - the encoded xml
 ##
-
-
-def escapeXML(xmlData):
     return xml.sax.saxutils.escape(xmlData, {"'": '&apos;', '"': '&quot;'})
 
 
-##
-## __connect
-##
-## Author - Tim Byrne
-##
-## Connect to the web service on the given server, sets the module-level object __connection__
-##  equal to the new connection.  Will not reconnect if __connection__ is already connected.
-##
 
 __maximumDelay = 900
 __initialDelay = 30
@@ -909,6 +903,14 @@ __last_retry_time = None
 
 
 def __connect():
+##
+## __connect
+##
+## Author - Tim Byrne
+##
+## Connect to the web service on the given server, sets the module-level object __connection__
+##  equal to the new connection.  Will not reconnect if __connection__ is already connected.
+##
     global __connection__
     global __connected__
     global __connectionError__
@@ -1033,6 +1035,7 @@ def __connect():
     return __connected__
 
 
+def __disconnect():
 ##
 ## __disconnect
 ##
@@ -1041,8 +1044,6 @@ def __connect():
 ## Disconnects the module-level object __connection__.
 ##
 
-
-def __disconnect():
     global __connection__
     global __connected__
     global __connectionError__
@@ -1560,6 +1561,7 @@ def RemoveOldFiles(nDays=31, globexp=None, req_maxsize=0):
                 return
 
 
+def RemoveOldBackups(nDays=31):
 #
 # Remove old backups
 #
@@ -1569,8 +1571,6 @@ def RemoveOldFiles(nDays=31, globexp=None, req_maxsize=0):
 #   nDays - remove file older than 'nDays' (default 31)
 #
 
-
-def RemoveOldBackups(nDays=31):
     backupDir = Config.get_PSACCTBackupFileRepository()
     DebugPrint(1, ' Removing Gratia data backup files older than ', nDays, ' days from ', backupDir)
     RemoveOldFiles(nDays, os.path.join(backupDir, '*.log'))
