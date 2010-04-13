@@ -2,6 +2,10 @@
 # -*- coding: utf-8 -*-
 # @(#)gratia/probe/common:$HeadURL$:$Id$
 
+"""
+Main Gratia Library
+"""
+
 import os
 import errno
 import sys
@@ -29,7 +33,7 @@ from OpenSSL import crypto
 
 quiet = 0
 Config = None
-want_urlencode_records = 1
+__wantUrlencodeRecords = 1
 __certinfoLocalJobIdMunger = re.compile(r'(?P<ID>\d+(?:\.\d+)*)')
 __certinfoJobManagerExtractor = re.compile(r'gratia_certinfo_(?P<JobManager>(?:[^\d_][^_]*))')
 __xmlintroRemove = re.compile(r'<\?xml[^>]*\?>')
@@ -37,6 +41,12 @@ __lrms = None
 
 
 def disconnect_at_exit():
+    """
+    Insure that we properly shutdown the connection at the end of the process.
+    
+    This includes sending any outstanding records and printing the statistics
+    """
+
     if BundleSize > 1 and CurrentBundle.nItems > 0:
         (responseString, response) = ProcessBundle(CurrentBundle)
         DebugPrint(0, responseString)
@@ -47,8 +57,8 @@ def disconnect_at_exit():
             RemoveOldLogs(Config.get_LogRotate())
             RemoveOldJobData(Config.get_DataFileExpiration())
             RemoveOldQuarantine(Config.get_DataFileExpiration(), Config.get_QuarantineSize())
-        except Exception, e:
-            DebugPrint(0, 'Exception caught at top level: ' + str(e))
+        except Exception, exception:
+            DebugPrint(0, 'Exception caught at top level: ' + str(exception))
             DebugPrintTraceback()
     DebugPrint(0, 'End of execution summary: new records sent successfully: ' + str(successfulSendCount))
     DebugPrint(0, '                          new records suppressed: ' + str(suppressedCount))
@@ -68,7 +78,10 @@ def disconnect_at_exit():
 
 
 class ProbeConfiguration:
-
+    """
+    Class giving access (and in some cases override capability) to the ProbeConfig files
+    """
+    
     __doc = None
     __configname = 'ProbeConfig'
     __CollectorHost = None
@@ -88,10 +101,17 @@ class ProbeConfiguration:
         if os.path.exists(customConfig):
             self.__configname = customConfig
 
+    def __loadConfiguration__(self):
+        self.__doc = xml.dom.minidom.parse(self.__configname)
+        DebugPrint(0, 'Using config file: ' + self.__configname)
+
     def __getConfigAttribute(self, attributeName):
+        """
+        Internal routine return the value of a configuration attribute name 'attributeName'
+        """
         if self.__doc == None:
             try:
-                self.loadConfiguration()
+                self.__loadConfiguration__()
             except xml.parsers.expat.ExpatError, e:
                 sys.stderr.write('Parse error in ' + self.__configname + ': ' + str(e) + '\n')
                 raise
@@ -102,6 +122,9 @@ class ProbeConfiguration:
         return self.__doc.getElementsByTagName('ProbeConfiguration')[0].getAttribute(attributeName)
 
     def __findVDTTop(self):
+        """
+        Internal routine returning the top level directory of the VDT installation.
+        """
         mvt = self.__getConfigAttribute('VDTSetupFile')
         if mvt and os.path.isfile(mvt):
             return os.path.dirname(mvt)
@@ -115,9 +138,6 @@ class ProbeConfiguration:
 
     # Public interface
 
-    def loadConfiguration(self):
-        self.__doc = xml.dom.minidom.parse(self.__configname)
-        DebugPrint(0, 'Using config file: ' + self.__configname)
 
     def getConfigAttribute(self, attributeName):
         return self.__getConfigAttribute(attributeName)
@@ -341,7 +361,7 @@ class ProbeConfiguration:
         if self.__LogLevel == None:
             val = self.__getConfigAttribute('LogLevel')
             if val == None or val == r'':
-                self.__logLevel = self.get_DebugLevel()
+                self.__LogLevel = self.get_DebugLevel()
             else:
                 self.__LogLevel = int(val)
         return self.__LogLevel
@@ -536,30 +556,6 @@ class ProbeConfiguration:
         return BundleSize
 
 
-class Event:
-
-    _xml = r''
-    _id = r''
-
-    def __init__(self, in_id, in_xml):
-        if in_id:
-            self._id = in_id
-        if in_xml:
-            self._xml = in_xml
-
-    def get_id(self):
-        return self._id
-
-    def get_xml(self):
-        return self._xml
-
-    def set_id(self, id):
-        self._id = id
-
-    def set_xml(self, xml):
-        self._xml = xml
-
-
 class Response:
 
     __responseMatcherURLCheck = re.compile(r'Unknown Command: URL', re.IGNORECASE)
@@ -595,7 +591,7 @@ class Response:
     _message = r''
 
     def __init__(self, code, message):
-        global want_urlencode_records
+        global __wantUrlencodeRecords
 
         if code == -1:
             if message == 'OK':
@@ -612,7 +608,7 @@ class Response:
             elif Response.__BundleProblemMatcher.match(message):
 
                 self._code = Response.BundleNotSupported
-            elif want_urlencode_records == 1 and Response.__responseMatcherURLCheck.search(message):
+            elif __wantUrlencodeRecords == 1 and Response.__responseMatcherURLCheck.search(message):
 
                 self._code = Response.UnknownCommand
             elif Response.__responseMatcherPostTooLarge.search(message):
@@ -715,8 +711,8 @@ def ExtractCvsRevision(revision):
     return revision.split('$')[1].split(':')[1].strip()
 
 
-def ExtractCvsRevisionFromFile(file):
-    pipe = os.popen(r"sed -ne 's/.*\$Revision\: \([^$][^$]*\)\$.*$/\1/p' " + file)
+def ExtractCvsRevisionFromFile(filename):
+    pipe = os.popen(r"sed -ne 's/.*\$Revision\: \([^$][^$]*\)\$.*$/\1/p' " + filename)
     result = None
     if pipe != None:
         result = string.strip(pipe.readline())
@@ -732,8 +728,8 @@ def ExtractSvnRevision(revision):
     return revision.split('$')[1].split(':')[1].strip()
 
 
-def ExtractSvnRevisionFromFile(file):
-    pipe = os.popen(r"sed -ne 's/.*\$Revision\: \([^$][^$]*\)\$.*$/\1/p' " + file)
+def ExtractSvnRevisionFromFile(filename):
+    pipe = os.popen(r"sed -ne 's/.*\$Revision\: \([^$][^$]*\)\$.*$/\1/p' " + filename)
     result = None
     if pipe != None:
         result = string.strip(pipe.readline())
@@ -802,17 +798,17 @@ def Maintenance():
 ##
 
 
-def createKeyPair(type, bits):
+def createKeyPair(keytype, bits):
     """
     Create a public/private key pair.
 
-    Arguments: type - Key type, must be one of TYPE_RSA and TYPE_DSA
+    Arguments: keytype - Key type, must be one of TYPE_RSA and TYPE_DSA
                bits - Number of bits to use in the key
     Returns:   The public/private key pair in a PKey object
     """
 
     pkey = crypto.PKey()
-    pkey.generate_key(type, bits)
+    pkey.generate_key(keytype, bits)
     return pkey
 
 
@@ -1070,31 +1066,33 @@ def __disconnect():
     __connected = False
 
 
-##
-## sendUsageXML
-##
-## Author - Tim Byrne
-##
-##  Contacts the 'GratiaCollector' web service, sending it an xml representation of Usage data
-##
-##  param - meterId:  A unique Id for this meter, something the web service can use to identify communication from this meter
-##  param - xmlData:  A string representation of usage xml
-##
 
 __resending = 0
 
 
 def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
+    """
+    sendUsageXML
+   
+    Author - Tim Byrne
+
+    Contacts the 'GratiaCollector' web service, sending it an xml representation of Usage data
+ 
+    param - meterId:  A unique Id for this meter, something the web service can use to identify 
+          communication from this meter
+    param - xmlData:  A string representation of usage xml
+    """
+
     global __connection
     global __connectionError
     global __certificateRejected
     global __connectionRetries
-    global want_urlencode_records
+    global __wantUrlencodeRecords
     global __resending
 
     # Backward compatibility with old collectors
 
-    if want_urlencode_records == 0:
+    if __wantUrlencodeRecords == 0:
         messageType = 'update'
 
     try:
@@ -1190,7 +1188,7 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
                 DebugPrint(0,
                            'Unable to send new record to old collector -- engaging backwards-compatible mode for remainder of connection'
                            )
-                want_urlencode_records = 0
+                __wantUrlencodeRecords = 0
 
                 # Try again with the same record before returning to the
                 # caller. There will be no infinite recursion because
@@ -1223,7 +1221,7 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
                 DebugPrint(0,
                            'Unable to send new record to old collector -- engaging backwards-compatible mode for remainder of connection'
                            )
-                want_urlencode_records = 0
+                __wantUrlencodeRecords = 0
 
                 # Try again with the same record before returning to the
                 # caller. There will be no infinite recursion because
@@ -1424,28 +1422,27 @@ def LogToSyslog(level, message):
     syslog.closelog()
 
 
-def RemoveFile(file):
+def RemoveFile(filename):
 
    # Remove the file, ignore error if the file is already gone.
 
     result = True
     try:
-        os.remove(file)
+        os.remove(filename)
     except os.error, err:
         if err.errno == errno.ENOENT:
             result = False
-            pass
         else:
             raise err
     return result
 
 
-def RemoveDir(dir):
+def RemoveDir(dirname):
 
    # Remove the file, ignore error if the file is already gone.
 
     try:
-        os.rmdir(dir)
+        os.rmdir(dirname)
     except os.error, err:
         if err.errno == errno.ENOENT:
             pass
@@ -1453,13 +1450,13 @@ def RemoveDir(dir):
             raise err
 
 
-def QuarantineFile(file, isempty):
+def QuarantineFile(filename, isempty):
 
    # If we have trouble with a file, let's quarantine it
    # If the quarantine reason is 'only' that the file is empty,
    # list the file as such.
 
-    dirname = os.path.dirname(file)
+    dirname = os.path.dirname(filename)
     pardirname = os.path.dirname(dirname)
     if os.path.basename(dirname) != 'outbox':
         toppath = dirname
@@ -1475,13 +1472,13 @@ def QuarantineFile(file, isempty):
     if isempty:
         try:
             emptyfiles = open(os.path.join(quarantine, 'emptyfile'), 'a')
-            emptyfiles.write(file + '\n')
+            emptyfiles.write(filename + '\n')
             emptyfiles.close()
         except:
             DebugPrint(
                 0,
                 'failed to record that file was empty: ',
-                f,
+                filename,
                 '--',
                 sys.exc_info(),
                 '--',
@@ -1490,28 +1487,28 @@ def QuarantineFile(file, isempty):
                 sys.exc_info()[1],
                 )
     else:
-        shutil.copy(file, os.path.join(quarantine, os.path.basename(file)))
-    RemoveRecordFile(file)
+        shutil.copy(filename, os.path.join(quarantine, os.path.basename(filename)))
+    RemoveRecordFile(filename)
 
 
-def RemoveRecordFile(file):
+def RemoveRecordFile(filename):
 
    # Remove a record file and reduce the oustanding record count
 
     global OutstandingRecordCount
     global OutstandingStagedRecordCount
 
-    if RemoveFile(file):
+    if RemoveFile(filename):
 
       # Decrease the count only if the file was really removed
 
-        dirname = os.path.dirname(file)
+        dirname = os.path.dirname(filename)
         if os.path.basename(dirname) == 'outbox' and os.path.basename(os.path.dirname(dirname)) == 'staged':
-            DebugPrint(3, 'Remove the staged record: ' + file)
+            DebugPrint(3, 'Remove the staged record: ' + filename)
             OutstandingStagedRecordCount += -1
         else:
             OutstandingRecordCount += -1
-            DebugPrint(3, 'Remove the record: ' + file)
+            DebugPrint(3, 'Remove the record: ' + filename)
 
 
 def RemoveOldFiles(nDays=31, globexp=None, req_maxsize=0):
@@ -1564,7 +1561,8 @@ def RemoveOldFiles(nDays=31, globexp=None, req_maxsize=0):
                    + niceNum(freespace * 100 / disksize) + '% free')
 
     minfree = 0.10000000000000001 * disksize  # We want the disk to be no fuller than 95%
-    minuse = 0.05 * disksize  # We want the directory to not be artificially reduced below 5% because other things are filling up the disk.
+    # We want the directory to not be artificially reduced below 5% because other things are filling up the disk.
+    minuse = 0.05 * disksize  
     calc_maxsize = req_maxsize
     if freespace < minfree:
 
@@ -1825,31 +1823,31 @@ def InitDirList():
     DebugPrint(1, 'List of backup directories: ', BackupDirList)
 
 
-def AddOutstandingRecord(file):
+def AddOutstandingRecord(filename):
     '''Add the file to the outstanding list, unless it is'''
 
-    if not (BundleSize > 1 and CurrentBundle.hasFile(file)):
-        OutstandingRecord[file] = 1
+    if not (BundleSize > 1 and CurrentBundle.hasFile(filename)):
+        OutstandingRecord[filename] = 1
 
 
-def ListOutstandingRecord(dir, isstaged):
+def ListOutstandingRecord(dirname, isstaged):
     '''Put in OustandingRecord the name of the file in dir, if any'''
 
     global OutstandingStagedRecordCount
     global OutstandingRecordCount
 
-    if not os.path.exists(dir):
+    if not os.path.exists(dirname):
         return False
 
-    files = os.listdir(dir)
+    files = os.listdir(dirname)
     nfiles = len(files)
-    DebugPrint(4, 'DEBUG: ListOutstanding for ' + dir + ' adding ' + str(nfiles))
+    DebugPrint(4, 'DEBUG: ListOutstanding for ' + dirname + ' adding ' + str(nfiles))
     if isstaged:
         OutstandingStagedRecordCount += nfiles
     else:
         OutstandingRecordCount += nfiles
     for f in files:
-        AddOutstandingRecord(os.path.join(dir, f))
+        AddOutstandingRecord(os.path.join(dirname, f))
         if len(OutstandingRecord) >= MaxFilesToReprocess:
             return True
     return False
@@ -2036,7 +2034,6 @@ def CompressOutbox(probe_dir, outbox, outfiles):
         DebugPrintTraceback()
         return False
 
-    compressed_files = 0
     try:
         for f in outfiles:
 
@@ -2045,7 +2042,6 @@ def CompressOutbox(probe_dir, outbox, outfiles):
             arcfile = f.replace(Config.FilenameFragment(), r'')
             arcfile = arcfile.replace('..', '.')
             tar.add(os.path.join(outbox, f), arcfile)
-            compressed_files += 1
     except Exception, e:
         DebugPrint(0, 'Warning: Exception caught while adding ' + f + ' from ' + outbox + ' to tar.bz2 file: '
                    + staging_name + ':')
@@ -2442,7 +2438,13 @@ class UsageRecord(Record):
         self.UserId = self.AddToList(self.UserId, 'LocalUserId', r'', value)
 
     def UserKeyInfo(self, value):  # NB This is deprecated in favor of DN, below.
-        ''' Example:             <ds:KeyInfo xmlns:ds=http://www.w3.org/2000/09/xmldsig#>         <ds:X509Data>            <ds:X509SubjectName>CN=john ainsworth, L=MC, OU=Manchester, O=eScience, C=UK</ds:X509SubjectName>         </ds:X509Data>           </ds:KeyInfo>'''
+        ''' Example:
+            <ds:KeyInfo xmlns:ds=http://www.w3.org/2000/09/xmldsig#>
+                <ds:X509Data>
+                <ds:X509SubjectName>CN=john ainsworth, L=MC, OU=Manchester, O=eScience, C=UK</ds:X509SubjectName>
+                </ds:X509Data>
+            </ds:KeyInfo>
+        '''
 
         complete = '''
 \t\t<ds:X509Data>
@@ -2599,42 +2601,42 @@ class UsageRecord(Record):
         value,
         storageUnit=r'',
         phaseUnit=r'',
-        type=r'',
+        disktype=r'',
         metric='total',
         description=r'',
         ):
         """ Metric should be one of 'total','average','max','min' """
 
         self.AppendToList(self.RecordData, 'Disk', self.StorageUnit(storageUnit) + self.PhaseUnit(phaseUnit)
-                          + self.Type(type) + self.Metric(metric) + self.Description(description), str(value))
+                          + self.Type(disktype) + self.Metric(metric) + self.Description(description), str(value))
 
     def Memory(
         self,
         value,
         storageUnit=r'',
         phaseUnit=r'',
-        type=r'',
+        memorytype=r'',
         metric='total',
         description=r'',
         ):
         """ Metric should be one of 'total','average','max','min' """
 
         self.AppendToList(self.RecordData, 'Memory', self.StorageUnit(storageUnit) + self.PhaseUnit(phaseUnit)
-                          + self.Type(type) + self.Metric(metric) + self.Description(description), str(value))
+                          + self.Type(memorytype) + self.Metric(metric) + self.Description(description), str(value))
 
     def Swap(
         self,
         value,
         storageUnit=r'',
         phaseUnit=r'',
-        type=r'',
+        swaptype=r'',
         metric='total',
         description=r'',
         ):
         """ Metric should be one of 'total','average','max','min' """
 
         self.AppendToList(self.RecordData, 'Swap', self.StorageUnit(storageUnit) + self.PhaseUnit(phaseUnit)
-                          + self.Type(type) + self.Metric(metric) + self.Description(description), str(value))
+                          + self.Type(swaptype) + self.Metric(metric) + self.Description(description), str(value))
 
     def NodeCount(
         self,
@@ -2666,10 +2668,10 @@ class UsageRecord(Record):
     def ServiceLevel(
         self,
         value,
-        type,
+        servicetype,
         description=r'',
         ):
-        self.AppendToList(self.RecordData, 'ServiceLevel', self.Type(type) + self.Description(description),
+        self.AppendToList(self.RecordData, 'ServiceLevel', self.Type(servicetype) + self.Description(description),
                           str(value))
 
     def Resource(self, description, value):
@@ -2807,7 +2809,7 @@ def StandardCheckXmldoc(
             node.appendChild(textNode)
             recordElement.appendChild(node)
         elif ProbeNameNodes.length > 1:
-            [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
+            [jobIdType, jobId] = FindBestJobId(recordElement, namespace)
             DebugPrint(0, 'Warning: too many ProbeName entities in ' + jobIdType + ' ' + jobId)
 
         # SiteName
@@ -2819,7 +2821,7 @@ def StandardCheckXmldoc(
             node.appendChild(textNode)
             recordElement.appendChild(node)
         elif SiteNameNodes.length > 1:
-            [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
+            [jobIdType, jobId] = FindBestJobId(recordElement, namespace)
             DebugPrint(0, 'Warning: too many SiteName entities in ' + jobIdType + ' ' + jobId)
 
         # Grid
@@ -2842,7 +2844,7 @@ def StandardCheckXmldoc(
 
               # Too many entries
 
-            [jobIdType, jobId] = FindBestJobId(recordElement, namespace, prefix)
+            [jobIdType, jobId] = FindBestJobId(recordElement, namespace)
             DebugPrint(0, 'Warning: too many Grid entities in ' + jobIdType + ' ' + jobId)
 
 
@@ -2902,14 +2904,14 @@ def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
         DebugPrint(4, 'DEBUG: Finding UserIdentityNodes (processing)')
         if not UserIdentityNodes:
             DebugPrint(4, 'DEBUG: Finding UserIdentityNodes: 0')
-            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace)
             DebugPrint(0, 'Warning: no UserIdentity block in ' + jobIdType + ' ' + jobId)
         else:
             try:
                 DebugPrint(4, 'DEBUG: Finding UserIdentityNodes (processing 2)')
                 DebugPrint(4, 'DEBUG: Finding UserIdentityNodes: ' + str(UserIdentityNodes.length))
                 if UserIdentityNodes.length > 1:
-                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+                    [jobIdType, jobId] = FindBestJobId(usageRecord, namespace)
                     DebugPrint(0, 'Warning: too many UserIdentity blocks  in ' + jobIdType + ' ' + jobId)
 
                 DebugPrint(4, 'DEBUG: Call CheckAndExtendUserIdentity')
@@ -2973,7 +2975,7 @@ def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
             reason = 'unknown or null VOName'
 
         if reason:
-            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace, prefix)
+            [jobIdType, jobId] = FindBestJobId(usageRecord, namespace)
             DebugPrint(0, 'Info: suppressing record with ' + jobIdType + ' ' + jobId + ' due to ' + reason)
             usageRecord.parentNode.removeChild(usageRecord)
             usageRecord.unlink()
@@ -3024,6 +3026,9 @@ class Bundle:
     nLastProcessed = 0
     content = []
     __maxPostSize = 2000000 * 0.9  # 2Mb
+
+    def __init__(self):
+        pass
 
     def __addContent(self, filename, xmlData):
         self.content.append([filename, xmlData])
@@ -3108,6 +3113,13 @@ class Bundle:
             return ProcessBundle(self)
         else:
             return (defaultmsg, Response(Response.Success, defaultmsg))
+
+    @staticmethod
+    def decreaseMaxPostSize(howMuch):
+        """
+        Decrease the maximum allowed size for a 'post'.
+        """
+        Bundle.__maxPostSize = howMuch * Bundle.__maxPostSize
 
     def clear(self):
         self.nBytes = 0
@@ -3209,7 +3221,8 @@ def ProcessBundle(bundle):
            # We let a large record to be added to already too many data.
            # Let's try to restrict more the size of the record
 
-            Bundle.__maxPostSize = 0.9 * Bundle.__maxPostSize
+            Bundle.decreaseMaxPostSize(0.9)
+            #__maxPostSize = 0.9 * Bundle.__maxPostSize
         elif bundle.nItems == 1:
             DebugPrint(0, 'Error: a record is larger than the Collector can receive. (' + str(len(bundleData)
                        * 10 / 1000 / 1000 / 10.0) + 'Mb vs 2Mb).  Record will be Quarantined.')
@@ -3357,7 +3370,7 @@ def ReprocessList():
 
             # Delay the sending until we have 'bundleSize' records.
 
-            (addreponseString, response) = CurrentBundle.addReprocess(failedRecord, xmlData)
+            (addReponseString, response) = CurrentBundle.addReprocess(failedRecord, xmlData)
 
             if response.get_code() == Response.BundleNotSupported:
 
@@ -3911,7 +3924,7 @@ def SendXMLFiles(fileDir, removeOriginal=False, resourceType=None):
     return responseString
 
 
-def FindBestJobId(usageRecord, namespace, prefix):
+def FindBestJobId(usageRecord, namespace):
 
     # Get GlobalJobId first, next recordId
 
@@ -4244,7 +4257,7 @@ def CheckAndExtendUserIdentity(
     LocalUserIdNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'LocalUserId')
     if not LocalUserIdNodes or LocalUserIdNodes.length != 1 or not (LocalUserIdNodes[0].firstChild
             and LocalUserIdNodes[0].firstChild.data):
-        [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
+        [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace)
         DebugPrint(0, 'Warning: UserIdentity block does not have exactly ', 'one populated LocalUserId node in '
                     + jobIdType + ' ' + jobId)
         return result
@@ -4262,7 +4275,7 @@ def CheckAndExtendUserIdentity(
         userIdentityNode.appendChild(VONameNodes[0])
         DebugPrint(4, 'DEBUG: Creating VONameNodes elements DONE')
     elif VONameNodes.length > 1:
-        [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
+        [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace)
         DebugPrint(0, 'Warning: UserIdentity block has multiple VOName nodes in ' + jobIdType + ' ' + jobId)
         return result
 
@@ -4277,7 +4290,7 @@ def CheckAndExtendUserIdentity(
         userIdentityNode.appendChild(ReportableVONameNodes[0])
         DebugPrint(4, 'DEBUG: Creating ReortableVONameNodes elements DONE')
     elif len(ReportableVONameNodes) > 1:
-        [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace, prefix)
+        [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace)
         DebugPrint(0, 'Warning: UserIdentity block has multiple ', 'ReportableVOName nodes in ' + jobIdType
                    + ' ' + jobId)
         return result
@@ -4294,7 +4307,7 @@ def CheckAndExtendUserIdentity(
     # 4. VOName from reverse map file.
 
     DebugPrint(4, 'DEBUG: Calling verifyFromCertInfo')
-    vo_info = verifyFromCertInfo(xmlDoc, userIdentityNode, namespace, prefix)
+    vo_info = verifyFromCertInfo(xmlDoc, userIdentityNode, namespace)
     DebugPrint(4, 'DEBUG: Calling verifyFromCertInfo: DONE')
     if vo_info != None:
         result['has_certinfo'] = 1
@@ -4548,7 +4561,6 @@ def verifyFromCertInfo(
     xmlDoc,
     userIdentityNode,
     namespace,
-    prefix,
     ):
     ''' Use localJobID and probeName to find cert info file and insert info into XML record'''
 
