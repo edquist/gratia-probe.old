@@ -200,7 +200,7 @@ class DCacheAggregator:
         assert starttime < endtime
         if (maxSelect > MAX_SELECT) and ((endtime-starttime).seconds <= MIN_RANGE):
             raise Exception("Fatal error - more than %i transfers in %i" \
-                " second(s)." % (MAX_SELECT,(endtime-starttime).seconds)
+                " second(s)." % (MAX_SELECT,(endtime-starttime).seconds))
         datestr = str(starttime)
         datestr_end = str(endtime)
        
@@ -241,7 +241,7 @@ class DCacheAggregator:
                return endtime, result
             else:
                self._log.warning("Limit hit; decreasing time interval from %i to %i." % \
-                  (interval, new_interval)
+                  (interval, new_interval))
                self._range = new_interval 
                endtime = starttime + datetime.timedelta(0, new_interval)
                endtime, result = self._execute(starttime, endtime, maxSelect*2)
