@@ -2896,7 +2896,7 @@ def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
 
         # Identity info check
 
-        [VOName, ReportableVOName] = [None, None]
+        VOName = None
         id_info = {}
 
         DebugPrint(4, 'DEBUG: Finding UserIdentityNodes')
@@ -2935,8 +2935,6 @@ def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
                         )
                 if id_info.has_key('VOName'):
                     VOName = id_info['VOName']
-                if id_info.has_key('ReportableVOName'):
-                    ReportableVOName = id_info['ReportableVOName']
             except Exception, e:
                 DebugPrint(0, 'DEBUG: Caught exception: ', e)
                 DebugPrintTraceback()
