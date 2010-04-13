@@ -16,6 +16,7 @@ import traceback
 import pwd
 import locale
 import datetime
+import re
 
 from Checkpoint import Checkpoint
 from Alarm import Alarm
@@ -29,8 +30,36 @@ DCACHE_SUM_FIELDS = ['njobs','transfersize','connectiontime']
 # If the DB query takes more than this amount of time, something is very wrong!
 MAX_QUERY_TIME_SECS = 180
 
+re_parser = re.compile(r'^(?P<key>\S*):\s*(?P<value>\d*)\s*kB' )
+
+def _Meminfo():
+    """-> dict of data from meminfo (str:int).
+    Values are in kilobytes.
+    """
+    result = dict()
+    for line in open('/proc/meminfo'):
+        match = re_parser.match(line)
+        if not match:
+            continue # skip lines that don't parse
+        key, value = match.groups(['key', 'value'])
+        result[key] = int(value)
+    return result
+
+def _CalcMaxSelect():
+    """
+    Returns the maximum number of sql results so that
+    we do not use more than half of the install RAM on
+    the current machine.
+    """
+    try:
+        mem = _Meminfo()["MemTotal"]
+        if ( mem < 2048000 ) : mem = 2048000
+        return int(mem / 4)
+    except:
+        return 512000
+    
 STARTING_MAX_SELECT = 10000
-MAX_SELECT = 512000
+MAX_SELECT = _CalcMaxSelect()
 
 BILLINGDB_SELECT_CMD = """
     SELECT
