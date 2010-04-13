@@ -198,9 +198,9 @@ class DCacheAggregator:
            records and the results
         """
         assert starttime < endtime
-        if maxSelect > MAX_SELECT and (endtime-startime).seconds <= MIN_RANGE
+        if (maxSelect > MAX_SELECT) and ((endtime-starttime).seconds <= MIN_RANGE):
             raise Exception("Fatal error - more than %i transfers in %i" \
-                " second(s)." % (MAX_SELECT,(endtime-startime).seconds)
+                " second(s)." % (MAX_SELECT,(endtime-starttime).seconds)
         datestr = str(starttime)
         datestr_end = str(endtime)
        
@@ -231,7 +231,7 @@ class DCacheAggregator:
         # there are on the final millisecond; we must re-query with higher
         # limits.
         if len(result) == maxSelect:
-            interval = (endtime - startime).seconds
+            interval = (endtime - starttime).seconds
             new_interval = int(interval / 2)
             if (interval == new_interval or new_interval == 0):
                self._log.warning("Limit hit; increasing from %i to %i." % \
