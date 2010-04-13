@@ -6,6 +6,36 @@
 # This is a first attempt at a python program that reads the dCache billing
 # database, aggregates any new content, and posts it to Gratia.
 
+"""
+This module implements the logic of the dCache transfer probe.
+
+It handles the querying of the billing DB and the translation of the queries
+to Gratia UsageRecord format.
+
+If the probe is meant to summarize the transfers before sending them to Gratia,
+the probe does this using the TimeBinRange and Collapse helper modules.  It
+groups on DCACHE_AGG_FIELDS and sums the values of DCACHE_SUM_FIELDS.
+
+There is no index column on the billing DB, meaning we have to be very careful
+about aggregating.  If we, for example, use LIMIT 100 and restrict the date
+range to dates less than '2010-03-01 00:00:00', then:
+  a) len(results) < 100: In this case, we have successfully retrieved all
+     records less than the specified date.
+  b) len(results) == 100: In this case, we don't know how many remaining
+     records there are.  We ought to query again with a smaller time window or
+     with an increased limit until case (a) happens.
+We quit recursing in (b) if the limit hits the maximum size of returned result
+(which is estimated by looking at the amount of memory in the machine).
+
+We repeat the queries above until we have an entire hour's worth of data,
+summarizing the partial results as we go.  Finally, once an hour's worth of
+data has been constructed, we send the results to Gratia.
+
+TODO list for this probe:
+   1) Remove sqlalchemy
+   2) Remove python logging in favor of Gratia logging.
+"""
+
 import os
 import sys
 import logging
@@ -28,10 +58,13 @@ DCACHE_AGG_FIELDS = ['initiator', 'client', 'protocol', 'errorcode', 'isnew']
 DCACHE_SUM_FIELDS = ['njobs','transfersize','connectiontime']
 
 # If the DB query takes more than this amount of time, something is very wrong!
+# The probe will throw an exception and exit.
 MAX_QUERY_TIME_SECS = 180
 
-re_parser = re.compile(r'^(?P<key>\S*):\s*(?P<value>\d*)\s*kB' )
+# The next two functions determine the amount of RAM available on the machines
+# and hence the maximum number of rows we are willing to query.
 
+re_parser = re.compile(r'^(?P<key>\S*):\s*(?P<value>\d*)\s*kB' )
 def _Meminfo():
     """-> dict of data from meminfo (str:int).
     Values are in kilobytes.
@@ -99,8 +132,13 @@ class DCacheAggregator:
     This class reads the dCache billing database on the specified host
     and pulls out the next set of data to be sent to gratia. It remembers
     what it has already sent by looking at the last successful checkpoint.
+    When summarizing, checkpoints are only sent after an hour's worth of data
+    is done.
+
     Note that we limit the select to _maxSelect items to moderate memory
-    usage when a lot of records have arrived since the probe was last run.
+    usage.  _maxSelect may grow until we think we're hitting memory limits.
+    We also shrink the query interval size until we are able to get less than
+    the limit returned.
     """
 
     _connection = None
@@ -140,21 +178,21 @@ class DCacheAggregator:
         self._summarize = configuration.get_Summarize();
 
         # Connect to the dCache postgres database.
+        # TODO: Using sqlalchemy gives us nothing but a new dependency.  Remove.
         try:
-            self._db = sqlalchemy.create_engine( DBurl )
+            self._db = sqlalchemy.create_engine(DBurl)
             self._connection = self._db.connect()
         except:
-            tblist = traceback.format_exception( sys.exc_type,
-                                                 sys.exc_value,
-                                                 sys.exc_traceback)
-            errmsg = 'Failed to connect to ' + DBurl + \
-                     '\n\n' + "".join( tblist )
-            self._log.error( errmsg )
+            tblist = traceback.format_exception(sys.exc_type,
+                                                sys.exc_value,
+                                                sys.exc_traceback)
+            errmsg = 'Failed to connect to %s\n\n%s' % (DBurl, join(tblist))
+            self._log.error(errmsg)
             raise
 
         self._grid = configuration.get_Grid()
 
-    def _skipIntraSiteXfer( self, row ) :
+    def _skipIntraSiteXfer(self, row):
         """
         Boolean method that returns true if the specified row is for an
         intra-site transfer and we the configuration file said to skip
@@ -171,25 +209,15 @@ class DCacheAggregator:
         starttime, but not guaranteed by how much.
         
         Note on the time returned as the first part of the tuple:
-        This is time that is guaranted to be after all the record included in 
-        select and it thus suitable to use as the start time of the next select
-        query.   In the current implementation, it is the upper limit of the 
-        actual query.  We reduce the range until it reaches 1 second or the
-        query return less than maxSelect results.   If the interval is one 
+        We guarantee two things:
+           a) returned time is strictly greater than starttime
+           b) We return *all* records in the interval [starttime, return time).
+        We do not guarantee that return time == parameter endtime.
+        Thus it is suitable to use as the start time of the next select query.
+        To do this, we reduce the range until it reaches 1 second or the
+        query returns less than maxSelect results.   If the interval is one 
         second and it still returns maxSelect results then we extend the limit 
-        of the query until all records fit and in consequence:
-
-           Let's say endtime = the parameter, endtime2 = max of starttimes in 
-               the results of the select query
-           if endtime2 < endtime and len(result) < maxSelect, then we know that 
-               there are no records between (endtime2, endtime].  Hence, we can
-               return endtime.
-           if endtime2 < endtime and len(result) == maxSelect, then we don't 
-               know if we got all the records at time value endtime2, so we
-               increase maxSelect and try again.
-           Assuming a finite number of records, you eventually increase
-           maxSelect until you return endtime or throw an exception.
-           Finally, if endtime2 == endtime, you can just return endtime.
+        of the query until all records fit.
 
         @param starttime: Datetime object for the start of the query interval.
         @param endtime: Datetime object for the end of the query interval.
@@ -198,7 +226,8 @@ class DCacheAggregator:
            records and the results
         """
         assert starttime < endtime
-        if (maxSelect > MAX_SELECT) and ((endtime-starttime).seconds <= MIN_RANGE):
+        if (maxSelect > MAX_SELECT) and ((endtime-starttime).seconds <= \
+                MIN_RANGE):
             raise Exception("Fatal error - more than %i transfers in %i" \
                 " second(s)." % (MAX_SELECT,(endtime-starttime).seconds))
         datestr = str(starttime)
@@ -228,23 +257,27 @@ class DCacheAggregator:
             return endtime, result
 
         # If we hit our limit, there's no telling how many identical records
-        # there are on the final millisecond; we must re-query with higher
-        # limits.
+        # there are on the final millisecond; we must re-query with a smaller
+        # interval or a higher limit on the select.
         if len(result) == maxSelect:
-            interval = (endtime - starttime).seconds
+            diff = endtime - starttime
+            interval = diff.days*86400 + diff.seconds
             new_interval = int(interval / 2)
-            if (interval == new_interval or new_interval == 0):
+            new_endtime = = starttime + datetime.timedelta(0, new_interval)
+            # Guard against the DST jump by making sure new_endtime > starttime.
+            if (interval == new_interval) or (new_interval == 0) or \
+               (new_endtime <= starttime):
                self._log.warning("Limit hit; increasing from %i to %i." % \
                   (maxSelect, maxSelect*2))
                endtime, result = self._execute(starttime, endtime, maxSelect*2)
                assert endtime > starttime
                return endtime, result
             else:
-               self._log.warning("Limit hit; decreasing time interval from %i to %i." % \
-                  (interval, new_interval))
+               self._log.warning("Limit hit; decreasing time interval from %i" \
+                  " to %i." % (interval, new_interval))
                self._range = new_interval 
-               endtime = starttime + datetime.timedelta(0, new_interval)
-               endtime, result = self._execute(starttime, endtime, maxSelect*2)
+               endtime, result = self._execute(starttime, new_endtime,
+                   maxSelect)
                assert endtime > starttime
                return endtime, result
 
@@ -252,7 +285,10 @@ class DCacheAggregator:
 
     def _processResults(self, results):
         """
-        Process all of the results
+        Process all of the results.
+        This method basically is a `for` loop around _processDBRow.  It does
+        make sure the row is a real python dict, has njobs set, and catches
+        any exceptiond Gratia might throw at it
         """
         numDone = 0
         for row in results:
@@ -273,8 +309,13 @@ class DCacheAggregator:
     def _processDBRow(self, row):
         """
         Completely process a single DB row.  Take the row, convert it to a 
-        UsageRecord, and send it up to Gratia.  Process any errors which
-        occurred during the process.
+        UsageRecord, and send it up to Gratia.  Process any recoverable errors
+        which occurred during the process.
+
+        Note we skip a row if it is an Intra-site transfer and we are instructed
+        not to send them.
+
+        Otherwise, we process the row in Gratia or exit the probe.
 
         @return: The number of jobs in this row, regardless of whether we sent
            them successfully or not.
@@ -302,15 +343,15 @@ class DCacheAggregator:
             time.sleep(longsleep)
         elif response.startswith('Fatal Error') or \
             response.startswith('Internal Error'):
-            self._log.critical( 'error sending ' + baseMsg + \
-                '\ngot response ' + response )
+            self._log.critical('error sending ' + baseMsg + \
+                '\ngot response ' + response)
             sys.exit(2)
-            self._log.debug( 'sent ' + baseMsg )
+            self._log.debug('sent ' + baseMsg)
         # If we got a non-fatal error, slow down since the server
         # might be overloaded.
         if response[:2] != 'OK':
-                        self._log.error( 'error sending ' + baseMsg + \
-                                        '\ngot response ' + response )
+                        self._log.error('error sending ' + baseMsg + \
+                                        '\ngot response ' + response)
 
         return row['njobs']
 
@@ -366,15 +407,16 @@ class DCacheAggregator:
         if row['protocol'].startswith("DCap"):
             r.Grid("Local")
         else:
-            r.Grid("OSG")
-        r.StartTime( startTime )
+            # Set the grid name to the default in the ProbeConfig
+            r.Grid(self._grid)
+        r.StartTime(startTime)
         r.Network(row['transfersize'], 'b', connectionTimeStr, 'total',
             row['action'])
         r.WallDuration(connectionTimeStr)
 
         # only send the initiator if it is known.
         if row['initiator'] != 'unknown':
-            r.DN( row['initiator'] )
+            r.DN(row['initiator'])
         # if the initiator host is "unknown", make it "Unknown".
         initiatorHost = row['initiatorhost']
         if initiatorHost == 'unknown':
@@ -402,7 +444,28 @@ class DCacheAggregator:
 
 
     def sendBillingInfoRecordsToGratia(self):
-        self._log.debug( "sendBillingInfoRecordsToGratia" )
+        """
+        This is the public method for starting the dCache-transfer reporting.
+
+        This will query records no more than _maxAge old, and always starts
+        queries on hour time boundaries (i.e., 1:00:00 not 1:02:00).
+
+        This will continue to query until we hit records starting less than 75
+        minutes ago, then return.
+
+        By default, we start with querying 60-second intervals, but will shrink
+        this window if we encounter lots of data.
+
+        If not summarizing: this method uses _execute to get all the data for
+           a given interval, then uses _processResults to send them to Gratia.
+           Once the query for a time interval is done, then we immediately
+           checkpoint.
+
+        If summarizing: this method continues to query until it hits the end of
+           an hour interval.  At that point, it summarizes once again, and sends
+           the summaries up to Gratia.  We then only checkpoint on the hour.
+        """
+        self._log.debug("sendBillingInfoRecordsToGratia")
 
         # Query no more than a set number of days in the past
         minTime = datetime.datetime.now() - datetime.timedelta(self._maxAge, 0)
@@ -413,6 +476,8 @@ class DCacheAggregator:
         # sure we only query complete intervals
         latestAllowed = datetime.datetime.now() - datetime.timedelta(0, 75*60)
 
+        # Start with either the last checkpoint or minTime days ago, whichever
+        # is more recent.
         starttime = max(self._BIcheckpoint.lastDateStamp(), minTime)
         self._log.info("Starting queries at time %s." % starttime)
 
@@ -450,7 +515,8 @@ class DCacheAggregator:
                 self._BIcheckpoint.createPending(endtime, '')
                 self._processResults(results)
                 self._BIcheckpoint.commit()
-                if (self._range < STARTING_RANGE and len(results)*4 < self._maxSelect):
+                if (self._range < STARTING_RANGE and len(results)*4 < \
+                       self._maxSelect):
                    self._range = STARTING_RANGE
                 results = []
             # If we are summarizing, send records only per hour of data
@@ -498,7 +564,7 @@ class DCacheAggregator:
         else:
             endtime = datetime.datetime(starttime.year, starttime.month,
                 starttime.day, starttime.hour, starttime.minute, 0)
-            endtime += datetime.timedelta(0, self._range)
+            endtime += datetime.timedelta(0, 60)
         # Watch out for DST issues
         if endtime == starttime:
             endtime += datetime.timedelta(0, 7200)
