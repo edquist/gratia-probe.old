@@ -658,7 +658,7 @@ __recordPid__ = os.getpid()
 __recordId__ = 0
 __maxConnectionRetries__ = 2
 __maxFilesToReprocess__ = 100000
-__xmlRecordCheckers__ = []
+XmlRecordCheckers = []
 __handshakeReg__ = []
 CurrentBundle = None
 __bundleSize__ = 0
@@ -939,13 +939,10 @@ def __connect():
 
     if not __connected__ and __connectionRetries__ <= __maxConnectionRetries__:
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
-            if ProxyUtil.findHTTPProxy():
-                DebugPrint(0, 'WARNING: http_proxy is set but not supported')
-            __connection__ = httplib.HTTP(Config.get_SOAPHost())
-            DebugPrint(1, 'Connected via HTTP to:  ' + Config.get_SOAPHost())
+            DebugPrint(0, 'Error: SOAP connection is no longer supported.')
+            __connectionError__ = True
+            return __connected__
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
-
-            # print "Using SOAP protocol"
 
             try:
                 if ProxyUtil.findHTTPProxy():
@@ -1114,67 +1111,10 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
 
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
 
-            # Use the following template to call the interface that has
-            # the 'Event' object as a parameter
+            DebugPrint(0, 'Error: SOAP connection is no longer supported.')
+            __connectionError__ = True
 
-            soapServiceTemplate = \
-                """<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-                xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-                xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/">
-                <soap:Body>
-                    <collectUsageXml>
-                        <event xmlns:ns2="http://gratia.sf.net" xsi:type="ns2:event">
-                            <_id >%s</_id>
-                            <_xml>%s</_xml>
-                        </event>
-                    </collectUsageXml>
-                </soap:Body>
-            </soap:Envelope>
-            """
-
-            # Insert the actual xml data into the soap template, being sure to clean out any illegal characters
-
-            soapMessage = soapServiceTemplate % (transactionId, escapeXML(recordXml))
-            DebugPrint(4, 'Soap message:  ' + soapMessage)
-
-            # Configure the requestor to request a Post to the GratiaCollector web service
-
-            __connection__.putrequest('POST', Config.get_CollectorService())
-
-            # Include user and data information
-
-            __connection__.putheader('Host', Config.get_SOAPHost())
-            __connection__.putheader('User-Agent', 'Python post')
-            __connection__.putheader('Content-type', 'text/xml; charset=\'UTF-8\'')
-            __connection__.putheader('Content-length', '%d' % len(soapMessage))
-            __connection__.putheader('SOAPAction', r'')
-            __connection__.endheaders()
-
-            # Send the soap message to the web service
-
-            __connection__.send(soapMessage)
-
-            # Get the web service response to the request
-
-            (status_code, message, reply_headers) = __connection__.getreply()
-
-            # Read the response attachment to get the actual soap response
-
-            responseString = __connection__.getfile().read()
-
-            # Parse the response string into a response object
-
-            try:
-                doc = safeParseXML(responseString)
-                codeNode = doc.getElementsByTagName('ns1:_code')
-                messageNode = doc.getElementsByTagName('ns1:_message')
-                if codeNode.length == 1 and messageNode.length == 1:
-                    response = Response(int(codeNode[0].childNodes[0].data), messageNode[0].childNodes[0].data)
-                else:
-                    response = Response(Response.AutoSet, responseString)
-            except:
-                response = Response(Response.Failed, responseString)
+            response = Response(Response.Failed, 'Error: SOAP connection is no longer supported.')
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
             queryString = __encodeData(messageType, recordXml)
 
@@ -2983,7 +2923,7 @@ def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
     return len(getUsageRecords(xmlDoc))
 
 
-__xmlRecordCheckers__.append(UsageCheckXmldoc)
+XmlRecordCheckers.append(UsageCheckXmldoc)
 
 
 def LocalJobId(record, value):
@@ -3441,7 +3381,7 @@ def ReprocessList():
 def CheckXmlDoc(xmlDoc, external, resourceType=None):
     content = 0
     DebugPrint(4, 'DEBUG: In CheckXmlDoc')
-    for checker in __xmlRecordCheckers__:
+    for checker in XmlRecordCheckers:
         DebugPrint(3, 'Running : ' + str(checker) + str(xmlDoc) + str(external) + str(resourceType))
         content = content + checker(xmlDoc, external, resourceType)
     return content
