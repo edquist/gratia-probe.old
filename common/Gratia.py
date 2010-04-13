@@ -319,7 +319,7 @@ class ProbeConfiguration:
 
     def get_grid(self):
         if self.__grid == None:
-            val = self.__getConfigAttribute('grid')
+            val = self.__getConfigAttribute('Grid')
             if val == None or val == r'':
                 self.__grid = 'OSG'
             else:
@@ -525,7 +525,7 @@ class ProbeConfiguration:
             return None
 
     def get_SuppressgridLocalRecords(self):
-        result = self.__getConfigAttribute('SuppressgridLocalRecords')
+        result = self.__getConfigAttribute('SuppressGridLocalRecords')
         if result:
             match = re.search(r'^(True|1|t)$', result, re.IGNORECASE)
             if match:
@@ -2166,7 +2166,7 @@ class Record(object):
     def XmlAddMembers(self):
         self.GenericAddToList('ProbeName', self.__ProbeName, self.__ProbeNameDescription)
         self.GenericAddToList('SiteName', self.__SiteName, self.__SiteNameDescription)
-        self.GenericAddToList('grid', self.__grid, self.__gridDescription)
+        self.GenericAddToList('Grid', self.__grid, self.__gridDescription)
 
     def Duration(self, value):
         ''' Helper Function to generate the xml (Do not call directly)'''
@@ -2767,9 +2767,9 @@ def StandardCheckXmldoc(
 
         # grid
 
-        gridNodes = recordElement.getElementsByTagNameNS(namespace, 'grid')
+        gridNodes = recordElement.getElementsByTagNameNS(namespace, 'Grid')
         if not gridNodes:
-            node = xmlDoc.createElementNS(namespace, prefix + 'grid')
+            node = xmlDoc.createElementNS(namespace, prefix + 'Grid')
             textNode = xmlDoc.createTextNode(Config.get_grid())
             node.appendChild(textNode)
             recordElement.appendChild(node)
@@ -2871,7 +2871,7 @@ def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
                         usageRecord,
                         namespace,
                         prefix,
-                        'grid',
+                        'Grid',
                         'Local',
                         )
                 if id_info.has_key('VOName'):
@@ -2896,12 +2896,12 @@ def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
         # about if osg-user-vo-map.txt is not well-cared-for).
 
         reason = None
-        grid = GetElement(xmlDoc, usageRecord, namespace, prefix, 'grid')
+        grid = GetElement(xmlDoc, usageRecord, namespace, prefix, 'Grid')
         if Config.get_SuppressgridLocalRecords() and grid and string.lower(grid) == 'local':
 
             # 1
 
-            reason = 'grid == Local'
+            reason = 'Grid == Local'
         elif Config.get_SuppressNoDNRecords() and not usageRecord.getElementsByTagNameNS(namespace, 'DN'):
 
             # 2
