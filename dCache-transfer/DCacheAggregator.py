@@ -58,8 +58,11 @@ def _CalcMaxSelect():
     except:
         return 512000
     
-STARTING_MAX_SELECT = 10000
+STARTING_MAX_SELECT = 32000
 MAX_SELECT = _CalcMaxSelect()
+STARTING_RANGE = 60
+MIN_RANGE = 1
+
 
 BILLINGDB_SELECT_CMD = """
     SELECT
@@ -102,6 +105,7 @@ class DCacheAggregator:
 
     _connection = None
     _maxSelect = STARTING_MAX_SELECT
+    _range = STARTING_RANGE
     
     # Do not send in records older than 30 days
     _maxAge = 30
@@ -169,8 +173,11 @@ class DCacheAggregator:
         Note on the time returned as the first part of the tuple:
         This is time that is guaranted to be after all the record included in 
         select and it thus suitable to use as the start time of the next select
-        query.   In the current implementation, it is the same as entime, since
-        we extend the query until all record fit and in consequence:
+        query.   In the current implementation, it is the upper limit of the 
+        actual query.  We reduce the range until it reaches 1 second or the
+        query return less than maxSelect results.   If the interval is one 
+        second and it still returns maxSelect results then we extend the limit 
+        of the query until all records fit and in consequence:
 
            Let's say endtime = the parameter, endtime2 = max of starttimes in 
                the results of the select query
@@ -191,9 +198,9 @@ class DCacheAggregator:
            records and the results
         """
         assert starttime < endtime
-        if maxSelect > MAX_SELECT:
-            raise Exception("Fatal error - more than %i transfers in a single" \
-                " millisecond." % MAX_SELECT)
+        if maxSelect > MAX_SELECT and (endtime-startime).seconds <= MIN_RANGE
+            raise Exception("Fatal error - more than %i transfers in %i" \
+                " second(s)." % (MAX_SELECT,(endtime-startime).seconds)
         datestr = str(starttime)
         datestr_end = str(endtime)
        
@@ -224,11 +231,22 @@ class DCacheAggregator:
         # there are on the final millisecond; we must re-query with higher
         # limits.
         if len(result) == maxSelect:
-            self._log.warning("Limit hit; increasing from %i to %i." % \
-                (maxSelect, maxSelect*2))
-            endtime, result = self._execute(starttime, endtime, maxSelect*2)
-            assert endtime > starttime
-            return endtime, result
+            interval = (endtime - startime).seconds
+            new_interval = int(interval / 2)
+            if (interval == new_interval or new_interval == 0):
+               self._log.warning("Limit hit; increasing from %i to %i." % \
+                  (maxSelect, maxSelect*2))
+               endtime, result = self._execute(starttime, endtime, maxSelect*2)
+               assert endtime > starttime
+               return endtime, result
+            else:
+               self._log.warning("Limit hit; decreasing time interval from %i to %i." % \
+                  (interval, new_interval)
+               self._range = new_interval 
+               endtime = starttime + datetime.timedelta(0, new_interval)
+               endtime, result = self._execute(starttime, endtime, maxSelect*2)
+               assert endtime > starttime
+               return endtime, result
 
         return endtime, result
 
@@ -432,6 +450,8 @@ class DCacheAggregator:
                 self._BIcheckpoint.createPending(endtime, '')
                 self._processResults(results)
                 self._BIcheckpoint.commit()
+                if (self._range < STARTING_RANGE and len(results)*4 < self._maxSelect):
+                   self._range = STARTING_RANGE
                 results = []
             # If we are summarizing, send records only per hour of data
             elif (next_endtime > nextSummary) and results:
@@ -450,6 +470,7 @@ class DCacheAggregator:
                 nextSummary = self._determineNextEndtime(next_starttime,
                     summary=True)
                 results = []
+                self._range = STARTING_RANGE
 
             endtime = next_endtime
             starttime = next_starttime
@@ -477,7 +498,7 @@ class DCacheAggregator:
         else:
             endtime = datetime.datetime(starttime.year, starttime.month,
                 starttime.day, starttime.hour, starttime.minute, 0)
-            endtime += datetime.timedelta(0, 60)
+            endtime += datetime.timedelta(0, self._range)
         # Watch out for DST issues
         if endtime == starttime:
             endtime += datetime.timedelta(0, 7200)
