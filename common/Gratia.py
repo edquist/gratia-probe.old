@@ -548,7 +548,7 @@ class ProbeConfiguration:
 
     def get_BundleSize(self):
         global __bundleSize__
-        result = self.__getConfigAttribute('__bundleSize__')
+        result = self.__getConfigAttribute('BundleSize')
         if result:
             __bundleSize__ = int(result)
         elif result == None or result == r'':
