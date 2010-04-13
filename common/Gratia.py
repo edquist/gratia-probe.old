@@ -31,8 +31,11 @@ import grp
 import math
 from OpenSSL import crypto
 
+# Public switches
 quiet = 0
 Config = None
+
+# Privates globals
 __wantUrlencodeRecords = 1
 __certinfoLocalJobIdMunger = re.compile(r'(?P<ID>\d+(?:\.\d+)*)')
 __certinfoJobManagerExtractor = re.compile(r'gratia_certinfo_(?P<JobManager>(?:[^\d_][^_]*))')
@@ -40,15 +43,15 @@ __xmlintroRemove = re.compile(r'<\?xml[^>]*\?>')
 __lrms = None
 
 
-def disconnect_at_exit():
+def __disconnect_at_exit__():
     """
     Insure that we properly shutdown the connection at the end of the process.
     
     This includes sending any outstanding records and printing the statistics
     """
 
-    if BundleSize > 1 and CurrentBundle.nItems > 0:
-        (responseString, response) = ProcessBundle(CurrentBundle)
+    if __bundleSize__ > 1 and __currentBundle__.nItems > 0:
+        (responseString, response) = ProcessBundle(__currentBundle__)
         DebugPrint(0, responseString)
         DebugPrint(0, '***********************************************************')
     __disconnect()
@@ -71,9 +74,9 @@ def disconnect_at_exit():
     DebugPrint(0, '                          bundle of records sent successfully: '
                + str(successfulBundleCount))
     DebugPrint(0, '                          bundle of records failed: ' + str(failedBundleCount))
-    DebugPrint(0, '                          outstanding records: ' + str(OutstandingRecordCount))
-    DebugPrint(0, '                          outstanding staged records: ' + str(OutstandingStagedRecordCount))
-    DebugPrint(0, '                          outstanding records tar files: ' + str(OutstandingStagedTarCount))
+    DebugPrint(0, '                          outstanding records: ' + str(__outstandingRecordCount__))
+    DebugPrint(0, '                          outstanding staged records: ' + str(__outstandingStagedRecordCount__))
+    DebugPrint(0, '                          outstanding records tar files: ' + str(__outstandingStagedTarCount__))
     DebugPrint(1, 'End-of-execution disconnect ...')
 
 
@@ -87,7 +90,7 @@ class ProbeConfiguration:
     __CollectorHost = None
     __ProbeName = None
     __SiteName = None
-    __Grid = None
+    __grid = None
     __DebugLevel = None
     __LogLevel = None
     __LogRotate = None
@@ -112,8 +115,8 @@ class ProbeConfiguration:
         if self.__doc == None:
             try:
                 self.__loadConfiguration__()
-            except xml.parsers.expat.ExpatError, e:
-                sys.stderr.write('Parse error in ' + self.__configname + ': ' + str(e) + '\n')
+            except xml.parsers.expat.ExpatError, ex:
+                sys.stderr.write('Parse error in ' + self.__configname + ': ' + str(ex) + '\n')
                 raise
 
         # TODO:  Check if the ProbeConfiguration node exists
@@ -253,8 +256,8 @@ class ProbeConfiguration:
         filename = self.__get_fullpath_cert(filename)
         keyfile = self.get_GratiaKeyFile()
         try:
-            f = open(filename, 'r')
-            cert = crypto.load_certificate(crypto.FILETYPE_PEM, f.read())
+            cryptofile = open(filename, 'r')
+            cert = crypto.load_certificate(crypto.FILETYPE_PEM, cryptofile.read())
             if cert.has_expired() or os.path.exists(keyfile) == 0:
                 if not self.__createCertificateFile(keyfile, filename):
                     return None
@@ -303,7 +306,7 @@ class ProbeConfiguration:
                 self.setProbeName(result)
         return self.__ProbeName
 
-    def FilenameFragment(self):
+    def getFilenameFragment(self):
         '''Generate a filename fragment based on the collector destination'''
 
         if self.__FilenameFragment == None:
@@ -314,14 +317,14 @@ class ProbeConfiguration:
             __FilenameFragment = re.sub(r'[:/]', r'_', fragment)
         return __FilenameFragment
 
-    def get_Grid(self):
-        if self.__Grid == None:
-            val = self.__getConfigAttribute('Grid')
+    def get_grid(self):
+        if self.__grid == None:
+            val = self.__getConfigAttribute('grid')
             if val == None or val == r'':
-                self.__Grid = 'OSG'
+                self.__grid = 'OSG'
             else:
-                self.__Grid = val
-        return self.__Grid
+                self.__grid = val
+        return self.__grid
 
     def setSiteName(self, name):
         self.__SiteName = name
@@ -521,8 +524,8 @@ class ProbeConfiguration:
         else:
             return None
 
-    def get_SuppressGridLocalRecords(self):
-        result = self.__getConfigAttribute('SuppressGridLocalRecords')
+    def get_SuppressgridLocalRecords(self):
+        result = self.__getConfigAttribute('SuppressgridLocalRecords')
         if result:
             match = re.search(r'^(True|1|t)$', result, re.IGNORECASE)
             if match:
@@ -544,16 +547,16 @@ class ProbeConfiguration:
             return True  # If the config entry is missing, default to true
 
     def get_BundleSize(self):
-        global BundleSize
-        result = self.__getConfigAttribute('BundleSize')
+        global __bundleSize__
+        result = self.__getConfigAttribute('__bundleSize__')
         if result:
-            BundleSize = int(result)
+            __bundleSize__ = int(result)
         elif result == None or result == r'':
-            BundleSize = 100
+            __bundleSize__ = 100
         maxpending = self.get_MaxPendingFiles()
-        if BundleSize > maxpending:
-            BundleSize = maxpending
-        return BundleSize
+        if __bundleSize__ > maxpending:
+            __bundleSize__ = maxpending
+        return __bundleSize__
 
 
 class Response:
@@ -627,80 +630,80 @@ class Response:
             self._message = message
 
     def __str__(self):
-        return '(' + self.get_code_string() + r', ' + self.get_message() + ')'
+        return '(' + self.getCodeString() + r', ' + self.getMessage() + ')'
 
-    def get_code_string(self):
+    def getCodeString(self):
         return self._codeString[self._code]
 
-    def get_code(self):
+    def getCode(self):
         return self._code
 
-    def get_message(self):
+    def getMessage(self):
         return str(self._message)
 
-    def set_code(self, code):
+    def setCode(self, code):
         self._code = code
 
-    def set_message(self, message):
+    def setMessage(self, message):
         self._message = message
 
 
-BackupDirList = []
-OutstandingRecord = {}
-HasMoreOutstandingRecord = False
-OutstandingRecordCount = 0
-OutstandingStagedRecordCount = 0
-OutstandingStagedTarCount = 0
-RecordPid = os.getpid()
-RecordId = 0
-MaxConnectionRetries = 2
-MaxFilesToReprocess = 100000
-XmlRecordCheckers = []
-HandshakeReg = []
-CurrentBundle = None
-BundleSize = 0
+__backupDirList__ = []
+__outstandingRecord__ = {}
+__hasMoreOutstandingRecord__ = False
+__outstandingRecordCount__ = 0
+__outstandingStagedRecordCount__ = 0
+__outstandingStagedTarCount__ = 0
+__recordPid__ = os.getpid()
+__recordId__ = 0
+__maxConnectionRetries__ = 2
+__maxFilesToReprocess__ = 100000
+__xmlRecordCheckers__ = []
+__handshakeReg__ = []
+__currentBundle__ = None
+__bundleSize__ = 0
 
 # Instantiate a global connection object so it can be reused for
 # the lifetime of the server Instantiate a 'connected' flag as
 # well, because at times we cannot interrogate a connection
 # object to see if it has been connected yet or not
 
-__connection = None
-__connected = False
-__connectionError = False
-__connectionRetries = 0
-__certificateRejected = False
-__certrequestRejected = False
+__connection__ = None
+__connected__ = False
+__connectionError__ = False
+__connectionRetries__ = 0
+__certificateRejected__ = False
+__certrequestRejected__ = False
 
 
 def isCertrequestRejected():
-    global __certrequestRejected
-    return __certrequestRejected
+    global __certrequestRejected__
+    return __certrequestRejected__
 
 
 def setCertrequestRejected():
-    global __certrequestRejected
-    global __connectionError
-    __connectionError = True
-    __certrequestRejected = True
+    global __certrequestRejected__
+    global __connectionError__
+    __connectionError__ = True
+    __certrequestRejected__ = True
 
 
 def RegisterReporterLibrary(name, version):
     """Register the library named 'name' with version 'version'"""
 
-    HandshakeReg.append(('ReporterLibrary', 'version="' + version + '"', name))
+    __handshakeReg__.append(('ReporterLibrary', 'version="' + version + '"', name))
 
 
 def RegisterReporter(name, version):
     """Register the software named 'name' with version 'version'"""
 
-    HandshakeReg.append(('Reporter', 'version="' + version + '"', name))
+    __handshakeReg__.append(('Reporter', 'version="' + version + '"', name))
 
 
 def RegisterService(name, version):
     '''Register the service (Condor, PBS, LSF, DCache) which is being reported on '''
 
-    HandshakeReg.append(('Service', 'version="' + version + '"', name))
+    __handshakeReg__.append(('Service', 'version="' + version + '"', name))
 
 
 def ExtractCvsRevision(revision):
@@ -741,9 +744,9 @@ def Initialize(customConfig='ProbeConfig'):
     '''This function initializes the Gratia metering engine'''
 
     global Config
-    global BundleSize
-    global CurrentBundle
-    if len(BackupDirList) == 0:
+    global __bundleSize__
+    global __currentBundle__
+    if len(__backupDirList__) == 0:
 
         # This has to be the first thing done (DebugPrint uses
         # the information
@@ -754,10 +757,10 @@ def Initialize(customConfig='ProbeConfig'):
 
         # Initialize cleanup function.
 
-        atexit.register(disconnect_at_exit)
+        atexit.register(__disconnect_at_exit__)
 
-        BundleSize = Config.get_BundleSize()
-        CurrentBundle = Bundle()
+        __bundleSize__ = Config.get_BundleSize()
+        __currentBundle__ = Bundle()
 
         Handshake()
 
@@ -787,8 +790,8 @@ def Maintenance():
 
     Reprocess()
 
-    if BundleSize > 1 and CurrentBundle.nItems > 0:
-        (responseString, response) = ProcessBundle(CurrentBundle)
+    if __bundleSize__ > 1 and __currentBundle__.nItems > 0:
+        (responseString, response) = ProcessBundle(__currentBundle__)
         DebugPrint(0, responseString)
         DebugPrint(0, '***********************************************************')
 
@@ -894,8 +897,8 @@ def escapeXML(xmlData):
 ##
 ## Author - Tim Byrne
 ##
-## Connect to the web service on the given server, sets the module-level object __connection
-##  equal to the new connection.  Will not reconnect if __connection is already connected.
+## Connect to the web service on the given server, sets the module-level object __connection__
+##  equal to the new connection.  Will not reconnect if __connection__ is already connected.
 ##
 
 __maximumDelay = 900
@@ -906,39 +909,39 @@ __last_retry_time = None
 
 
 def __connect():
-    global __connection
-    global __connected
-    global __connectionError
-    global __certificateRejected
-    global __connectionRetries
+    global __connection__
+    global __connected__
+    global __connectionError__
+    global __certificateRejected__
+    global __connectionRetries__
     global __retryDelay
     global __last_retry_time
 
-    # __connectionError = True
-    # return __connected
+    # __connectionError__ = True
+    # return __connected__
 
-    if __connectionError:
+    if __connectionError__:
         __disconnect()
-        __connectionError = False
-        if __connectionRetries > MaxConnectionRetries:
+        __connectionError__ = False
+        if __connectionRetries__ > __maxConnectionRetries__:
             current_time = time.time()
             if not __last_retry_time:  # Set time but do not reset failures
                 __last_retry_time = current_time
-                return __connected
+                return __connected__
             if current_time - __last_retry_time > __retryDelay:
                 __last_retry_time = current_time
                 DebugPrint(1, 'Retry connection after ', __retryDelay, 's')
                 __retryDelay = __retryDelay * __backoff_factor
                 if __retryDelay > __maximumDelay:
                     __retryDelay = __maximumDelay
-                __connectionRetries = 0
-        __connectionRetries = __connectionRetries + 1
+                __connectionRetries__ = 0
+        __connectionRetries__ = __connectionRetries__ + 1
 
-    if not __connected and __connectionRetries <= MaxConnectionRetries:
+    if not __connected__ and __connectionRetries__ <= __maxConnectionRetries__:
         if Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 1:
             if ProxyUtil.findHTTPProxy():
                 DebugPrint(0, 'WARNING: http_proxy is set but not supported')
-            __connection = httplib.HTTP(Config.get_SOAPHost())
+            __connection__ = httplib.HTTP(Config.get_SOAPHost())
             DebugPrint(1, 'Connected via HTTP to:  ' + Config.get_SOAPHost())
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
 
@@ -948,28 +951,28 @@ def __connect():
                 if ProxyUtil.findHTTPProxy():
                     DebugPrint(0, 'WARNING: http_proxy is set but not supported')
 
-                # __connection = ProxyUtil.HTTPConnection(Config.get_SOAPHost(),
+                # __connection__ = ProxyUtil.HTTPConnection(Config.get_SOAPHost(),
                 #                                        http_proxy = ProxyUtil.findHTTPProxy())
 
-                __connection = httplib.HTTPConnection(Config.get_SOAPHost())
-            except Exception, e:
+                __connection__ = httplib.HTTPConnection(Config.get_SOAPHost())
+            except Exception, ex:
                 DebugPrint(0, 'ERROR: could not initialize HTTP connection')
                 DebugPrintTraceback()
-                __connectionError = True
-                return __connected
+                __connectionError__ = True
+                return __connected__
             try:
                 DebugPrint(4, 'DEBUG: Connect')
-                __connection.connect()
+                __connection__.connect()
                 DebugPrint(4, 'DEBUG: Connect: OK')
-            except socket.error, e:
-                __connectionError = True
+            except socket.error, ex:
+                __connectionError__ = True
                 raise
-            except Exception, e:
-                __connectionError = True
+            except Exception, ex:
+                __connectionError__ = True
                 DebugPrint(4, 'DEBUG: Connect: FAILED')
-                DebugPrint(0, 'Error: While trying to connect to HTTP, caught exception ' + str(e))
+                DebugPrint(0, 'Error: While trying to connect to HTTP, caught exception ' + str(ex))
                 DebugPrintTraceback()
-                return __connected
+                return __connected__
             DebugPrint(1, 'Connection via HTTP to: ' + Config.get_SOAPHost())
         else:
 
@@ -985,52 +988,52 @@ def __connect():
 
             if pr_cert_file == None:
                 DebugPrint(0, 'Error: While trying to connect to HTTPS, no valid local certificate.')
-                __connectionError = True
-                return __connected
+                __connectionError__ = True
+                return __connected__
 
             DebugPrint(4, 'DEBUG: Attempting to connect to HTTPS')
             try:
                 if ProxyUtil.findHTTPSProxy():
                     DebugPrint(0, 'WARNING: http_proxy is set but not supported')
 
-                # __connection = ProxyUtil.HTTPSConnection(Config.get_SSLHost(),
+                # __connection__ = ProxyUtil.HTTPSConnection(Config.get_SSLHost(),
                 #                                        cert_file = pr_cert_file,
                 #                                        key_file = pr_key_file,
                 #                                        http_proxy = ProxyUtil.findHTTPSProxy())
 
-                __connection = httplib.HTTPSConnection(Config.get_SSLHost(), cert_file=pr_cert_file,
+                __connection__ = httplib.HTTPSConnection(Config.get_SSLHost(), cert_file=pr_cert_file,
                                                        key_file=pr_key_file)
-            except Exception, e:
+            except Exception, ex:
                 DebugPrint(0, 'ERROR: could not initialize HTTPS connection')
                 DebugPrintTraceback()
-                __connectionError = True
-                return __connected
+                __connectionError__ = True
+                return __connected__
             try:
                 DebugPrint(4, 'DEBUG: Connect')
-                __connection.connect()
+                __connection__.connect()
                 DebugPrint(4, 'DEBUG: Connect: OK')
-            except socket.error, e:
-                __connectionError = True
+            except socket.error, ex:
+                __connectionError__ = True
                 raise
-            except Exception, e:
+            except Exception, ex:
                 DebugPrint(4, 'DEBUG: Connect: FAILED')
-                DebugPrint(0, 'Error: While trying to connect to HTTPS, caught exception ' + str(e))
+                DebugPrint(0, 'Error: While trying to connect to HTTPS, caught exception ' + str(ex))
                 DebugPrintTraceback()
-                __connectionError = True
-                return __connected
+                __connectionError__ = True
+                return __connected__
             DebugPrint(1, 'Connected via HTTPS to: ' + Config.get_SSLHost())
 
             # print "Using SSL protocol"
         # Successful
 
         DebugPrint(4, 'DEBUG: Connection SUCCESS')
-        __connected = True
+        __connected__ = True
 
         # Reset connection retry count to 0 and the retry delay to its initial value
 
-        __connectionRetries = 0
+        __connectionRetries__ = 0
         __retryDelay = __initialDelay
-    return __connected
+    return __connected__
 
 
 ##
@@ -1038,21 +1041,21 @@ def __connect():
 ##
 ## Author - Tim Byrne
 ##
-## Disconnects the module-level object __connection.
+## Disconnects the module-level object __connection__.
 ##
 
 
 def __disconnect():
-    global __connection
-    global __connected
-    global __connectionError
+    global __connection__
+    global __connected__
+    global __connectionError__
 
     try:
-        if __connected and Config.get_UseSSL() != 0:
-            __connection.close()
+        if __connected__ and Config.get_UseSSL() != 0:
+            __connection__.close()
             DebugPrint(1, 'Disconnected from ' + Config.get_SSLHost())
     except:
-        if not __connectionError:  # We've already complained, so shut up
+        if not __connectionError__:  # We've already complained, so shut up
             DebugPrint(
                 0,
                 'Failed to disconnect from ' + Config.get_SSLHost() + ': ',
@@ -1063,7 +1066,7 @@ def __disconnect():
                 sys.exc_info()[1],
                 )
 
-    __connected = False
+    __connected__ = False
 
 
 
@@ -1083,10 +1086,10 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
     param - xmlData:  A string representation of usage xml
     """
 
-    global __connection
-    global __connectionError
-    global __certificateRejected
-    global __connectionRetries
+    global __connection__
+    global __connectionError__
+    global __certificateRejected__
+    global __connectionRetries__
     global __wantUrlencodeRecords
     global __resending
 
@@ -1137,28 +1140,28 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
 
             # Configure the requestor to request a Post to the GratiaCollector web service
 
-            __connection.putrequest('POST', Config.get_CollectorService())
+            __connection__.putrequest('POST', Config.get_CollectorService())
 
             # Include user and data information
 
-            __connection.putheader('Host', Config.get_SOAPHost())
-            __connection.putheader('User-Agent', 'Python post')
-            __connection.putheader('Content-type', 'text/xml; charset=\'UTF-8\'')
-            __connection.putheader('Content-length', '%d' % len(soapMessage))
-            __connection.putheader('SOAPAction', r'')
-            __connection.endheaders()
+            __connection__.putheader('Host', Config.get_SOAPHost())
+            __connection__.putheader('User-Agent', 'Python post')
+            __connection__.putheader('Content-type', 'text/xml; charset=\'UTF-8\'')
+            __connection__.putheader('Content-length', '%d' % len(soapMessage))
+            __connection__.putheader('SOAPAction', r'')
+            __connection__.endheaders()
 
             # Send the soap message to the web service
 
-            __connection.send(soapMessage)
+            __connection__.send(soapMessage)
 
             # Get the web service response to the request
 
-            (status_code, message, reply_headers) = __connection.getreply()
+            (status_code, message, reply_headers) = __connection__.getreply()
 
             # Read the response attachment to get the actual soap response
 
-            responseString = __connection.getfile().read()
+            responseString = __connection__.getfile().read()
 
             # Parse the response string into a response object
 
@@ -1178,10 +1181,10 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
             # Attempt to make sure Collector can actually read the post.
 
             headers = {'Content-type': 'application/x-www-form-urlencoded'}
-            __connection.request('POST', Config.get_CollectorService(), queryString, headers)
-            responseString = __connection.getresponse().read()
+            __connection__.request('POST', Config.get_CollectorService(), queryString, headers)
+            responseString = __connection__.getresponse().read()
             response = Response(Response.AutoSet, responseString)
-            if response.get_code() == Response.UnknownCommand:
+            if response.getCode() == Response.UnknownCommand:
 
                 # We're talking to an old collector
 
@@ -1207,14 +1210,14 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
 
             headers = {'Content-type': 'application/x-www-form-urlencoded'}
             DebugPrint(4, 'DEBUG: POST')
-            __connection.request('POST', Config.get_SSLCollectorService(), queryString, headers)
+            __connection__.request('POST', Config.get_SSLCollectorService(), queryString, headers)
             DebugPrint(4, 'DEBUG: POST: OK')
             DebugPrint(4, 'DEBUG: Read response')
-            responseString = __connection.getresponse().read()
+            responseString = __connection__.getresponse().read()
             DebugPrint(4, 'DEBUG: Read response: OK')
             response = Response(Response.AutoSet, responseString)
 
-            if response.get_code() == Response.UnknownCommand:
+            if response.getCode() == Response.UnknownCommand:
 
                 # We're talking to an old collector
 
@@ -1228,32 +1231,32 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
                 # __url_records has been reset
 
                 response = __sendUsageXML(meterId, recordXml, messageType)
-            elif response.get_code() == Response.BadCertificate:
-                __connectionError = True
-                __certificateRejected = True
+            elif response.getCode() == Response.BadCertificate:
+                __connectionError__ = True
+                __certificateRejected__ = True
                 response = Response(Response.AutoSet, responseString)
 
-        if response.get_code == Response.ConnectionError or response.get_code == Response.CollectorError:
+        if response.getCode == Response.ConnectionError or response.getCode == Response.CollectorError:
 
             # Server threw an error - 503, maybe?
 
-            __connectionError = True
+            __connectionError__ = True
             response = Response(Response.Failed, r'Server unable to receive data: save for reprocessing')
     except SystemExit:
 
         raise
-    except socket.error, e:
-        if e.args[0] == 111:
+    except socket.error, ex:
+        if ex.args[0] == 111:
             DebugPrint(0, 'Connection refused while attempting to send xml to web service')
         else:
             DebugPrint(0, 'Failed to send xml to web service due to an error of type "', sys.exc_info()[0],
                        '": ', sys.exc_info()[1])
             DebugPrintTraceback(1)
         response = Response(Response.Failed, r'Server unable to receive data: save for reprocessing')
-    except httplib.BadStatusLine, e:
-        DebugPrint(0, 'Received BadStatusLine exception:', e.args)
-        __connectionError = True
-        if e.args[0] == r'' and not __resending:
+    except httplib.BadStatusLine, ex:
+        DebugPrint(0, 'Received BadStatusLine exception:', ex.args)
+        __connectionError__ = True
+        if ex.args[0] == r'' and not __resending:
             DebugPrint(0, 'Possible connection timeout: resend this record')
             __resending = 1
             response = __sendUsageXML(meterId, recordXml, messageType)
@@ -1268,7 +1271,7 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
         # Upon a connection error, we will stop to try to reprocess but will continue to
         # try sending
 
-        __connectionError = True
+        __connectionError__ = True
         response = Response(Response.Failed, 'Failed to send xml to web service')
 
     __resending = 0
@@ -1281,9 +1284,9 @@ def SendStatus(meterId):
     # This function is not yet used.
     # Use Handshake() and SendHandshake() instead.
 
-    global __connection
-    global __connectionError
-    global __connectionRetries
+    global __connection__
+    global __connectionError__
+    global __connectionRetries__
 
     try:
 
@@ -1304,17 +1307,17 @@ def SendStatus(meterId):
             response = Response(Response.Success, 'Status message not supported in SOAP mode')
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
 
-            __connection.request('POST', Config.get_CollectorService(), queryString)
-            responseString = __connection.getresponse().read()
+            __connection__.request('POST', Config.get_CollectorService(), queryString)
+            responseString = __connection__.getresponse().read()
             response = Response(Response.AutoSet, responseString)
         else:
-            __connection.request('POST', Config.get_SSLCollectorService(), queryString)
-            responseString = __connection.getresponse().read()
+            __connection__.request('POST', Config.get_SSLCollectorService(), queryString)
+            responseString = __connection__.getresponse().read()
             response = Response(Response.AutoSet, responseString)
     except SystemExit:
         raise
-    except socket.error, e:
-        if e.args[0] == 111:
+    except socket.error, ex:
+        if ex.args[0] == 111:
             DebugPrint(0, 'Connection refused while attempting to send xml to web service')
         else:
             DebugPrint(0, 'Failed to send xml to web service due to an error of type "', sys.exc_info()[0],
@@ -1328,14 +1331,14 @@ def SendStatus(meterId):
         # Upon a connection error, we will stop to try to reprocess but will continue to
         # try sending
 
-        __connectionError = True
+        __connectionError__ = True
 
         response = Response(Response.Failed, 'Failed to send xml to web service')
 
     return response
 
 
-LogFileIsWriteable = True
+__logFileIsWriteable__ = True
 
 
 def LogFileName():
@@ -1348,7 +1351,7 @@ def LogFileName():
 def LogToFile(message):
     '''Write a message to the Gratia log file'''
 
-    global LogFileIsWriteable
+    global __logFileIsWriteable__
     current_file = None
     filename = 'none'
 
@@ -1374,15 +1377,15 @@ def LogToFile(message):
 
         current_file.write(message + '\n')
 
-        LogFileIsWriteable = True
+        __logFileIsWriteable__ = True
     except:
-        if LogFileIsWriteable:
+        if __logFileIsWriteable__:
 
             # Print the error message only once
 
             print >> sys.stderr, 'Gratia: Unable to log to file:  ', filename, ' ', sys.exc_info(), '--', \
                 sys.exc_info()[0], '++', sys.exc_info()[1]
-        LogFileIsWriteable = False
+        __logFileIsWriteable__ = False
 
     if current_file != None:
 
@@ -1392,7 +1395,7 @@ def LogToFile(message):
 
 
 def LogToSyslog(level, message):
-    global LogFileIsWriteable
+    global __logFileIsWriteable__
     import syslog
     if level == -1:
         syslevel = syslog.LOG_ERR
@@ -1409,15 +1412,15 @@ def LogToSyslog(level, message):
         syslog.openlog('Gratia ')
         syslog.syslog(syslevel, message)
 
-        LogFileIsWriteable = True
+        __logFileIsWriteable__ = True
     except:
-        if LogFileIsWriteable:
+        if __logFileIsWriteable__:
 
             # Print the error message only once
 
             print >> sys.stderr, 'Gratia: Unable to log to syslog:  ', sys.exc_info(), '--', sys.exc_info()[0], \
                 '++', sys.exc_info()[1]
-        LogFileIsWriteable = False
+        __logFileIsWriteable__ = False
 
     syslog.closelog()
 
@@ -1495,8 +1498,8 @@ def RemoveRecordFile(filename):
 
    # Remove a record file and reduce the oustanding record count
 
-    global OutstandingRecordCount
-    global OutstandingStagedRecordCount
+    global __outstandingRecordCount__
+    global __outstandingStagedRecordCount__
 
     if RemoveFile(filename):
 
@@ -1505,9 +1508,9 @@ def RemoveRecordFile(filename):
         dirname = os.path.dirname(filename)
         if os.path.basename(dirname) == 'outbox' and os.path.basename(os.path.dirname(dirname)) == 'staged':
             DebugPrint(3, 'Remove the staged record: ' + filename)
-            OutstandingStagedRecordCount += -1
+            __outstandingStagedRecordCount__ += -1
         else:
-            OutstandingRecordCount += -1
+            __outstandingRecordCount__ += -1
             DebugPrint(3, 'Remove the record: ' + filename)
 
 
@@ -1529,15 +1532,15 @@ def RemoveOldFiles(nDays=31, globexp=None, req_maxsize=0):
     totalsize = 0
 
     date_file_list = []
-    for f in files:
-        lastmod_date = os.path.getmtime(f)
+    for oldfile in files:
+        lastmod_date = os.path.getmtime(oldfile)
         if lastmod_date < cutoff:
-            DebugPrint(2, 'Will remove: ' + f)
-            RemoveFile(f)
+            DebugPrint(2, 'Will remove: ' + oldfile)
+            RemoveFile(oldfile)
         else:
-            size = os.path.getsize(f)
+            size = os.path.getsize(oldfile)
             totalsize += size
-            date_file_tuple = (lastmod_date, size, f)
+            date_file_tuple = (lastmod_date, size, oldfile)
             date_file_list.append(date_file_tuple)
 
     if len(date_file_list) == 0:
@@ -1547,10 +1550,10 @@ def RemoveOldFiles(nDays=31, globexp=None, req_maxsize=0):
         return
 
     dirname = os.path.dirname(date_file_list[0][2])
-    fs = os.statvfs(dirname)
-    disksize = fs.f_blocks
-    freespace = fs.f_bfree
-    ourblocks = totalsize / fs.f_frsize
+    statfs = os.statvfs(dirname)
+    disksize = statfs.f_blocks
+    freespace = statfs.f_bfree
+    ourblocks = totalsize / statfs.f_frsize
     percent = ourblocks * 100.0 / disksize
 
     if percent < 1:
@@ -1583,13 +1586,13 @@ def RemoveOldFiles(nDays=31, globexp=None, req_maxsize=0):
             else:
                 calc_maxsize = ourblocks - target
 
-            if 0 < req_maxsize and req_maxsize < calc_maxsize * fs.f_frsize:
+            if 0 < req_maxsize and req_maxsize < calc_maxsize * statfs.f_frsize:
                 calc_maxsize = req_maxsize
             else:
                 DebugPrint(4,
                            "DEBUG: The disk is quite full and this directory is 'large' attempting to reduce from "
                             + niceNum(totalsize / 1000000) + 'Mb to ' + niceNum(calc_maxsize / 1000000) + 'Mb.')
-                calc_maxsize = calc_maxsize * fs.f_frsize
+                calc_maxsize = calc_maxsize * statfs.f_frsize
 
     if calc_maxsize > 0 and totalsize > calc_maxsize:
         DebugPrint(1, 'Cleaning up directory due to space overflow: ' + niceNum(totalsize / 1e6,
@@ -1651,11 +1654,11 @@ def RemoveOldQuarantine(nDays=31, maxSize=200):
 
     # Default to 31 days or 200Mb whichever is lower.
 
-    global BackupDirList
+    global __backupDirList__
     global Config
 
-    fragment = Config.FilenameFragment()
-    for current_dir in BackupDirList:
+    fragment = Config.getFilenameFragment()
+    for current_dir in __backupDirList__:
         gratiapath = os.path.join(current_dir, 'gratiafiles')
         subpath = os.path.join(gratiapath, 'subdir.' + fragment)
         quarantine = os.path.join(subpath, 'quarantine')
@@ -1799,7 +1802,7 @@ def DirListAdd(value):
     '''Utility method to add directory to the list of directories'''
 
     if len(value) > 0 and value != 'None':
-        BackupDirList.append(value)
+        __backupDirList__.append(value)
 
 
 def InitDirList():
@@ -1820,21 +1823,21 @@ def InitDirList():
     DirListAdd(os.getenv('TEMPDIR', r''))
     DirListAdd(os.getenv('TEMP_DIR', r''))
     DirListAdd(os.environ['HOME'])
-    DebugPrint(1, 'List of backup directories: ', BackupDirList)
+    DebugPrint(1, 'List of backup directories: ', __backupDirList__)
 
 
 def AddOutstandingRecord(filename):
     '''Add the file to the outstanding list, unless it is'''
 
-    if not (BundleSize > 1 and CurrentBundle.hasFile(filename)):
-        OutstandingRecord[filename] = 1
+    if not (__bundleSize__ > 1 and __currentBundle__.hasFile(filename)):
+        __outstandingRecord__[filename] = 1
 
 
 def ListOutstandingRecord(dirname, isstaged):
     '''Put in OustandingRecord the name of the file in dir, if any'''
 
-    global OutstandingStagedRecordCount
-    global OutstandingRecordCount
+    global __outstandingStagedRecordCount__
+    global __outstandingRecordCount__
 
     if not os.path.exists(dirname):
         return False
@@ -1843,12 +1846,12 @@ def ListOutstandingRecord(dirname, isstaged):
     nfiles = len(files)
     DebugPrint(4, 'DEBUG: ListOutstanding for ' + dirname + ' adding ' + str(nfiles))
     if isstaged:
-        OutstandingStagedRecordCount += nfiles
+        __outstandingStagedRecordCount__ += nfiles
     else:
-        OutstandingRecordCount += nfiles
+        __outstandingRecordCount__ += nfiles
     for f in files:
         AddOutstandingRecord(os.path.join(dirname, f))
-        if len(OutstandingRecord) >= MaxFilesToReprocess:
+        if len(__outstandingRecord__) >= __maxFilesToReprocess__:
             return True
     return False
 
@@ -1856,26 +1859,24 @@ def ListOutstandingRecord(dirname, isstaged):
 def SearchOutstandingRecord():
     '''Search the list of backup directories for'''
 
-    global HasMoreOutstandingRecord
-    global OutstandingRecordCount
-    global OutstandingStagedTarCount
-    global OutstandingStagedRecordCount
+    global __hasMoreOutstandingRecord__
+    global __outstandingRecordCount__
+    global __outstandingStagedTarCount__
+    global __outstandingStagedRecordCount__
 
-    OutstandingRecord.clear()
-    OutstandingRecordCount = 0
-    OutstandingStagedTarCount = 0
-    OutstandingStagedRecordCount = 0
+    __outstandingRecord__.clear()
+    __outstandingRecordCount__ = 0
+    __outstandingStagedTarCount__ = 0
+    __outstandingStagedRecordCount__ = 0
 
-    hasMoreStaged = False
-
-    fragment = Config.FilenameFragment()
+    fragment = Config.getFilenameFragment()
 
     DebugPrint(4, 'DEBUG: Starting SearchOutstandingRecord')
-    for current_dir in BackupDirList:
+    for current_dir in __backupDirList__:
         DebugPrint(4, 'DEBUG: SearchOutstandingRecord ' + current_dir)
-        DebugPrint(4, 'DEBUG: Middle of SearchOutstandingRecord outbox:' + str(OutstandingRecordCount)
-                   + ' staged outbox:' + str(OutstandingStagedRecordCount) + ' tarfiles:'
-                   + str(OutstandingStagedTarCount))
+        DebugPrint(4, 'DEBUG: Middle of SearchOutstandingRecord outbox:' + str(__outstandingRecordCount__)
+                   + ' staged outbox:' + str(__outstandingStagedRecordCount__) + ' tarfiles:'
+                   + str(__outstandingStagedTarCount__))
 
         gratiapath = os.path.join(current_dir, 'gratiafiles')
         subpath = os.path.join(gratiapath, 'subdir.' + fragment)
@@ -1889,7 +1890,7 @@ def SearchOutstandingRecord():
         path = os.path.join(gratiapath, 'r*.' + Config.get_GratiaExtension())
         files = glob.glob(path) + glob.glob(path + '__*')
         DebugPrint(4, 'DEBUG: Search add ' + str(len(files)) + ' for ' + path)
-        OutstandingRecordCount += len(files)
+        __outstandingRecordCount__ += len(files)
         for f in files:
 
             # Legacy reprocess files or ones with the correct fragment
@@ -1897,40 +1898,40 @@ def SearchOutstandingRecord():
             if re.search(r'/?r(?:[0-9]+)?\.?[0-9]+(?:\.' + fragment + r')?\.' + Config.get_GratiaExtension()
                          + r'(?:__.{10})?$', f):
                 AddOutstandingRecord(f)
-                if len(OutstandingRecord) >= MaxFilesToReprocess:
+                if len(__outstandingRecord__) >= __maxFilesToReprocess__:
                     break
 
         # Record the number of tar file already on disk.
 
         stagedfiles = glob.glob(os.path.join(staged, 'store', 'tz.*'))
-        OutstandingStagedTarCount += len(stagedfiles)
+        __outstandingStagedTarCount__ += len(stagedfiles)
 
-        if len(OutstandingRecord) >= MaxFilesToReprocess:
+        if len(__outstandingRecord__) >= __maxFilesToReprocess__:
             break
 
         # Now look for the record in the probe specific subdirectory.
 
         if ListOutstandingRecord(outbox, False):
             break
-        prevOutstandingStagedRecordCount = OutstandingStagedRecordCount
+        prevOutstandingStagedRecordCount = __outstandingStagedRecordCount__
         if ListOutstandingRecord(stagedoutbox, True):
             break
 
         # If total number of outstanding files is less than the number of files already in the bundle,
         # Let's decompress one of the tar file (if any)
 
-        needmorefiles = OutstandingStagedRecordCount == 0 or OutstandingRecordCount \
-            + OutstandingStagedRecordCount <= CurrentBundle.nFiles
+        needmorefiles = __outstandingStagedRecordCount__ == 0 or __outstandingRecordCount__ \
+            + __outstandingStagedRecordCount__ <= __currentBundle__.nFiles
         if needmorefiles and len(stagedfiles) > 0:
 
             # the staged/outbox is empty and we have some staged tar files
 
-            instore = OutstandingStagedRecordCount - prevOutstandingStagedRecordCount
-            if instore != 0 and CurrentBundle.nFiles > 0:
-                (responseString, response) = ProcessBundle(CurrentBundle)
+            instore = __outstandingStagedRecordCount__ - prevOutstandingStagedRecordCount
+            if instore != 0 and __currentBundle__.nFiles > 0:
+                (responseString, response) = ProcessBundle(__currentBundle__)
                 DebugPrint(0, responseString)
                 DebugPrint(0, '***********************************************************')
-                if CurrentBundle.nItems > 0:
+                if __currentBundle__.nItems > 0:
 
                     # The upload did not work, there is no need to proceed with the record collection
 
@@ -1943,25 +1944,25 @@ def SearchOutstandingRecord():
                 Mkdir(os.path.join(staged, 'quarantine'))
                 os.rename(stagedfile, os.path.join(staged, 'quarantine', os.path.basename(stagedfile)))
 
-            OutstandingStagedTarCount += -1
-            OutstandingStagedRecordCount = prevOutstandingStagedRecordCount
+            __outstandingStagedTarCount__ += -1
+            __outstandingStagedRecordCount__ = prevOutstandingStagedRecordCount
             if ListOutstandingRecord(stagedoutbox, True):
                 break
 
     # Mark that we probably have more outstanding record to look at.
 
-    HasMoreOutstandingRecord = OutstandingStagedTarCount > 0 or len(OutstandingRecord) >= MaxFilesToReprocess
+    __hasMoreOutstandingRecord__ = __outstandingStagedTarCount__ > 0 or len(__outstandingRecord__) >= __maxFilesToReprocess__
 
-    DebugPrint(4, 'DEBUG: List of Outstanding records: ', OutstandingRecord.keys())
-    DebugPrint(4, 'DEBUG: After SearchOutstandingRecord outbox:' + str(OutstandingRecordCount)
-               + ' staged outbox:' + str(OutstandingStagedRecordCount) + ' tarfiles:'
-               + str(OutstandingStagedTarCount))
+    DebugPrint(4, 'DEBUG: List of Outstanding records: ', __outstandingRecord__.keys())
+    DebugPrint(4, 'DEBUG: After SearchOutstandingRecord outbox:' + str(__outstandingRecordCount__)
+               + ' staged outbox:' + str(__outstandingStagedRecordCount__) + ' tarfiles:'
+               + str(__outstandingStagedTarCount__))
 
 
 def GenerateFilename(prefix, current_dir):
     '''Generate a filename of the for gratia/r$UNIQUE.$pid.gratia.xml'''
 
-    filename = prefix + str(RecordPid) + '.' + Config.FilenameFragment() + '.' + Config.get_GratiaExtension() \
+    filename = prefix + str(__recordPid__) + '.' + Config.getFilenameFragment() + '.' + Config.get_GratiaExtension() \
         + '__XXXXXXXXXX'
     filename = os.path.join(current_dir, filename)
     mktemp_pipe = os.popen('mktemp -q "' + filename + '"')
@@ -2018,7 +2019,7 @@ def CompressOutbox(probe_dir, outbox, outfiles):
     # Compress the probe_dir/outbox and stored the resulting tar.gz file
     # in probe_dir/staged
 
-    global OutstandingStagedTarCount
+    global __outstandingStagedTarCount__
 
     staged_store = os.path.join(probe_dir, 'staged', 'store')
     Mkdir(staged_store)
@@ -2039,7 +2040,7 @@ def CompressOutbox(probe_dir, outbox, outfiles):
 
             # Reduce the size of the file name in the archive
 
-            arcfile = f.replace(Config.FilenameFragment(), r'')
+            arcfile = f.replace(Config.getFilenameFragment(), r'')
             arcfile = arcfile.replace('..', '.')
             tar.add(os.path.join(outbox, f), arcfile)
     except Exception, e:
@@ -2057,28 +2058,28 @@ def CompressOutbox(probe_dir, outbox, outfiles):
         DebugPrintTraceback()
         return False
 
-    OutstandingStagedTarCount += 1
+    __outstandingStagedTarCount__ += 1
     return True
 
 
-def OpenNewRecordFile(DirIndex):
+def OpenNewRecordFile(dirIndex):
 
     # The file name will be rUNIQUE.$pid.gratia.xml
 
-    global OutstandingRecordCount
-    DebugPrint(3, 'Open request: ', DirIndex)
+    global __outstandingRecordCount__
+    DebugPrint(3, 'Open request: ', dirIndex)
     index = 0
-    toomanyfiles = OutstandingRecordCount >= Config.get_MaxPendingFiles()
-    toomanystaged = OutstandingStagedTarCount >= Config.get_MaxStagedArchives()
+    toomanyfiles = __outstandingRecordCount__ >= Config.get_MaxPendingFiles()
+    toomanystaged = __outstandingStagedTarCount__ >= Config.get_MaxStagedArchives()
 
     if not toomanyfiles or not toomanystaged:
-        for current_dir in BackupDirList:
+        for current_dir in __backupDirList__:
             index = index + 1
-            if index <= DirIndex or not os.path.exists(current_dir):
+            if index <= dirIndex or not os.path.exists(current_dir):
                 continue
             DebugPrint(3, 'Open request: looking at ', current_dir)
             current_dir = os.path.join(current_dir, 'gratiafiles')
-            probe_dir = os.path.join(current_dir, 'subdir.' + Config.FilenameFragment())
+            probe_dir = os.path.join(current_dir, 'subdir.' + Config.getFilenameFragment())
             working_dir = os.path.join(probe_dir, 'outbox')
             if toomanyfiles:
                 if not os.path.exists(working_dir):
@@ -2101,7 +2102,7 @@ def OpenNewRecordFile(DirIndex):
 
                # and retry
 
-                toomanyfiles = OutstandingRecordCount >= Config.get_MaxPendingFiles()
+                toomanyfiles = __outstandingRecordCount__ >= Config.get_MaxPendingFiles()
                 if toomanyfiles:
 
                    # We did not suppress enough file, let's go on
@@ -2120,21 +2121,21 @@ def OpenNewRecordFile(DirIndex):
             try:
                 filename = GenerateFilename('r.', working_dir)
                 DebugPrint(3, 'Creating file:', filename)
-                OutstandingRecordCount += 1
+                __outstandingRecordCount__ += 1
                 f = open(filename, 'w')
-                DirIndex = index
-                return (f, DirIndex)
+                dirIndex = index
+                return (f, dirIndex)
             except:
                 continue
     else:
         DebugPrint(0, 'DEBUG: Too many pending files, the record has not been backed up')
     f = sys.stdout
-    DirIndex = index
-    return (f, DirIndex)
+    dirIndex = index
+    return (f, dirIndex)
 
 
-def TimeToString(t=time.gmtime()):
-    return time.strftime('%Y-%m-%dT%H:%M:%SZ', t)
+def TimeToString(targ=time.gmtime()):
+    return time.strftime('%Y-%m-%dT%H:%M:%SZ', targ)
 
 
 class Record(object):
@@ -2148,8 +2149,8 @@ class Record(object):
     __ProbeNameDescription = r''
     __SiteName = r''
     __SiteNameDescription = r''
-    __Grid = r''
-    __GridDescription = r''
+    __grid = r''
+    __gridDescription = r''
 
     def __init__(self):
 
@@ -2160,7 +2161,7 @@ class Record(object):
         self.XmlData = []
         self.__ProbeName = Config.get_ProbeName()
         self.__SiteName = Config.get_SiteName()
-        self.__Grid = Config.get_Grid()
+        self.__grid = Config.get_grid()
         self.RecordData = []
 
     def Print(self):
@@ -2225,7 +2226,7 @@ class Record(object):
     def XmlAddMembers(self):
         self.GenericAddToList('ProbeName', self.__ProbeName, self.__ProbeNameDescription)
         self.GenericAddToList('SiteName', self.__SiteName, self.__SiteNameDescription)
-        self.GenericAddToList('Grid', self.__Grid, self.__GridDescription)
+        self.GenericAddToList('grid', self.__grid, self.__gridDescription)
 
     def Duration(self, value):
         ''' Helper Function to generate the xml (Do not call directly)'''
@@ -2269,11 +2270,11 @@ class Record(object):
         self.__SiteName = value
         self.__SiteNameDescription = description
 
-    def Grid(self, value, description=r''):
-        ''' Indicates which Grid the service accounted for belong to'''
+    def grid(self, value, description=r''):
+        ''' Indicates which grid the service accounted for belong to'''
 
-        self.__Grid = value
-        self.__GridDescription = description
+        self.__grid = value
+        self.__gridDescription = description
 
 
 class ProbeDetails(Record):
@@ -2287,7 +2288,7 @@ class ProbeDetails(Record):
         super(self.__class__, self).__init__()
         DebugPrint(1, 'Creating a ProbeDetails record ' + TimeToString())
 
-        self.ProbeDetails = []
+        self.__ProbeDetails__ = []
 
         # Extract the revision number
 
@@ -2295,18 +2296,18 @@ class ProbeDetails(Record):
 
         self.ReporterLibrary('Gratia', rev)
 
-        for data in HandshakeReg:
-            self.ProbeDetails = self.AppendToList(self.ProbeDetails, data[0], data[1], data[2])
+        for data in __handshakeReg__:
+            self.__ProbeDetails__ = self.AppendToList(self.__ProbeDetails__, data[0], data[1], data[2])
 
     def ReporterLibrary(self, name, version):
-        self.ProbeDetails = self.AppendToList(self.ProbeDetails, 'ReporterLibrary', 'version="' + version + '"'
+        self.__ProbeDetails__ = self.AppendToList(self.__ProbeDetails__, 'ReporterLibrary', 'version="' + version + '"'
                                               , name)
 
     def Reporter(self, name, version):
-        self.ProbeDetails = self.AppendToList(self.ProbeDetails, 'Reporter', 'version="' + version + '"', name)
+        self.__ProbeDetails__ = self.AppendToList(self.__ProbeDetails__, 'Reporter', 'version="' + version + '"', name)
 
     def Service(self, name, version):
-        self.ProbeDetails = self.AppendToList(self.ProbeDetails, 'Service', 'version="' + version + '"', name)
+        self.__ProbeDetails__ = self.AppendToList(self.__ProbeDetails__, 'Service', 'version="' + version + '"', name)
 
     def XmlAddMembers(self):
         """ This should add the value of the 'data' member of ProbeDetails """
@@ -2314,8 +2315,8 @@ class ProbeDetails(Record):
         super(self.__class__, self).XmlAddMembers()
 
     def XmlCreate(self):
-        global RecordId
-        global HandshakeReg
+        global __recordId__
+        global __handshakeReg__
 
         self.XmlAddMembers()
 
@@ -2325,17 +2326,17 @@ class ProbeDetails(Record):
 
         # Add the record indentity
 
-        self.XmlData.append('<RecordIdentity recordId="' + socket.getfqdn() + ':' + str(RecordPid) + '.'
-                            + str(RecordId) + '" createTime="' + TimeToString(time.gmtime()) + '" />\n')
-        RecordId = RecordId + 1
+        self.XmlData.append('<RecordIdentity recordId="' + socket.getfqdn() + ':' + str(__recordPid__) + '.'
+                            + str(__recordId__) + '" createTime="' + TimeToString(time.gmtime()) + '" />\n')
+        __recordId__ = __recordId__ + 1
 
         for data in self.RecordData:
             self.XmlData.append('\t')
             self.XmlData.append(data)
             self.XmlData.append('\n')
 
-        if len(self.ProbeDetails) > 0:
-            for data in self.ProbeDetails:
+        if len(self.__ProbeDetails__) > 0:
+            for data in self.__ProbeDetails__:
                 self.XmlData.append('\t')
                 self.XmlData.append(data)
                 self.XmlData.append('\n')
@@ -2477,11 +2478,11 @@ class UsageRecord(Record):
         description=r'',
         ):
         if len(formula) > 0:
-            Formula = 'formula="' + formula + '" '
+            formulaStr = 'formula="' + formula + '" '
         else:
-            Formula = r''
+            formulaStr = r''
         self.RecordData = self.AddToList(self.RecordData, 'Charge', self.Description(description)
-                                         + self.Unit(unit) + Formula, value)
+                                         + self.Unit(unit) + formulaStr, value)
 
     def Status(self, value, description=r''):
         self.RecordData = self.AddToList(self.RecordData, 'Status', self.Description(description), str(value))
@@ -2742,7 +2743,7 @@ class UsageRecord(Record):
                     self.UserId = self.AddToList(self.UserId, key, r'', vo_info[key])
 
     def XmlCreate(self):
-        global RecordId
+        global __recordId__
 
         self.XmlAddMembers()
 
@@ -2756,9 +2757,9 @@ class UsageRecord(Record):
 
         # Add the record indentity
 
-        self.XmlData.append('<RecordIdentity urwg:recordId="' + socket.getfqdn() + ':' + str(RecordPid) + '.'
-                            + str(RecordId) + '" urwg:createTime="' + TimeToString(time.gmtime()) + '" />\n')
-        RecordId = RecordId + 1
+        self.XmlData.append('<RecordIdentity urwg:recordId="' + socket.getfqdn() + ':' + str(__recordPid__) + '.'
+                            + str(__recordId__) + '" urwg:createTime="' + TimeToString(time.gmtime()) + '" />\n')
+        __recordId__ = __recordId__ + 1
 
         if len(self.JobId) > 0:
             self.XmlData.append('<JobIdentity>\n')
@@ -2802,50 +2803,50 @@ def StandardCheckXmldoc(
 
         # ProbeName
 
-        ProbeNameNodes = recordElement.getElementsByTagNameNS(namespace, 'ProbeName')
-        if not ProbeNameNodes:
+        probeNameNodes = recordElement.getElementsByTagNameNS(namespace, 'ProbeName')
+        if not probeNameNodes:
             node = xmlDoc.createElementNS(namespace, prefix + 'ProbeName')
             textNode = xmlDoc.createTextNode(Config.get_ProbeName())
             node.appendChild(textNode)
             recordElement.appendChild(node)
-        elif ProbeNameNodes.length > 1:
+        elif probeNameNodes.length > 1:
             [jobIdType, jobId] = FindBestJobId(recordElement, namespace)
             DebugPrint(0, 'Warning: too many ProbeName entities in ' + jobIdType + ' ' + jobId)
 
         # SiteName
 
-        SiteNameNodes = recordElement.getElementsByTagNameNS(namespace, 'SiteName')
-        if not SiteNameNodes:
+        siteNameNodes = recordElement.getElementsByTagNameNS(namespace, 'SiteName')
+        if not siteNameNodes:
             node = xmlDoc.createElementNS(namespace, prefix + 'SiteName')
             textNode = xmlDoc.createTextNode(Config.get_SiteName())
             node.appendChild(textNode)
             recordElement.appendChild(node)
-        elif SiteNameNodes.length > 1:
+        elif siteNameNodes.length > 1:
             [jobIdType, jobId] = FindBestJobId(recordElement, namespace)
             DebugPrint(0, 'Warning: too many SiteName entities in ' + jobIdType + ' ' + jobId)
 
-        # Grid
+        # grid
 
-        GridNodes = recordElement.getElementsByTagNameNS(namespace, 'Grid')
-        if not GridNodes:
-            node = xmlDoc.createElementNS(namespace, prefix + 'Grid')
-            textNode = xmlDoc.createTextNode(Config.get_Grid())
+        gridNodes = recordElement.getElementsByTagNameNS(namespace, 'grid')
+        if not gridNodes:
+            node = xmlDoc.createElementNS(namespace, prefix + 'grid')
+            textNode = xmlDoc.createTextNode(Config.get_grid())
             node.appendChild(textNode)
             recordElement.appendChild(node)
-        elif GridNodes.length == 1:
-            Grid = GridNodes[0].firstChild.data
-            grid_info = Config.get_Grid()
-            if grid_info and (not Grid or Grid == 'Unknown'):
-                GridNodes[0].firstChild.data = grid_info
-            if not GridNodes[0].firstChild.data:  # Remove null entry
-                recordElement.removeChild(GridNodes[0])
-                GridNodes[0].unlink()
+        elif gridNodes.length == 1:
+            grid = gridNodes[0].firstChild.data
+            grid_info = Config.get_grid()
+            if grid_info and (not grid or grid == 'Unknown'):
+                gridNodes[0].firstChild.data = grid_info
+            if not gridNodes[0].firstChild.data:  # Remove null entry
+                recordElement.removeChild(gridNodes[0])
+                gridNodes[0].unlink()
         else:
 
               # Too many entries
 
             [jobIdType, jobId] = FindBestJobId(recordElement, namespace)
-            DebugPrint(0, 'Warning: too many Grid entities in ' + jobIdType + ' ' + jobId)
+            DebugPrint(0, 'Warning: too many grid entities in ' + jobIdType + ' ' + jobId)
 
 
 def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
@@ -2899,38 +2900,38 @@ def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
         VOName = None
         id_info = {}
 
-        DebugPrint(4, 'DEBUG: Finding UserIdentityNodes')
-        UserIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
-        DebugPrint(4, 'DEBUG: Finding UserIdentityNodes (processing)')
-        if not UserIdentityNodes:
-            DebugPrint(4, 'DEBUG: Finding UserIdentityNodes: 0')
+        DebugPrint(4, 'DEBUG: Finding userIdentityNodes')
+        userIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
+        DebugPrint(4, 'DEBUG: Finding userIdentityNodes (processing)')
+        if not userIdentityNodes:
+            DebugPrint(4, 'DEBUG: Finding userIdentityNodes: 0')
             [jobIdType, jobId] = FindBestJobId(usageRecord, namespace)
             DebugPrint(0, 'Warning: no UserIdentity block in ' + jobIdType + ' ' + jobId)
         else:
             try:
-                DebugPrint(4, 'DEBUG: Finding UserIdentityNodes (processing 2)')
-                DebugPrint(4, 'DEBUG: Finding UserIdentityNodes: ' + str(UserIdentityNodes.length))
-                if UserIdentityNodes.length > 1:
+                DebugPrint(4, 'DEBUG: Finding userIdentityNodes (processing 2)')
+                DebugPrint(4, 'DEBUG: Finding userIdentityNodes: ' + str(userIdentityNodes.length))
+                if userIdentityNodes.length > 1:
                     [jobIdType, jobId] = FindBestJobId(usageRecord, namespace)
                     DebugPrint(0, 'Warning: too many UserIdentity blocks  in ' + jobIdType + ' ' + jobId)
 
                 DebugPrint(4, 'DEBUG: Call CheckAndExtendUserIdentity')
-                id_info = CheckAndExtendUserIdentity(xmlDoc, UserIdentityNodes[0], namespace, prefix)
+                id_info = CheckAndExtendUserIdentity(xmlDoc, userIdentityNodes[0], namespace, prefix)
                 DebugPrint(4, 'DEBUG: Call CheckAndExtendUserIdentity: OK')
                 ResourceType = FirstResourceMatching(xmlDoc, usageRecord, namespace, prefix, 'ResourceType')
                 DebugPrint(4, 'DEBUG: Read ResourceType as ' + str(ResourceType))
                 if Config.get_NoCertinfoBatchRecordsAreLocal() and ResourceType and ResourceType == 'Batch' \
                     and not (id_info.has_key('has_certinfo') and id_info['has_certinfo']):
 
-                    # Set Grid local
+                    # Set grid local
 
-                    DebugPrint(4, 'DEBUG: no certinfo: setting Grid to Local')
+                    DebugPrint(4, 'DEBUG: no certinfo: setting grid to Local')
                     UpdateOrInsertElement(
                         xmlDoc,
                         usageRecord,
                         namespace,
                         prefix,
-                        'Grid',
+                        'grid',
                         'Local',
                         )
                 if id_info.has_key('VOName'):
@@ -2944,7 +2945,7 @@ def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
         #
         # Order of preference from the point of view of data integrity:
         #
-        # 1. With Grid set to Local (modern condor probe (only) detects
+        # 1. With grid set to Local (modern condor probe (only) detects
         # attribute inserted in ClassAd by Gratia JobManager patch found
         # in OSG 1.0+).
         #
@@ -2955,12 +2956,12 @@ def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
         # about if osg-user-vo-map.txt is not well-cared-for).
 
         reason = None
-        Grid = GetElement(xmlDoc, usageRecord, namespace, prefix, 'Grid')
-        if Config.get_SuppressGridLocalRecords() and Grid and string.lower(Grid) == 'local':
+        grid = GetElement(xmlDoc, usageRecord, namespace, prefix, 'grid')
+        if Config.get_SuppressgridLocalRecords() and grid and string.lower(grid) == 'local':
 
             # 1
 
-            reason = 'Grid == Local'
+            reason = 'grid == Local'
         elif Config.get_SuppressNoDNRecords() and not usageRecord.getElementsByTagNameNS(namespace, 'DN'):
 
             # 2
@@ -2982,7 +2983,7 @@ def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
     return len(getUsageRecords(xmlDoc))
 
 
-XmlRecordCheckers.append(UsageCheckXmldoc)
+__xmlRecordCheckers__.append(UsageCheckXmldoc)
 
 
 def LocalJobId(record, value):
@@ -3037,7 +3038,7 @@ class Bundle:
     def __checkSize(self, msg, xmlDataLen):
         if self.nBytes + xmlDataLen > self.__maxPostSize:
             (responseString, response) = ProcessBundle(self)
-            if response.get_code() != 0:
+            if response.getCode() != 0:
                 return (responseString, response)
             msg = responseString + '; ' + msg
         return msg
@@ -3054,9 +3055,9 @@ class Bundle:
         global failedReprocessCount
         if self.nItems > 0 and self.nBytes + len(xmlData) > self.__maxPostSize:
             (responseString, response) = ProcessBundle(self)
-            if response.get_code() == Response.BundleNotSupported:
+            if response.getCode() == Response.BundleNotSupported:
                 return (responseString, response)
-            elif response.get_code() != 0:
+            elif response.getCode() != 0:
 
                # For simplicity we return here, this means that the 'incoming' record is actually
                # not processed at all this turn
@@ -3076,7 +3077,7 @@ class Bundle:
         action()
         self.nBytes += len(xmlData)
         return self.checkAndSend('OK - ' + what + ' added to bundle (' + str(self.nItems) + r'/'
-                                 + str(BundleSize) + ')')
+                                 + str(__bundleSize__) + ')')
 
     def hasFile(self, filename):
         for [name, data] in self.content:
@@ -3107,7 +3108,7 @@ class Bundle:
         # Check if the bundle is full, if it is, do the
         # actuall sending!
 
-        if self.nItems >= BundleSize or self.nBytes > self.__maxPostSize:
+        if self.nItems >= __bundleSize__ or self.nBytes > self.__maxPostSize:
             return ProcessBundle(self)
         else:
             return (defaultmsg, Response(Response.Success, defaultmsg))
@@ -3146,7 +3147,7 @@ def ProcessBundle(bundle):
     global failedReprocessCount
     global successfulBundleCount
     global failedBundleCount
-    global BundleSize
+    global __bundleSize__
     global quarantinedFiles
 
     responseString = r''
@@ -3199,12 +3200,12 @@ def ProcessBundle(bundle):
 
     response = __sendUsageXML(Config.get_ProbeName(), bundleData, 'multiupdate')
 
-    DebugPrint(2, 'Processing bundle Response code:  ' + str(response.get_code()))
-    DebugPrint(2, 'Processing bundle Response message:  ' + response.get_message())
+    DebugPrint(2, 'Processing bundle Response code:  ' + str(response.getCode()))
+    DebugPrint(2, 'Processing bundle Response message:  ' + response.getMessage())
 
-    if response.get_code() == Response.BundleNotSupported:
+    if response.getCode() == Response.BundleNotSupported:
         DebugPrint(0, "Collector is too old to handle 'bundles', reverting to sending individual records.")
-        BundleSize = 0
+        __bundleSize__ = 0
         bundle.nLastProcessed = 0
         bundle.clear()
         if bundle.nHandshakes > 0:
@@ -3213,7 +3214,7 @@ def ProcessBundle(bundle):
             SearchOutstandingRecord()
             Reprocess()
         return ('Bundling has been canceled.', response)
-    elif response.get_code() == Response.PostTooLarge:
+    elif response.getCode() == Response.PostTooLarge:
         if bundle.nItems > 1:
 
            # We let a large record to be added to already too many data.
@@ -3231,11 +3232,11 @@ def ProcessBundle(bundle):
                        "Internal error, got a 'too large of a post' response eventhough we have no record at all!"
                        )
 
-    responseString = 'Processed bundle with ' + str(bundle.nItems) + ' records:  ' + response.get_message()
+    responseString = 'Processed bundle with ' + str(bundle.nItems) + ' records:  ' + response.getMessage()
 
     # Determine if the call succeeded, and remove the file if it did
 
-    if response.get_code() == 0:
+    if response.getCode() == 0:
         successfulSendCount += bundle.nRecords
         successfulHandshakes += bundle.nHandshakes
         successfulReprocessCount += bundle.nReprocessed
@@ -3272,30 +3273,30 @@ def ProcessBundle(bundle):
 
 def Reprocess():
     (response, result) = ReprocessList()
-    while not __connectionError and result and HasMoreOutstandingRecord:
+    while not __connectionError__ and result and __hasMoreOutstandingRecord__:
 
         # This is decreased in SearchOutstanding
 
-        tarcount = OutstandingStagedTarCount
-        scount = OutstandingStagedRecordCount
+        tarcount = __outstandingStagedTarCount__
+        scount = __outstandingStagedRecordCount__
 
         # Need to look for left over files
 
         SearchOutstandingRecord()
 
-        if len(OutstandingRecord) == 0:
+        if len(__outstandingRecord__) == 0:
             DebugPrint(4, 'DEBUG: quit reprocessing loop due empty list')
             break
 
         # This is potentially decreased in ReprocessList
 
-        rcount = OutstandingRecordCount
+        rcount = __outstandingRecordCount__
 
         # Attempt to reprocess any outstanding records
 
         ReprocessList()
-        if rcount == OutstandingRecordCount and scount == OutstandingStagedRecordCount and tarcount \
-            == OutstandingStagedTarCount:
+        if rcount == __outstandingRecordCount__ and scount == __outstandingStagedRecordCount__ and tarcount \
+            == __outstandingStagedTarCount__:
             DebugPrint(3, 'Reprocessing seems stalled, stopping it until next successful send')
 
             # We are not making progress
@@ -3318,15 +3319,15 @@ def ReprocessList():
     currentFailedCount = 0
     currentSuccessCount = 0
     currentBundledCount = 0
-    prevBundled = CurrentBundle.nItems
+    prevBundled = __currentBundle__.nItems
     prevQuarantine = quarantinedFiles
 
     responseString = r''
 
     # Loop through and try to send any outstanding records
 
-    for failedRecord in OutstandingRecord.keys():
-        if __connectionError:
+    for failedRecord in __outstandingRecord__.keys():
+        if __connectionError__:
 
             # Fail record without attempting to send.
 
@@ -3352,7 +3353,7 @@ def ReprocessList():
             failedReprocessCount += 1
             currentFailedCount += 1
             RemoveRecordFile(failedRecord)
-            del OutstandingRecord[failedRecord]
+            del __outstandingRecord__[failedRecord]
             continue
 
         if not xmlData:
@@ -3361,32 +3362,32 @@ def ReprocessList():
             failedReprocessCount += 1
             currentFailedCount += 1
             RemoveRecordFile(failedRecord)
-            del OutstandingRecord[failedRecord]
+            del __outstandingRecord__[failedRecord]
             continue
 
-        if BundleSize > 1:
+        if __bundleSize__ > 1:
 
             # Delay the sending until we have 'bundleSize' records.
 
-            (addReponseString, response) = CurrentBundle.addReprocess(failedRecord, xmlData)
+            (addReponseString, response) = __currentBundle__.addReprocess(failedRecord, xmlData)
 
-            if response.get_code() == Response.BundleNotSupported:
+            if response.getCode() == Response.BundleNotSupported:
 
                 # The bundling was canceled, Reprocess was called recursively, we are done.
 
                 break
-            elif response.get_code() != 0:
-                currentFailedCount += CurrentBundle.nLastProcessed - prevBundled
-                currentBundledCount = CurrentBundle.nItems
+            elif response.getCode() != 0:
+                currentFailedCount += __currentBundle__.nLastProcessed - prevBundled
+                currentBundledCount = __currentBundle__.nItems
                 prevBundled = 0
-                if __connectionError:
+                if __connectionError__:
                     DebugPrint(1,
                                'Connection problems: reprocessing suspended; new record processing shall continue'
                                )
             else:
-                if CurrentBundle.nReprocessed != 0:
-                    currentSuccessCount += CurrentBundle.nLastProcessed - prevBundled
-                    currentBundledCount = CurrentBundle.nItems
+                if __currentBundle__.nReprocessed != 0:
+                    currentSuccessCount += __currentBundle__.nLastProcessed - prevBundled
+                    currentBundledCount = __currentBundle__.nItems
                     prevBundled = 0
                 else:
                     currentBundledCount += 1
@@ -3398,23 +3399,23 @@ def ReprocessList():
 
             # Determine if the call succeeded, and remove the file if it did
 
-            if response.get_code() == 0:
+            if response.getCode() == 0:
                 DebugPrint(3, 'Processing bundle Response code for ' + failedRecord + ':  '
-                           + str(response.get_code()))
+                           + str(response.getCode()))
                 DebugPrint(3, 'Processing bundle Response message for ' + failedRecord + ':  '
-                           + response.get_message())
+                           + response.getMessage())
                 DebugPrint(1, 'Response indicates success, ' + failedRecord + ' will be deleted')
                 currentSuccessCount += 1
                 successfulReprocessCount += 1
                 RemoveRecordFile(failedRecord)
-                del OutstandingRecord[failedRecord]
+                del __outstandingRecord__[failedRecord]
             else:
                 DebugPrint(1, 'Processing bundle Response code for ' + failedRecord + ':  '
-                           + str(response.get_code()))
+                           + str(response.getCode()))
                 DebugPrint(1, 'Processing bundle Response message for ' + failedRecord + ':  '
-                           + response.get_message())
+                           + response.getMessage())
                 currentFailedCount += 1
-                if __connectionError:
+                if __connectionError__:
                     DebugPrint(1,
                                'Connection problems: reprocessing suspended; new record processing shall continue'
                                )
@@ -3430,17 +3431,17 @@ def ReprocessList():
         + str(currentBundledCount) + ' bundled, ' + str(currentFailedCount) + ' failed'
 
     DebugPrint(0, 'Reprocessing response: ' + responseString)
-    DebugPrint(1, 'After reprocessing: ' + str(OutstandingRecordCount) + ' in outbox '
-               + str(OutstandingStagedRecordCount) + ' in staged outbox ' + str(OutstandingStagedTarCount)
+    DebugPrint(1, 'After reprocessing: ' + str(__outstandingRecordCount__) + ' in outbox '
+               + str(__outstandingStagedRecordCount__) + ' in staged outbox ' + str(__outstandingStagedTarCount__)
                + ' tar files')
-    return (responseString, currentSuccessCount > 0 or currentBundledCount == len(OutstandingRecord.keys())
+    return (responseString, currentSuccessCount > 0 or currentBundledCount == len(__outstandingRecord__.keys())
             or prevQuarantine != quarantinedFiles)
 
 
 def CheckXmlDoc(xmlDoc, external, resourceType=None):
     content = 0
     DebugPrint(4, 'DEBUG: In CheckXmlDoc')
-    for checker in XmlRecordCheckers:
+    for checker in __xmlRecordCheckers__:
         DebugPrint(3, 'Running : ' + str(checker) + str(xmlDoc) + str(external) + str(resourceType))
         content = content + checker(xmlDoc, external, resourceType)
     return content
@@ -3448,30 +3449,30 @@ def CheckXmlDoc(xmlDoc, external, resourceType=None):
 
 def Handshake():
     global Config
-    global __connection
-    global __connectionError
-    global __connectionRetries
+    global __connection__
+    global __connectionError__
+    global __connectionRetries__
     global failedHandshakes
 
-    h = ProbeDetails()
+    pdetails = ProbeDetails()
 
-    if __connectionError:
+    if __connectionError__:
 
         # We are not currently connected, the SendHandshake
         # will reconnect us if it is possible
 
-        result = SendHandshake(h)
+        result = SendHandshake(pdetails)
     else:
 
         # We are connected but the connection may have timed-out
 
-        result = SendHandshake(h)
-        if __connectionError:
+        result = SendHandshake(pdetails)
+        if __connectionError__:
 
             # Case of timed-out connection, let's try again
 
             failedHandshakes -= 1  # Take a Mulligan
-            result = SendHandshake(h)
+            result = SendHandshake(pdetails)
 
     return result
 
@@ -3516,13 +3517,13 @@ def SendHandshake(record):
         usageXmlString = usageXmlString + line
     DebugPrint(3, 'UsageXml:  ' + usageXmlString)
 
-    connectionProblem = __connectionRetries > 0 or __connectionError
+    connectionProblem = __connectionRetries__ > 0 or __connectionError__
 
-    if BundleSize > 1:
+    if __bundleSize__ > 1:
 
         # Delay the sending until we have 'bundleSize' records.
 
-        (responseString, response) = CurrentBundle.addHandshake(usageXmlString)
+        (responseString, response) = __currentBundle__.addHandshake(usageXmlString)
     else:
 
         # Attempt to send the record to the collector. Note that this must
@@ -3530,18 +3531,18 @@ def SendHandshake(record):
         # SendStatus() call)
 
         response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
-        responseString = response.get_message()
+        responseString = response.getMessage()
 
-        DebugPrint(1, 'Response code:  ' + str(response.get_code()))
-        DebugPrint(1, 'Response message:  ' + response.get_message())
+        DebugPrint(1, 'Response code:  ' + str(response.getCode()))
+        DebugPrint(1, 'Response message:  ' + response.getMessage())
 
         # Determine if the call was successful based on the response
         # code.  Currently, 0 = success
 
-        if response.get_code() == 0:
+        if response.getCode() == 0:
             DebugPrint(1, 'Response indicates success, ')
             successfulHandshakes += 1
-            if connectionProblem or HasMoreOutstandingRecord:
+            if connectionProblem or __hasMoreOutstandingRecord__:
 
                 # Reprocess failed records before attempting more new ones
 
@@ -3568,8 +3569,8 @@ def Send(record):
         record.Print()
         DebugPrint(4, 'DEBUG: Printing record to send: OK')
 
-        DebugPrint(4, 'DEBUG: File Count: ' + str(OutstandingRecordCount))
-        toomanyfiles = OutstandingRecordCount >= Config.get_MaxPendingFiles()
+        DebugPrint(4, 'DEBUG: File Count: ' + str(__outstandingRecordCount__))
+        toomanyfiles = __outstandingRecordCount__ >= Config.get_MaxPendingFiles()
 
         # Assemble the record into xml
 
@@ -3622,7 +3623,7 @@ def Send(record):
         while not success:
             (f, dirIndex) = OpenNewRecordFile(dirIndex)
             DebugPrint(3, 'Will save the record in:', f.name)
-            DebugPrint(3, 'DirIndex=', dirIndex)
+            DebugPrint(3, 'dirIndex=', dirIndex)
             if f.name != '<stdout>':
                 try:
                     for line in record.XmlData:
@@ -3661,27 +3662,27 @@ def Send(record):
             usageXmlString = usageXmlString + line
         DebugPrint(3, 'UsageXml:  ' + usageXmlString)
 
-        connectionProblem = __connectionRetries > 0 or __connectionError
+        connectionProblem = __connectionRetries__ > 0 or __connectionError__
 
-        if BundleSize > 1 and f.name != '<stdout>':
+        if __bundleSize__ > 1 and f.name != '<stdout>':
 
             # Delay the sending until we have 'bundleSize' records.
 
-            (responseString, response) = CurrentBundle.addRecord(f.name, usageXmlString)
+            (responseString, response) = __currentBundle__.addRecord(f.name, usageXmlString)
         else:
 
             # Attempt to send the record to the collector
 
             response = __sendUsageXML(Config.get_ProbeName(), usageXmlString)
-            responseString = response.get_message()
+            responseString = response.getMessage()
 
-            DebugPrint(1, 'Response code:  ' + str(response.get_code()))
-            DebugPrint(1, 'Response message:  ' + response.get_message())
+            DebugPrint(1, 'Response code:  ' + str(response.getCode()))
+            DebugPrint(1, 'Response message:  ' + response.getMessage())
 
             # Determine if the call was successful based on the response
             # code.  Currently, 0 = success
 
-            if response.get_code() == 0:
+            if response.getCode() == 0:
                 if f.name != '<stdout>':
                     DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
                     RemoveRecordFile(f.name)
@@ -3714,8 +3715,8 @@ def Send(record):
         DebugPrint(0, responseString)
         DebugPrint(0, '***********************************************************')
 
-        if (connectionProblem or HasMoreOutstandingRecord) and CurrentBundle.nItems == 0 \
-            and response.get_code() == 0:
+        if (connectionProblem or __hasMoreOutstandingRecord__) and __currentBundle__.nItems == 0 \
+            and response.getCode() == 0:
 
             # Reprocess failed records before attempting more new ones
 
@@ -3754,7 +3755,7 @@ def SendXMLFiles(fileDir, removeOriginal=False, resourceType=None):
             RemoveFile(xmlFilename)
             continue
         DebugPrint(2, 'xmlFilename: ', xmlFilename)
-        if OutstandingRecordCount >= Config.get_MaxPendingFiles():
+        if __outstandingRecordCount__ >= Config.get_MaxPendingFiles():
             responseString = 'Fatal Error: too many pending files'
             DebugPrint(0, responseString)
             DebugPrint(0, '***********************************************************')
@@ -3823,7 +3824,7 @@ def SendXMLFiles(fileDir, removeOriginal=False, resourceType=None):
         success = False
         f = 0
 
-        toomanyfiles = OutstandingRecordCount >= Config.get_MaxPendingFiles()
+        toomanyfiles = __outstandingRecordCount__ >= Config.get_MaxPendingFiles()
 
         if toomanyfiles:
             DebugPrint(4, 'DEBUG: Too many pending files, the record has not been backed up')
@@ -3833,7 +3834,7 @@ def SendXMLFiles(fileDir, removeOriginal=False, resourceType=None):
             while not success:
                 (f, dirIndex) = OpenNewRecordFile(dirIndex)
                 DebugPrint(3, 'Will save in the record in:', f.name)
-                DebugPrint(3, 'DirIndex=', dirIndex)
+                DebugPrint(3, 'dirIndex=', dirIndex)
                 if f.name == '<stdout>':
                     responseString = 'Fatal Error: unable to save record prior to send attempt'
                     DebugPrint(0, responseString)
@@ -3882,11 +3883,11 @@ def SendXMLFiles(fileDir, removeOriginal=False, resourceType=None):
             usageXmlString = usageXmlString + line
         DebugPrint(3, 'UsageXml:  ' + usageXmlString)
 
-        if BundleSize > 1 and f.name != '<stdout>':
+        if __bundleSize__ > 1 and f.name != '<stdout>':
 
             # Delay the sending until we have 'bundleSize' records.
 
-            (responseString, response) = CurrentBundle.addRecord(f.name, usageXmlString)
+            (responseString, response) = __currentBundle__.addRecord(f.name, usageXmlString)
         else:
 
             # If XMLFiles can ever be anything else than Update messages,
@@ -3898,15 +3899,15 @@ def SendXMLFiles(fileDir, removeOriginal=False, resourceType=None):
             # Attempt to send the record to the collector
 
             response = __sendUsageXML(Config.get_ProbeName(), usageXmlString, messageType)
-            responseString = response.get_message()
+            responseString = response.getMessage()
 
-            DebugPrint(1, 'Response code:  ' + str(response.get_code()))
-            DebugPrint(1, 'Response message:  ' + response.get_message())
+            DebugPrint(1, 'Response code:  ' + str(response.getCode()))
+            DebugPrint(1, 'Response message:  ' + response.getMessage())
 
             # Determine if the call was successful based on the
             # response code.  Currently, 0 = success
 
-            if response.get_code() == 0:
+            if response.getCode() == 0:
                 if f.name != '<stdout>':
                     DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
                     RemoveRecordFile(f.name)
@@ -3926,19 +3927,19 @@ def FindBestJobId(usageRecord, namespace):
 
     # Get GlobalJobId first, next recordId
 
-    JobIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'JobIdentity')
-    if JobIdentityNodes:
-        GlobalJobIdNodes = JobIdentityNodes[0].getElementsByTagNameNS(namespace, 'GlobalJobId')
-        if GlobalJobIdNodes and GlobalJobIdNodes[0].firstChild and GlobalJobIdNodes[0].firstChild.data:
-            return [GlobalJobIdNodes[0].localName, GlobalJobIdNodes[0].firstChild.data]
+    jobIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'JobIdentity')
+    if jobIdentityNodes:
+        globalJobIdNodes = jobIdentityNodes[0].getElementsByTagNameNS(namespace, 'GlobalJobId')
+        if globalJobIdNodes and globalJobIdNodes[0].firstChild and globalJobIdNodes[0].firstChild.data:
+            return [globalJobIdNodes[0].localName, globalJobIdNodes[0].firstChild.data]
 
-    RecordIdNodes = usageRecord.getElementsByTagNameNS(namespace, 'RecordId')
-    if RecordIdNodes and RecordIdNodes[0].firstChild and RecordIdNodes[0].firstChild.data:
-        return [RecordIdNodes[0].localName, RecordIdNodes[0].firstChild.data]
+    recordIdNodes = usageRecord.getElementsByTagNameNS(namespace, '__recordId__')
+    if recordIdNodes and recordIdNodes[0].firstChild and recordIdNodes[0].firstChild.data:
+        return [recordIdNodes[0].localName, recordIdNodes[0].firstChild.data]
 
-    LocalJobIdNodes = usageRecord.getElementsByTagNameNS(namespace, 'LocalJobId')
-    if LocalJobIdNodes and LocalJobIdNodes[0].firstChild and LocalJobIdNodes[0].firstChild.data:
-        return [LocalJobIdNodes[0].localName, LocalJobIdNodes[0].firstChild.data]
+    localJobIdNodes = usageRecord.getElementsByTagNameNS(namespace, 'LocalJobId')
+    if localJobIdNodes and localJobIdNodes[0].firstChild and localJobIdNodes[0].firstChild.data:
+        return [localJobIdNodes[0].localName, localJobIdNodes[0].firstChild.data]
 
     return ['Unknown', 'Unknown']
 
@@ -3948,7 +3949,7 @@ class InternalError(exceptions.Exception):
     pass
 
 
-def __ResourceTool(
+def __ResourceTool__(
     action,
     xmlDoc,
     usageRecord,
@@ -3964,7 +3965,7 @@ def __ResourceTool(
 
     if action != 'UpdateFirst' and action != 'ReadValues' and action != 'ReadFirst' and action \
         != 'AddIfMissingValue' and action != 'AddIfMissingKey' and action != 'UnconditionalAdd':
-        raise InternalError("__ResourceTool gets unrecognized action '%s'" % action)
+        raise InternalError("__ResourceTool__ gets unrecognized action '%s'" % action)
 
     resourceNodes = usageRecord.getElementsByTagNameNS(namespace, 'Resource')
     wantedResource = None
@@ -4035,7 +4036,7 @@ def UpdateResource(
     ):
     '''Update a resource key in the XML record'''
 
-    return __ResourceTool(
+    return __ResourceTool__(
         'UpdateFirst',
         xmlDoc,
         usageRecord,
@@ -4055,7 +4056,7 @@ def FirstResourceMatching(
     ):
     '''Return value of first matching resource'''
 
-    return __ResourceTool(
+    return __ResourceTool__(
         'ReadFirst',
         xmlDoc,
         usageRecord,
@@ -4074,7 +4075,7 @@ def ResourceValues(
     ):
     '''Return all found values for a given resource'''
 
-    return __ResourceTool(
+    return __ResourceTool__(
         'ReadValues',
         xmlDoc,
         usageRecord,
@@ -4094,7 +4095,7 @@ def AddResourceIfMissingValue(
     ):
     """Add a resource key in the XML record if there isn't one already with the desired value"""
 
-    return __ResourceTool(
+    return __ResourceTool__(
         'AddIfMissingValue',
         xmlDoc,
         usageRecord,
@@ -4115,7 +4116,7 @@ def AddResourceIfMissingKey(
     ):
     """Add a resource key in the XML record if there isn't at least one resource with that key"""
 
-    return __ResourceTool(
+    return __ResourceTool__(
         'AddIfMissingKey',
         xmlDoc,
         usageRecord,
@@ -4136,7 +4137,7 @@ def AddResource(
     ):
     '''Unconditionally add a resource key in the XML record'''
 
-    return __ResourceTool(
+    return __ResourceTool__(
         'UnconditionalAdd',
         xmlDoc,
         usageRecord,
@@ -4154,7 +4155,7 @@ def GetElement(
     prefix,
     tag,
     ):
-    return __ElementTool(
+    return __ElementTool__(
         xmlDoc,
         parent,
         namespace,
@@ -4174,7 +4175,7 @@ def GetElementOrCreateDefault(
     ):
     if default == None:
         default = r''
-    return __ElementTool(
+    return __ElementTool__(
         xmlDoc,
         parent,
         namespace,
@@ -4184,7 +4185,7 @@ def GetElementOrCreateDefault(
         )
 
 
-def __ElementTool(
+def __ElementTool__(
     xmlDoc,
     parent,
     namespace,
@@ -4252,15 +4253,15 @@ def CheckAndExtendUserIdentity(
 
     # LocalUserId
 
-    LocalUserIdNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'LocalUserId')
-    if not LocalUserIdNodes or LocalUserIdNodes.length != 1 or not (LocalUserIdNodes[0].firstChild
-            and LocalUserIdNodes[0].firstChild.data):
+    localUserIdNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'LocalUserId')
+    if not localUserIdNodes or localUserIdNodes.length != 1 or not (localUserIdNodes[0].firstChild
+            and localUserIdNodes[0].firstChild.data):
         [jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace)
         DebugPrint(0, 'Warning: UserIdentity block does not have exactly ', 'one populated LocalUserId node in '
                     + jobIdType + ' ' + jobId)
         return result
 
-    LocalUserId = LocalUserIdNodes[0].firstChild.data
+    LocalUserId = localUserIdNodes[0].firstChild.data
 
     # VOName
 
@@ -4339,13 +4340,13 @@ def CheckAndExtendUserIdentity(
         DebugPrint(4, 'DEBUG: Calling VOfromUser')
         vo_info = VOfromUser(LocalUserId)
         if Config.get_MapUnknownToGroup() and not vo_info:
-            MyName = LocalUserId
+            fromuserid = LocalUserId
             try:
                 gid = pwd.getpwnam(LocalUserId)[3]
-                MyName = grp.getgrgid(gid)[0]
+                fromuserid = grp.getgrgid(gid)[0]
             except:
                 pass
-            vo_info = {'VOName': MyName, 'ReportableVOName': MyName}
+            vo_info = {'VOName': fromuserid, 'ReportableVOName': fromuserid}
 
     # Resolve.
 
@@ -4476,7 +4477,7 @@ __voiToVOcDictionary = {}
 __dictionaryErrorStatus = False
 
 
-def __InitializeDictionary():
+def __InitializeDictionary__():
     global __UserVODictionary
     global __voiToVOcDictionary
     global __dictionaryErrorStatus
@@ -4531,7 +4532,7 @@ def VOc(voi):
 
         # Initialize dictionary
 
-        __InitializeDictionary()
+        __InitializeDictionary__()
     return __voiToVOcDictionary.get(voi, voi)
 
 
@@ -4543,7 +4544,7 @@ def VOfromUser(user):
 
         # Initialize dictionary
 
-        __InitializeDictionary()
+        __InitializeDictionary__()
     return __UserVODictionary.get(user, None)
 
 
@@ -4565,11 +4566,11 @@ def verifyFromCertInfo(
     # Collect data needed by certinfo reader
 
     DebugPrint(4, 'DEBUG: Get JobIdentity')
-    JobIdentityNode = GetNode(xmlDoc.getElementsByTagNameNS(namespace, 'JobIdentity'))
-    if JobIdentityNode == None:
+    jobIdentityNode = GetNode(xmlDoc.getElementsByTagNameNS(namespace, 'JobIdentity'))
+    if jobIdentityNode == None:
         return
     DebugPrint(4, 'DEBUG: Get JobIdentity: OK')
-    localJobId = GetNodeData(JobIdentityNode.getElementsByTagNameNS(namespace, 'LocalJobId'))
+    localJobId = GetNodeData(jobIdentityNode.getElementsByTagNameNS(namespace, 'LocalJobId'))
     DebugPrint(4, 'DEBUG: Get localJobId: ', localJobId)
     usageRecord = userIdentityNode.parentNode
     probeName = GetNodeData(usageRecord.getElementsByTagNameNS(namespace, 'ProbeName'))
