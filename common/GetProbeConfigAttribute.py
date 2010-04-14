@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-import Gratia
+import GratiaCore
 import getopt
 import xml.sax.saxutils
 
@@ -10,7 +10,7 @@ def usage():
        GetProbeConfigAttribute [-c <probeconfig>|--conf=<probeconfig>] <attribute> ...""" 
 
 def main():
-    Gratia.quiet = 1
+    GratiaCore.quiet = 1
 
     customConfig = None;
     
@@ -30,9 +30,9 @@ def main():
             customConfig = a
 
     if customConfig:
-        Config = Gratia.ProbeConfiguration(customConfig)
+        Config = GratiaCore.ProbeConfiguration(customConfig)
     else:
-        Config = Gratia.ProbeConfiguration()
+        Config = GratiaCore.ProbeConfiguration()
     
     for attribute in args:
         try:

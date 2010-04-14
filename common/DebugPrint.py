@@ -10,7 +10,7 @@ DebugPrint.py
 """
 
 import sys
-import Gratia
+import GratiaCore
 import getopt
 import string
 
@@ -47,24 +47,24 @@ def main():
         if opt in ["-l", "--level"]:
             level = int(arg)
 
-    Gratia.quiet = 1
+    GratiaCore.quiet = 1
 
     if customConfig:
-        Gratia.Config = Gratia.ProbeConfiguration(customConfig)
+        GratiaCore.Config = Gratia.ProbeConfiguration(customConfig)
     else:
-        Gratia.Config = Gratia.ProbeConfiguration()
+        GratiaCore.Config = Gratia.ProbeConfiguration()
 
-    Gratia.quiet = 0
+    GratiaCore.quiet = 0
 
     if len(args) > 0:
-        Gratia.DebugPrint(level, string.join(args, " ").rstrip())
+        GratiaCore.DebugPrint(level, string.join(args, " ").rstrip())
     else:
         while 1:
             try:
                 line = raw_input()
             except EOFError, ex:
                 break
-            Gratia.DebugPrint(level, line.rstrip())
+            GratiaCore.DebugPrint(level, line.rstrip())
 
 
 if __name__ == "__main__":

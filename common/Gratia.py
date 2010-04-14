@@ -18,6 +18,7 @@ from GratiaCore import Send
 from GratiaCore import SendStatus
 from GratiaCore import SendXMLFiles
 from GratiaCore import Reprocess
+from GratiaCore import ProcessBundle
 from GratiaCore import DebugPrint
 from GratiaCore import DebugPrintTraceback
 from GratiaCore import Error
@@ -29,15 +30,25 @@ from GratiaCore import TimeToString
 from GratiaCore import escapeXML
 from GratiaCore import Mkdir
 
-from GratiaCore import quiet
-from GratiaCore import Config
-from GratiaCore import CurrentBundle
-from GratiaCore import ProcessBundle
-from GratiaCore import RecordPid
-from GratiaCore import RecordId
-from GratiaCore import XmlRecordCheckers
-from GratiaCore import StandardCheckXmldoc
+class ConfigProxy:
+    def __getattr__(self, attrname):
+        return getattr(GratiaCore.Config, attrname)
 
+class BundleProxy:
+    def __getattr__(self, attrname):
+        return getattr(GratiaCore.CurrentBundle, attrname)
+
+class RecordPidProxy:
+    def __str__(self):
+        return str(GratiaCore.RecordPid)
+      
+Config = ConfigProxy()
+CurrentBundle = BundleProxy()
+RecordPid = RecordPidProxy()
+
+from GratiaCore import XmlRecordCheckers
+
+from GratiaCore import StandardCheckXmldoc
 from GratiaCore import RegisterReporterLibrary
 from GratiaCore import RegisterReporter
 from GratiaCore import RegisterService
@@ -450,7 +461,6 @@ class UsageRecord(Record):
                     self.UserId = self.AddToList(self.UserId, key, r'', vo_info[key])
 
     def XmlCreate(self):
-        global RecordId
 
         self.XmlAddMembers()
 
@@ -465,9 +475,9 @@ class UsageRecord(Record):
         # Add the record indentity
 
         self.XmlData.append('<RecordIdentity urwg:recordId="' + socket.getfqdn() + ':' + str(RecordPid) + '.'
-                            + str(RecordId) + '" urwg:createTime="' + TimeToString(time.gmtime()) + '" />\n')
-        RecordId = RecordId + 1
-
+                            + str(GratiaCore.RecordId) + '" urwg:createTime="' + TimeToString(time.gmtime()) + '" />\n')
+        GratiaCore.RecordId = GratiaCore.RecordId + 1
+        
         if len(self.JobId) > 0:
             self.XmlData.append('<JobIdentity>\n')
             for data in self.JobId:
