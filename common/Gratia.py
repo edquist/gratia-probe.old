@@ -90,7 +90,7 @@ class ProbeConfiguration:
     __CollectorHost = None
     __ProbeName = None
     __SiteName = None
-    __grid = None
+    __Grid = None
     __DebugLevel = None
     __LogLevel = None
     __LogRotate = None
@@ -317,14 +317,14 @@ class ProbeConfiguration:
             __FilenameFragment = re.sub(r'[:/]', r'_', fragment)
         return __FilenameFragment
 
-    def get_grid(self):
-        if self.__grid == None:
+    def get_Grid(self):
+        if self.__Grid == None:
             val = self.__getConfigAttribute('Grid')
             if val == None or val == r'':
-                self.__grid = 'OSG'
+                self.__Grid = 'OSG'
             else:
-                self.__grid = val
-        return self.__grid
+                self.__Grid = val
+        return self.__Grid
 
     def setSiteName(self, name):
         self.__SiteName = name
@@ -2089,8 +2089,8 @@ class Record(object):
     __ProbeNameDescription = r''
     __SiteName = r''
     __SiteNameDescription = r''
-    __grid = r''
-    __gridDescription = r''
+    __Grid = r''
+    __GridDescription = r''
 
     def __init__(self):
 
@@ -2101,7 +2101,7 @@ class Record(object):
         self.XmlData = []
         self.__ProbeName = Config.get_ProbeName()
         self.__SiteName = Config.get_SiteName()
-        self.__grid = Config.get_grid()
+        self.__Grid = Config.get_Grid()
         self.RecordData = []
 
     def Print(self):
@@ -2166,7 +2166,7 @@ class Record(object):
     def XmlAddMembers(self):
         self.GenericAddToList('ProbeName', self.__ProbeName, self.__ProbeNameDescription)
         self.GenericAddToList('SiteName', self.__SiteName, self.__SiteNameDescription)
-        self.GenericAddToList('Grid', self.__grid, self.__gridDescription)
+        self.GenericAddToList('Grid', self.__Grid, self.__GridDescription)
 
     def Duration(self, value):
         ''' Helper Function to generate the xml (Do not call directly)'''
@@ -2210,11 +2210,11 @@ class Record(object):
         self.__SiteName = value
         self.__SiteNameDescription = description
 
-    def grid(self, value, description=r''):
+    def Grid(self, value, description=r''):
         ''' Indicates which grid the service accounted for belong to'''
 
-        self.__grid = value
-        self.__gridDescription = description
+        self.__Grid = value
+        self.__GridDescription = description
 
 
 class ProbeDetails(Record):
@@ -2770,12 +2770,12 @@ def StandardCheckXmldoc(
         gridNodes = recordElement.getElementsByTagNameNS(namespace, 'Grid')
         if not gridNodes:
             node = xmlDoc.createElementNS(namespace, prefix + 'Grid')
-            textNode = xmlDoc.createTextNode(Config.get_grid())
+            textNode = xmlDoc.createTextNode(Config.get_Grid())
             node.appendChild(textNode)
             recordElement.appendChild(node)
         elif gridNodes.length == 1:
             grid = gridNodes[0].firstChild.data
-            grid_info = Config.get_grid()
+            grid_info = Config.get_Grid()
             if grid_info and (not grid or grid == 'Unknown'):
                 gridNodes[0].firstChild.data = grid_info
             if not gridNodes[0].firstChild.data:  # Remove null entry
