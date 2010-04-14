@@ -55,7 +55,7 @@ import TimeBinRange
 import Collapse
 
 DCACHE_AGG_FIELDS = ['initiator', 'client', 'protocol', 'errorcode', 'isnew']
-DCACHE_SUM_FIELDS = ['njobs','transfersize','connectiontime']
+DCACHE_SUM_FIELDS = ['njobs', 'transfersize', 'connectiontime']
 
 # If the DB query takes more than this amount of time, something is very wrong!
 # The probe will throw an exception and exit.
@@ -86,7 +86,8 @@ def _CalcMaxSelect():
     """
     try:
         mem = _Meminfo()["MemTotal"]
-        if ( mem < 2048000 ) : mem = 2048000
+        if ( mem < 2048000 ):
+            mem = 2048000
         return int(mem / 4)
     except:
         return 512000
@@ -175,7 +176,7 @@ class DCacheAggregator:
                 1800, # Max of once per half hour complaining
                 True )
 
-        self._summarize = configuration.get_Summarize();
+        self._summarize = configuration.get_Summarize()
 
         # Connect to the dCache postgres database.
         # TODO: Using sqlalchemy gives us nothing but a new dependency.  Remove.
@@ -262,24 +263,34 @@ class DCacheAggregator:
         if len(result) == maxSelect:
             diff = endtime - starttime
             interval = diff.days*86400 + diff.seconds
-            new_interval = int(interval / 2)
-            new_endtime = = starttime + datetime.timedelta(0, new_interval)
+            # Ensure that self._range is such that we always end up on a minute boundary (eventually).
+            if   (interval > 60):
+                new_interval = 60
+            elif (interval > 30):
+                new_interval = 30
+            elif (interval > 15):
+                new_interval = 15
+            elif (interval >  5):
+                new_interval =  5
+            else:
+                new_interval =  1
+            new_endtime = starttime + datetime.timedelta(0, new_interval)
             # Guard against the DST jump by making sure new_endtime > starttime.
             if (interval == new_interval) or (new_interval == 0) or \
-               (new_endtime <= starttime):
-               self._log.warning("Limit hit; increasing from %i to %i." % \
-                  (maxSelect, maxSelect*2))
-               endtime, result = self._execute(starttime, endtime, maxSelect*2)
-               assert endtime > starttime
-               return endtime, result
+                (new_endtime <= starttime):
+                self._log.warning("Limit hit; increasing from %i to %i." % \
+                    (maxSelect, maxSelect*2))
+                endtime, result = self._execute(starttime, endtime, maxSelect*2)
+                assert endtime > starttime
+                return endtime, result
             else:
-               self._log.warning("Limit hit; decreasing time interval from %i" \
-                  " to %i." % (interval, new_interval))
-               self._range = new_interval 
-               endtime, result = self._execute(starttime, new_endtime,
-                   maxSelect)
-               assert endtime > starttime
-               return endtime, result
+                self._log.warning("Limit hit; decreasing time interval from %i" \
+                   " to %i." % (interval, new_interval))
+                self._range = new_interval 
+                endtime, result = self._execute(starttime, new_endtime,
+                    maxSelect)
+                assert endtime > starttime
+                return endtime, result
 
         return endtime, result
 
@@ -350,8 +361,8 @@ class DCacheAggregator:
         # If we got a non-fatal error, slow down since the server
         # might be overloaded.
         if response[:2] != 'OK':
-                        self._log.error('error sending ' + baseMsg + \
-                                        '\ngot response ' + response)
+            self._log.error('error sending ' + baseMsg + \
+                            '\ngot response ' + response)
 
         return row['njobs']
 
@@ -384,7 +395,7 @@ class DCacheAggregator:
         if row['doorlink'] == '<undefined>' and \
                    not row['protocol'].startswith('DCap'):
             self._log.warn( 'billinginfo record with datestamp ' + \
-                        startTime + ' contained undefined initiator field' );
+                        startTime + ' contained undefined initiator field' )
 
         # Work out the end points of the data transfer.
         thisHost = str(row['cellname']) + '@' + self._dCacheSvrHost
@@ -397,32 +408,32 @@ class DCacheAggregator:
             dstHost = row['client']
             isNew = 0
 
-        r = Gratia.UsageRecord('Storage')
-        r.Njobs(row['njobs'])
-        r.AdditionalInfo('Source', srcHost)
-        r.AdditionalInfo('Destination', dstHost)
-        r.AdditionalInfo('Protocol', row['protocol'])
-        r.AdditionalInfo('IsNew', isNew)
-        r.LocalJobId(row['transaction'])
+        rec = Gratia.UsageRecord('Storage')
+        rec.Njobs(row['njobs'])
+        rec.AdditionalInfo('Source', srcHost)
+        rec.AdditionalInfo('Destination', dstHost)
+        rec.AdditionalInfo('Protocol', row['protocol'])
+        rec.AdditionalInfo('IsNew', isNew)
+        rec.LocalJobId(row['transaction'])
         if row['protocol'].startswith("DCap"):
-            r.Grid("Local")
+            rec.Grid("Local")
         else:
             # Set the grid name to the default in the ProbeConfig
-            r.Grid(self._grid)
-        r.StartTime(startTime)
-        r.Network(row['transfersize'], 'b', connectionTimeStr, 'total',
+            rec.Grid(self._grid)
+        rec.StartTime(startTime)
+        rec.Network(row['transfersize'], 'b', connectionTimeStr, 'total',
             row['action'])
-        r.WallDuration(connectionTimeStr)
+        rec.WallDuration(connectionTimeStr)
 
         # only send the initiator if it is known.
         if row['initiator'] != 'unknown':
-            r.DN(row['initiator'])
+            rec.DN(row['initiator'])
         # if the initiator host is "unknown", make it "Unknown".
         initiatorHost = row['initiatorhost']
         if initiatorHost == 'unknown':
             initiatorHost = 'Unknown'
-        r.SubmitHost(initiatorHost)
-        r.Status(row['errorcode'])
+        rec.SubmitHost(initiatorHost)
+        rec.Status(row['errorcode'])
         # If we included the mapped uid as the local user id, then
         # Gratia will make a best effort to map this to the VO name.
         mappedUID = row['mappeduid']
@@ -435,12 +446,12 @@ class DCacheAggregator:
                         "/etc/passwd on this host and your dCache are using " \
                         "the same UIDs!" % str(int(mappedUID)))
                     raise
-                r.LocalUserId( info[0] )
+                rec.LocalUserId( info[0] )
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception, e:
             self._log.info("Failed to map UID %s to VO." % mappedUID)
-        return r
+        return rec
 
 
     def sendBillingInfoRecordsToGratia(self):
@@ -517,7 +528,7 @@ class DCacheAggregator:
                 self._BIcheckpoint.commit()
                 if (self._range < STARTING_RANGE and len(results)*4 < \
                        self._maxSelect):
-                   self._range = STARTING_RANGE
+                    self._range = STARTING_RANGE
                 results = []
             # If we are summarizing, send records only per hour of data
             elif (next_endtime > nextSummary) and results:
