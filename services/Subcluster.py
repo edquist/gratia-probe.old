@@ -141,7 +141,7 @@ def SubclusterCheckXmldoc(xmlDoc,external,resourceType = None):
     # Local namespace
     namespace = xmlDoc.documentElement.namespaceURI
     # Loop over (posibly multiple) jobUsageRecords
-    for Subcluster in getSubcluster(xmlDoc):
+    for Subcluster in getSubclusters(xmlDoc):
         # Local namespace and prefix, if any
         prefix = ""
         for child in Subcluster.childNodes:
