@@ -110,7 +110,7 @@ class ProbeConfiguration:
 
     def __getConfigAttribute(self, attributeName):
         """
-        Internal routine return the value of a configuration attribute name 'attributeName'
+        Return the value of a configuration attribute name 'attributeName'
         """
         if self.__doc == None:
             try:
