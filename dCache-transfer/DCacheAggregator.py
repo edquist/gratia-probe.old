@@ -548,11 +548,12 @@ class DCacheAggregator:
 
     def _determineNextEndtime(self, starttime, summary=False):
         """
-        Given a starttime, determine the next full minute.
+        If self._range == 60, given a starttime, determine the next full minute.
         Examples:
            - 01:06:00 -> 01:07:00
            - 01:00:40 -> 01:01:00
            - 01:59:59 -> 02:00:00
+        Otherwise just add self._range to starttime
 
         If summary=True, determine the next full hour instead.
         """
@@ -562,9 +563,12 @@ class DCacheAggregator:
                 starttime.day, starttime.hour, 0, 0)
             endtime += datetime.timedelta(0, 3600)
         else:
-            endtime = datetime.datetime(starttime.year, starttime.month,
-                starttime.day, starttime.hour, starttime.minute, 0)
-            endtime += datetime.timedelta(0, 60)
+            if ( self._range < 60 ) :
+                endtime = starttime + datetime.timedelta(0, self._range)            
+            else:
+                endtime = datetime.datetime(starttime.year, starttime.month,
+                    starttime.day, starttime.hour, starttime.minute, 0)
+                endtime += datetime.timedelta(0, 60)
         # Watch out for DST issues
         if endtime == starttime:
             endtime += datetime.timedelta(0, 7200)
