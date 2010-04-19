@@ -264,6 +264,12 @@ class DCacheAggregator:
             diff = endtime - starttime
             interval = diff.days*86400 + diff.seconds
             # Ensure that self._range is such that we always end up on a minute boundary (eventually).
+            # Whenever we decrease the interval size it is guaranteed to be a multiple of what's left 
+            # of the interval to the  next minute.  I.e the transitions are:
+            #   60s ->  30s
+            #   30s ->  15s (which can only happen at :30s)
+            #   15s ->   5s (which can only happen at :15s :30s or :45s)
+            #    5s ->   1s
             if   (interval > 60):
                 new_interval = 60
             elif (interval > 30):
