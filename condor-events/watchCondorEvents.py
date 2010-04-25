@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import socket
+import signal
 import xml.sax
 import threading
 import ConfigParser
@@ -11,6 +12,10 @@ import xml.sax.expatreader
 
 from xml.sax import saxutils
 from xml.sax.handler import ContentHandler, feature_external_ges
+
+# There's no reason that this probe should ever run more than a few
+# minutes; kill after 10 minutes to prevent pile-up.
+signal.alarm(10*60)
 
 possible_dirs = [ \
   "/opt/vdt/gratia/probe/common",
