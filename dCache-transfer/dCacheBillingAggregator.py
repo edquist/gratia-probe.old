@@ -21,6 +21,8 @@ import Gratia
 # Local modules
 from Alarm import Alarm
 from DCacheAggregator import DCacheAggregator
+import  TestContainer
+
 
 import signal
 import string
@@ -225,14 +227,24 @@ if __name__ == '__main__':
         while 1:
             # Make sure we (still) have a connection to Gratia.
             Gratia.Maintenance()
-
+          
             if profiling:
                 profiler.run("aggregator.sendBillingInfoRecordsToGratia()")
             else:
-                aggregator.sendBillingInfoRecordsToGratia()
+                try:
+                   aggregator.sendBillingInfoRecordsToGratia()
+                except TestContainer.SimInterrupt:
+                   logger.info("BillingRecSimulator.SimInterrupt caught, restarting")
+                   aggregator = DCacheAggregator( myconf, dataDir )
+                   continue
             # Are we are shutting down?
             if os.path.exists( stopFileName ):
                 break
+
+            import TestContainer
+            if ( TestContainer.isTest() ):
+               break
+
             logger.warn( "sleeping for = "  + str( updateFreq ) + " seconds" )
             time.sleep( updateFreq )
 
@@ -253,11 +265,15 @@ if __name__ == '__main__':
                                              sys.exc_traceback )
         msg = ProgramName + " caught an exception:\n" + "".join( tblist )
         logger.error( msg )
+
+    TestContainer.dumpStatistics(logger)
+
     # shut down the logger to make sure nothing is lost.
     logger.critical( ProgramName + " shutting down." )
     logging.shutdown()
     # try to send an email warning of the shutdown.
     if terminationAlarm != None:
         terminationAlarm.event()
+
     sys.exit( 1 )
 

@@ -7,8 +7,22 @@ similar records (where each record is assumed to be a python dictionary
 import time
 import random
 import datetime
-
 import TimeBinRange
+
+"""
+class RecordProxy:
+   def __init__(self,record):
+       self.record = record
+       self.d = {}
+
+   def __getitem__(self,name):
+        if ( self.d.has_key(name) ):
+           return self.d[name]
+        return self.record[name]
+ 
+   def __setitem__(self,name,value):
+       self.d[name] = value
+"""
 
 def collapse(records,agg):
   """
@@ -31,12 +45,14 @@ def collapse(records,agg):
   for r in result:
       makeTransaction(r, agg)
 
+  """
+  no need for this code.  dCacheBillingAggregator stops fetching latest recorords at 75 min before now.
   now = int(time.time())
   while 1:
       if ( len(result) > 0  and result[-1]['tm'] > now - 2*TimeBinRange.RANGE_SIZE_SECS):
          del result[-1]
       else:
-         break
+         break"""
 
   return result
 

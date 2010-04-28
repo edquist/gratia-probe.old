@@ -53,6 +53,9 @@ from Alarm import Alarm
 
 import TimeBinRange
 import Collapse
+import BillingRecSimulator
+import TestContainer
+
 
 DCACHE_AGG_FIELDS = ['initiator', 'client', 'protocol', 'errorcode', 'isnew']
 DCACHE_SUM_FIELDS = ['njobs', 'transfersize', 'connectiontime']
@@ -92,11 +95,16 @@ def _CalcMaxSelect():
     except:
         return 512000
     
-STARTING_MAX_SELECT = 32000
-MAX_SELECT = _CalcMaxSelect()
-STARTING_RANGE = 60
-MIN_RANGE = 1
-
+if ( TestContainer.isTest() ):
+  STARTING_MAX_SELECT = 50
+  MAX_SELECT = 100
+  STARTING_RANGE = 60
+  MIN_RANGE = 1
+else:
+  STARTING_MAX_SELECT = 32000
+  MAX_SELECT = _CalcMaxSelect()
+  STARTING_RANGE = 60
+  MIN_RANGE = 1
 
 BILLINGDB_SELECT_CMD = """
     SELECT
@@ -161,6 +169,9 @@ class DCacheAggregator:
         self._dCacheSvrHost = configuration.get_DCacheServerHost()
         # Create the billinginfo database checkpoint.
         self._maxAge = configuration.get_MaxBillingHistoryDays()
+        if ( TestContainer.isTest() ):
+           self._maxAge = TestContainer.getMaxAge()
+
         billinginfoChkpt = 'chkpt_dcache_xfer_DoNotDelete'
         if chkptdir != None:
             billinginfoChkpt = os.path.join(chkptdir, billinginfoChkpt)
@@ -242,8 +253,12 @@ class DCacheAggregator:
         #self._log.debug('_sendToGratia: will execute ' + BILLINGDB_SELECT_CMD \
         #    % (datestr, datestr_end, maxSelect))
         select_time = -time.time()
-        result = self._connection.execute(BILLINGDB_SELECT_CMD % (datestr,
-            datestr_end, maxSelect)).fetchall()
+        if ( not TestContainer.isTest() ):
+          result = self._connection.execute(BILLINGDB_SELECT_CMD % (datestr,datestr_end, maxSelect)).fetchall()
+        else:
+          result = BillingRecSimulator.execute(BILLINGDB_SELECT_CMD % (datestr, datestr_end, maxSelect))
+
+
         select_time += time.time()
         if select_time > MAX_QUERY_TIME_SECS:
             raise Exception("Postgres query took %i seconds, more than " \
@@ -313,7 +328,7 @@ class DCacheAggregator:
             row.setdefault("njobs", 1)
             try:
                 numDone += self._processDBRow(row)
-            except (KeyboardInterrupt, SystemExit):
+            except (KeyboardInterrupt, SystemExit, TestContainer.SimInterrupt):
                 raise
             except Exception, e:
                 self._log.warning("Unable to make a record out of the " \
@@ -339,7 +354,11 @@ class DCacheAggregator:
         """
         # Skip intra-site transfers if required
         if self._skipIntraSiteXfer(row):
-            return row['njobs']
+           return row['njobs']
+
+        if ( TestContainer.isTest() ):
+           TestContainer.sendInterrupt(15)
+           return TestContainer.processRow(row,self._log)
 
         usageRecord = self._convertBillingInfoToGratiaUsageRecord(\
                         row)
@@ -492,6 +511,9 @@ class DCacheAggregator:
         # The latest allowed record is 75 minutes in the past, in order to make
         # sure we only query complete intervals
         latestAllowed = datetime.datetime.now() - datetime.timedelta(0, 75*60)
+
+        if ( TestContainer.isTest() ):
+           latestAllowed = TestContainer.getEndDateTime()
 
         # Start with either the last checkpoint or minTime days ago, whichever
         # is more recent.
