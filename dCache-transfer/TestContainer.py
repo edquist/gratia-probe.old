@@ -4,6 +4,8 @@ import TimeBinRange
 import time
 import re
 import random
+import BillingRecSimulator
+
 
 class SimInterrupt:
    def  __init__(self):
@@ -56,20 +58,19 @@ def processRow(dbRow,log):
       log.info("Duplicate detected, discarding")
    return dbRow['njobs']
 
+def createStatistics(records):
+   overall = countBy(records,None,None)
+   initiator = countBy(records,"initiator","I1")
+   errorcode = countBy(records,"errorcode",0)
+   totalRecords = len(records)
 
-def dumpStatistics(log):
-   if ( not TEST ):
-      return
-   log.info("Overall "+str(countBy(recordsToSend,None,None)))
-   log.info("initiator "+str(countBy(recordsToSend,"initiator","I1")))
-   log.info("errorcode "+str(countBy(recordsToSend,"errorcode",0)))
-   log.info("num records sent "+str(len(recordsToSend)))
+   return overall,initiator,errorcode,totalRecords
 
 def countBy(records,fieldName,fieldValue):
 
    sum = 0
 
-   for r in records:
+   for r in records: 
       if ( fieldName != None and fieldValue != None):
         if (r[fieldName] == fieldValue ):
           sum = sum + r['transfersize']
@@ -77,15 +78,30 @@ def countBy(records,fieldName,fieldValue):
           sum = sum + r['transfersize']
 
    return sum
-     
+
+def dumpStatistics(log):
+   if ( not TEST ):
+      return
+   log.info("Send to gratia:")
+   dump(log,createStatistics(recordsToSend))
+
+   log.info("Generated:")
+   dump(log,createStatistics(BillingRecSimulator.sqlTableContent))
+    
+def dump(log,(overall,initiator,errorcode,totalRecords)):
+   log.info("Overall "+str(overall))
+   log.info("initiator "+str(initiator))
+   log.info("errorcode "+str(errorcode))
+   log.info("num records "+str(totalRecords))
+
 
 if __name__ == "__main__":
 
-  recordsToSend = generateTableContent() 
+  recordsToSend = BillingRecSimulator.generateTableContent() 
   print "Pre aggregation"
-  dumpStatistics()
+  print createStatistics(recordsToSend)
 
   recordsToSend = Collapse.collapse(recordsToSend,TimeBinRange.DictRecordAggregator(['initiator','client', 'protocol','errorcode','isnew' ],['njobs','transfersize','connectiontime']))
   print "Post Aggregation"
-  dumpStatistics()
+  print createStatistics(recordsToSend)
 

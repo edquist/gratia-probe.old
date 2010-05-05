@@ -37,7 +37,6 @@ def generateTableContent():
 
   return results
 
-
 sqlTableContent = None
 reExp = re.compile(".*WHERE  *b.datestamp *>= '(..*)' *AND *b.datestamp *< *'(..*)'.*LIMIT  *([0-9][0-9]*) .*")
 

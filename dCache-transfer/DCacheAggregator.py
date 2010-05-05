@@ -357,7 +357,8 @@ class DCacheAggregator:
            return row['njobs']
 
         if ( TestContainer.isTest() ):
-           TestContainer.sendInterrupt(15)
+           if ( self._summarize ):
+              TestContainer.sendInterrupt(15)
            return TestContainer.processRow(row,self._log)
 
         usageRecord = self._convertBillingInfoToGratiaUsageRecord(\

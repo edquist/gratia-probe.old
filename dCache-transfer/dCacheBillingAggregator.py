@@ -226,7 +226,8 @@ if __name__ == '__main__':
         # the stop file...
         while 1:
             # Make sure we (still) have a connection to Gratia.
-            Gratia.Maintenance()
+            if ( not TestContainer.isTest() ): # no need in that during self test
+               Gratia.Maintenance()
           
             if profiling:
                 profiler.run("aggregator.sendBillingInfoRecordsToGratia()")
