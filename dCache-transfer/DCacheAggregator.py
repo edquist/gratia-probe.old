@@ -95,16 +95,16 @@ def _CalcMaxSelect():
     except:
         return 512000
     
-if ( TestContainer.isTest() ):
-  STARTING_MAX_SELECT = 50
-  MAX_SELECT = 100
-  STARTING_RANGE = 60
-  MIN_RANGE = 1
+if TestContainer.isTest():
+    STARTING_MAX_SELECT = 50
+    MAX_SELECT = 100
+    STARTING_RANGE = 60
+    MIN_RANGE = 1
 else:
-  STARTING_MAX_SELECT = 32000
-  MAX_SELECT = _CalcMaxSelect()
-  STARTING_RANGE = 60
-  MIN_RANGE = 1
+    STARTING_MAX_SELECT = 32000
+    MAX_SELECT = _CalcMaxSelect()
+    STARTING_RANGE = 60
+    MIN_RANGE = 1
 
 BILLINGDB_SELECT_CMD = """
     SELECT
@@ -192,13 +192,16 @@ class DCacheAggregator:
         # Connect to the dCache postgres database.
         # TODO: Using sqlalchemy gives us nothing but a new dependency.  Remove.
         try:
-            self._db = sqlalchemy.create_engine(DBurl)
-            self._connection = self._db.connect()
+            if TestContainer.isTest():
+                self._db = None
+            else:
+                self._db = sqlalchemy.create_engine(DBurl)
+                self._connection = self._db.connect()
         except:
             tblist = traceback.format_exception(sys.exc_type,
                                                 sys.exc_value,
                                                 sys.exc_traceback)
-            errmsg = 'Failed to connect to %s\n\n%s' % (DBurl, join(tblist))
+            errmsg = 'Failed to connect to %s\n\n%s' % (DBurl, "\n".join(tblist))
             self._log.error(errmsg)
             raise
 

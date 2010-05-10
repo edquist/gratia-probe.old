@@ -49,9 +49,7 @@ def sendInterrupt(freq):
         raise SimInterrupt()
 
 def processRow(dbRow,log):
-   global recordsToSend
-   global addedTransactions
-   if ( not addedTransactions.has_key(dbRow['transaction']) ):
+   if ( dbRow['transaction'] not in addedTransactions):
       recordsToSend.append(dbRow)
       addedTransactions[dbRow['transaction']] = 1
    else:
@@ -80,6 +78,7 @@ def countBy(records,fieldName,fieldValue):
    return sum
 
 def dumpStatistics(log):
+   global recordsToSend
    if ( not TEST ):
       return
    log.info("Send to gratia:")
@@ -89,10 +88,10 @@ def dumpStatistics(log):
    dump(log,createStatistics(BillingRecSimulator.sqlTableContent))
     
 def dump(log,(overall,initiator,errorcode,totalRecords)):
-   log.info("Overall "+str(overall))
-   log.info("initiator "+str(initiator))
-   log.info("errorcode "+str(errorcode))
-   log.info("num records "+str(totalRecords))
+   log.info("Overall %s" % overall)
+   log.info("initiator %s"% initiator)
+   log.info("errorcode %s" % errorcode)
+   log.info("num records %s" % totalRecords)
 
 
 if __name__ == "__main__":

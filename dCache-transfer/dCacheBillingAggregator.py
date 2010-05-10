@@ -9,28 +9,28 @@
 import os
 import sys
 import time
+import signal
+import string
 import logging
-from logging.handlers import RotatingFileHandler
 import traceback
 import xml.dom.minidom
 # Python profiler
 import hotshot
 import hotshot.stats
+
+from logging.handlers import RotatingFileHandler
+
 # The gratia probe code
 import Gratia
 # Local modules
+import TestContainer
 from Alarm import Alarm
 from DCacheAggregator import DCacheAggregator
-import  TestContainer
-
-
-import signal
-import string
 
 ProgramName = "dCacheBillingAggregator"
 
 
-class dCacheProbeConfig( Gratia.ProbeConfiguration ):
+class dCacheProbeConfig(Gratia.ProbeConfiguration):
     """
     This class extends the gratia ProbeConfiguration class so that we can
     add our own configuration parameters to the ProbeConfig file.
@@ -40,28 +40,28 @@ class dCacheProbeConfig( Gratia.ProbeConfiguration ):
     def __init__( self ):
         # Just call the parent class to read in the file.
         # We just add some extra name/value readouts.
-        Gratia.ProbeConfiguration.__init__( self )
+        Gratia.ProbeConfiguration.__init__(self)
 
-    def getConfigAttribute( self, name ):
-        return Gratia.ProbeConfiguration._ProbeConfiguration__getConfigAttribute( self, name )
+    def getConfigAttribute(self, name):
+        return Gratia.ProbeConfiguration._ProbeConfiguration__getConfigAttribute(self, name)
 
-    def get_UpdateFrequency( self ):
-        return self.getConfigAttribute( 'UpdateFrequency' )
+    def get_UpdateFrequency(self):
+        return self.getConfigAttribute('UpdateFrequency')
 
-    def get_StopFileName( self ):
-        return self.getConfigAttribute( 'StopFileName' )
+    def get_StopFileName(self):
+        return self.getConfigAttribute('StopFileName')
 
-    def get_DBHostName( self ):
-        return self.getConfigAttribute( 'DBHostName' )
+    def get_DBHostName(self):
+        return self.getConfigAttribute('DBHostName')
 
-    def get_DBLoginName( self ):
-        return self.getConfigAttribute( 'DBLoginName' )
+    def get_DBLoginName(self):
+        return self.getConfigAttribute('DBLoginName')
 
-    def get_DBPassword( self ):
-        return self.getConfigAttribute( 'DBPassword' )
+    def get_DBPassword(self):
+        return self.getConfigAttribute('DBPassword')
 
-    def get_DCacheServerHost( self ):
-        return self.getConfigAttribute( 'DCacheServerHost' )
+    def get_DCacheServerHost(self):
+        return self.getConfigAttribute('DCacheServerHost')
 
     def get_Summarize(self):
         try:
@@ -71,14 +71,14 @@ class dCacheProbeConfig( Gratia.ProbeConfiguration ):
 
     # This is the name of a host that is running an SMTP server to which
     # email messages can be submitted.
-    def get_EmailServerHost( self ):
-        return self.getConfigAttribute( 'EmailServerHost' )
+    def get_EmailServerHost(self):
+        return self.getConfigAttribute('EmailServerHost')
 
     # This is the email address from which the email allegedly originated.
     # Some email servers will tweak it if they don't like it, rather than
     # rejecting it. Caveat emptor.
-    def get_EmailFromAddress( self ):
-        return self.getConfigAttribute( 'EmailFromAddress' )
+    def get_EmailFromAddress(self):
+        return self.getConfigAttribute('EmailFromAddress')
 
     # This is the list of recipients for emails about pressing problems
     # encountered by the dCache probe. We save the list for subsequent
@@ -165,7 +165,7 @@ if __name__ == '__main__':
                                  str(rev) + " (tag " + str(tag) + ")")
 
         # BRIAN: attempt to pull the dCache version from RPM.
-        version = "1.8"
+        version = "UNKNOWN"
         try:
             version = os.popen("rpm -q --qf '%{VERSION}-%{RELEASE}' " \
                                "dcache-server").read()
@@ -209,12 +209,12 @@ if __name__ == '__main__':
         logger.info( "starting " + ProgramName )
 
         stopFileName = myconf.get_StopFileName()
-        updateFreq = float( myconf.get_UpdateFrequency() )
-        logger.warn( "update freq = "  + str( updateFreq ) )
+        updateFreq = float(myconf.get_UpdateFrequency())
+        logger.warn("update freq = %.2f" % updateFreq)
 
         # Create the aggregator instance that we will use.
         dataDir = myconf.get_DataFolder()
-        aggregator = DCacheAggregator( myconf, dataDir )
+        aggregator = DCacheAggregator(myconf, dataDir)
 
         # If profiling was requested, turn it on.
         profiling = sys.argv.count('-profile') > 0
@@ -233,21 +233,21 @@ if __name__ == '__main__':
                 profiler.run("aggregator.sendBillingInfoRecordsToGratia()")
             else:
                 try:
-                   aggregator.sendBillingInfoRecordsToGratia()
+                    aggregator.sendBillingInfoRecordsToGratia()
                 except TestContainer.SimInterrupt:
-                   logger.info("BillingRecSimulator.SimInterrupt caught, restarting")
-                   aggregator = DCacheAggregator( myconf, dataDir )
-                   continue
+                    logger.info("BillingRecSimulator.SimInterrupt caught, " \
+                        "restarting")
+                    aggregator = DCacheAggregator(myconf, dataDir)
+                    continue
             # Are we are shutting down?
-            if os.path.exists( stopFileName ):
+            if os.path.exists(stopFileName):
                 break
 
-            import TestContainer
-            if ( TestContainer.isTest() ):
-               break
+            if TestContainer.isTest():
+                break
 
-            logger.warn( "sleeping for = "  + str( updateFreq ) + " seconds" )
-            time.sleep( updateFreq )
+            logger.warn("sleeping for = %.2f seconds" % updateFreq)
+            time.sleep(updateFreq)
 
         # If we are profiling, print the results...
         if profiling:
@@ -256,7 +256,7 @@ if __name__ == '__main__':
             stats.sort_stats('time', 'calls')
             stats.print_stats()
 
-        logger.warn( ProgramName + " stop file detected." )
+        logger.warn(ProgramName + " stop file detected.")
     except (KeyboardInterrupt, SystemExit):
         raise
     except:
@@ -264,17 +264,17 @@ if __name__ == '__main__':
         tblist = traceback.format_exception( sys.exc_type,
                                              sys.exc_value,
                                              sys.exc_traceback )
-        msg = ProgramName + " caught an exception:\n" + "".join( tblist )
-        logger.error( msg )
+        msg = ProgramName + " caught an exception:\n" + "".join(tblist)
+        logger.error(msg)
 
     TestContainer.dumpStatistics(logger)
 
     # shut down the logger to make sure nothing is lost.
-    logger.critical( ProgramName + " shutting down." )
+    logger.critical(ProgramName + " shutting down.")
     logging.shutdown()
     # try to send an email warning of the shutdown.
     if terminationAlarm != None:
         terminationAlarm.event()
 
-    sys.exit( 1 )
+    sys.exit(1)
 
