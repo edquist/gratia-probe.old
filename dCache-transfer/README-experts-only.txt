@@ -172,6 +172,47 @@ and J.CommonName like 'Ted%' and EndTime > '2007/01/24'
 
 4. Click the Execute button. A table of billing records will be displayed.
 
+5. Self testing
+
+Probe can be run in the self test mode. In this mode, Billing db records are 
+consistently sumulated such that resulting Gratia record output can be
+verified against known pattern. In order to enable self test mode, TEST variable
+must be set to 1. This variable is defined in TestContainer.py file.
+Before running the probe in the self test mode,  the checkpoint file  must be removed.
+In order to observe self test output , set    AggrLogLevel to "debug"
+
+The assertion is that statistics of records in the Billing db and
+statistics of records send to Gratia after summarization (complicated by
+restarts and query window limit management)as reported at the end of the
+run should be the same:
+
+Property of the simulated billing DB:
+number of records per second : 2
+time covered: 4 hours 700 seconds
+number of records : 30200
+
+Other params:
+STARTING_MAX_SELECT = 50
+MAX_SELECT = 100
+STARTING_RANGE = 60
+MIN_RANGE = 1
+
+Number of restarts:
+Aprox: 1 restart for every 15 records send to Gratia UNION 1 restart for
+every 300 query invocations
+
+Results:
+
+2010-05-05 11:10:35,072 INFO Send to gratia:
+2010-05-05 11:10:35,072 INFO Overall 30200
+2010-05-05 11:10:35,072 INFO initiator 10124
+2010-05-05 11:10:35,072 INFO errorcode 30200
+2010-05-05 11:10:35,073 INFO num records  54
+2010-05-05 11:10:35,073 INFO Generated:
+2010-05-05 11:10:35,153 INFO Overall 30200
+2010-05-05 11:10:35,153 INFO initiator 10124
+2010-05-05 11:10:35,153 INFO errorcode 30200
+2010-05-05 11:10:35,153 INFO num records  30200
 
 PROFILING:
 =========
