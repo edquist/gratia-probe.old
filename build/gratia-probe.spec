@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.15j
+Version: 1.06.15k
 Release: 1
 License: GPL
 Group: Applications/System
@@ -406,6 +406,7 @@ Common files and examples for Gratia OSG accounting system probes.
 %{default_prefix}/probe/common/GRAM/globus-job-manager-script.in.diff.4.0.6
 %{default_prefix}/probe/common/GetProbeConfigAttribute.py
 %{default_prefix}/probe/common/Gratia.py
+%{default_prefix}/probe/common/GratiaCore.py
 %{default_prefix}/probe/common/GratiaPing.py
 %{default_prefix}/probe/common/ProbeConfigTemplate
 %{default_prefix}/probe/common/ProxyUtil.py
@@ -804,12 +805,14 @@ Contributed by Greg Sharp and the dCache project.
 %{default_prefix}/probe/dCache-transfer/README-experts-only.txt
 %{default_prefix}/probe/dCache-transfer/README
 %{default_prefix}/probe/dCache-transfer/Alarm.py
+%{default_prefix}/probe/dCache-transfer/BillingRecSimulator.py
 %{default_prefix}/probe/dCache-transfer/Checkpoint.py
 %{default_prefix}/probe/dCache-transfer/CheckpointTest.py
-%{default_prefix}/probe/dCache-transfer/DCacheAggregator.py
-%{default_prefix}/probe/dCache-transfer/dCacheBillingAggregator.py
 %{default_prefix}/probe/dCache-transfer/Collapse.py
+%{default_prefix}/probe/dCache-transfer/DCacheAggregator.py
+%{default_prefix}/probe/dCache-transfer/TestContainer.py
 %{default_prefix}/probe/dCache-transfer/TimeBinRange.py
+%{default_prefix}/probe/dCache-transfer/dCacheBillingAggregator.py
 %config(noreplace) %{default_prefix}/probe/dCache-transfer/ProbeConfig
 
 %post dCache-transfer%{?maybe_itb_suffix}
@@ -1271,6 +1274,9 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Fri May 14 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15k-1
+- Build checkpoint for Andrew.
+
 * Mon Mar 29 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15j-1
 - Test release for storage group.
 
