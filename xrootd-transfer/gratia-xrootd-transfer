@@ -37,7 +37,7 @@ case "$1" in
         rm -f /var/lock/subsys/xrd_transfer_probe
         ;;
   status)
-        status xrd_transfer_probe
+        status -p $VDT_LOCATION/gratia/var/tmp/xrd_transfer_probe.pid xrd_transfer_probe
         ;;
   restart)
         $0 stop
