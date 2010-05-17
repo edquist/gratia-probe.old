@@ -2074,7 +2074,10 @@ def OpenNewRecordFile(dirIndex):
     return (f, dirIndex)
 
 
-def TimeToString(targ=time.gmtime()):
+def TimeToString(targ=None):
+    ''' Return the XML version of the given time.  Default to the current time '''
+    if not targ:
+        targ = time.gmtime()
     return time.strftime('%Y-%m-%dT%H:%M:%SZ', targ)
 
 
