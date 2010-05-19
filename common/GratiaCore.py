@@ -2489,12 +2489,13 @@ class Bundle:
         else:
             return (defaultmsg, Response(Response.Success, defaultmsg))
 
-    @staticmethod
     def decreaseMaxPostSize(howMuch):
         """
         Decrease the maximum allowed size for a 'post'.
         """
         Bundle.__maxPostSize = howMuch * Bundle.__maxPostSize
+
+    decreaseMaxPostSize = staticmethod(decreaseMaxPostSize)
 
     def clear(self):
         self.nBytes = 0
