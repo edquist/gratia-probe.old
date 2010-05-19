@@ -16,6 +16,11 @@ VDT_LOCATION=MAGIC_VDT_LOCATION
 # Fallback to default VDT location if this was an RPM-based install
 [ -d $VDT_LOCATION ] || VDT_LOCATION=/opt/vdt
 
+release_major=`lsb_release -r | tr '.' ' ' | awk '{print $2;}'`
+if [ "x$release_major" = "x4" ]; then
+  source $VDT_LOCATION/gratia/probe/xrootd-storage/SL4_init_script_patches
+fi
+
 # The following adds the xrootd storage probe to the PATH.
 PATH=$PATH:$VDT_LOCATION/gratia/probe/xrootd-storage
 export VDT_LOCATION=$VDT_LOCATION
