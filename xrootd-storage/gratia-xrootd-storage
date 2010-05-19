@@ -27,22 +27,27 @@ export VDT_LOCATION=$VDT_LOCATION
 
 export HOME=/
 
+RETVAL=0
+
 case "$1" in
   start)
         echo -n "Starting  xrd_storage_probe: "
         daemon --pidfile $VDT_LOCATION/gratia/var/tmp/xrd_storage_probe.pid xrd_storage_probe -d
+        RETVAL=$?
         echo
-        touch /var/lock/subsys/xrd_storage_probe
+        [ $RETVAL -eq 0 ] && touch /var/lock/subsys/xrd_storage_probe
         ;;
   stop)
         echo -n "Shutting down xrd_storage_probe: "
         killproc -p $VDT_LOCATION/gratia/var/tmp/xrd_storage_probe.pid xrd_storage_probe -INT
+        RETVAL=$?
         sleep 1
         echo
-        rm -f /var/lock/subsys/xrd_storage_probe
+        [ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/xrd_storage_probe
         ;;
   status)
         status -p $VDT_LOCATION/gratia/var/tmp/xrd_storage_probe.pid xrd_storage_probe
+        RETVAL=$?
         ;;
   restart)
         $0 stop
@@ -53,4 +58,5 @@ case "$1" in
         exit 1
 esac
 
-exit 0
+exit $RETVAL
+
