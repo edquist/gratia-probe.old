@@ -1205,6 +1205,7 @@ Contributed by University of Nebraska Lincoln.
 /etc/rc.d/init.d/gratia-xrootd-transfer
 %{default_prefix}/probe/xrootd-transfer/xrd_transfer_probe
 %{default_prefix}/probe/xrootd-transfer/watchXrootdLogs.py
+%{default_prefix}/probe/xrootd-transfer/SL4_init_script_patches
 %config(noreplace) %{default_prefix}/probe/xrootd-transfer/ProbeConfig
 
 %post xrootd-transfer%{?maybe_itb_suffix}
@@ -1250,6 +1251,7 @@ Contributed as effort from OSG-Storage.
 %defattr(-,root,root,-)
 /etc/rc.d/init.d/gratia-xrootd-storage
 %{default_prefix}/probe/xrootd-storage/xrd_storage_probe
+%{default_prefix}/probe/xrootd-storage/SL4_init_script_patches
 %config(noreplace) %{default_prefix}/probe/xrootd-storage/ProbeConfig
 
 %post xrootd-storage%{?maybe_itb_suffix}
