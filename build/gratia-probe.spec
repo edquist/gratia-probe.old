@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.15l
+Version: 1.06.15n
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1276,6 +1276,12 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Mon May 24 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15n-1
+- Correct import to GratiaCore in services.
+
+* Fri May 21 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15m-1
+- Improvements to xrootd probe from Brian.
+
 * Wed May 19 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15l-1
 - Fix from Philippe for staticmethod (make it work in 2.3).
 
