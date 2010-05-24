@@ -4,10 +4,10 @@
 
 import types
 
-import Gratia
-from Gratia import *
+import GratiaCore
+from GratiaCore import *
 
-class Subcluster(Gratia.Record):
+class Subcluster(GratiaCore.Record):
     "Base class for the Gratia Subcluster"
 
     def __init__(self):

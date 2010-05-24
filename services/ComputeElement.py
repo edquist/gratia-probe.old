@@ -4,10 +4,10 @@
 
 import types
 
-import Gratia
-from Gratia import *
+import GratiaCore
+from GratiaCore import *
 
-class ComputeElement(Gratia.Record):
+class ComputeElement(GratiaCore.Record):
     "Base class for the Gratia ComputeElement"
 
     def __init__(self):
