@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 1.06.15n
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -379,7 +379,7 @@ fi
 Summary: Common files for Gratia OSG accounting system probes
 Group: Applications/System
 %if %{?python:0}%{!?python:1}
-Requires: python >= 2.2
+Requires: python >= 2.3
 Requires: pyOpenSSL
 %endif
 AutoReqProv: no
@@ -439,7 +439,7 @@ see http://www.sqlalchemy.org/ for details.
 Summary: A ps-accounting probe
 Group: Applications/System
 %if %{?python:0}%{!?python:1}
-Requires: python >= 2.2
+Requires: python >= 2.3
 %endif
 Requires: psacct
 Requires: %{name}-common >= 0.12f
@@ -537,7 +537,7 @@ fi
 Summary: A Condor probe
 Group: Applications/System
 %if %{?python:0}%{!?python:1}
-Requires: python >= 2.2
+Requires: python >= 2.3
 %endif
 Requires: %{name}-common >= 0.12f
 %{?config_itb:Obsoletes: %{name}-condor}
@@ -681,7 +681,7 @@ fi
 Summary: A gLExec probe
 Group: Applications/System
 %if %{?python:0}%{!?python:1}
-Requires: python >= 2.2
+Requires: python >= 2.3
 %endif
 Requires: %{name}-common >= 0.12e
 %{?config_itb:Obsoletes: %{name}-glexec}
@@ -741,9 +741,9 @@ fi
 Summary: A probe for OSG metrics
 Group: Applications/System
 %if %{?python:0}%{!?python:1}
-Requires: python >= 2.2
+Requires: python >= 2.3
 %endif
-Requires: %{name}-common >= 0.25a
+Requires: %{name}-common >= 1.06.15l
 %{?config_itb:Obsoletes: %{name}-metric}
 %{!?config_itb:Obsoletes: %{name}-metric%{itb_suffix}}
 
@@ -1034,7 +1034,7 @@ fi
 %package services
 Summary: Gratia OSG accounting system probe API for services.
 Group: Application/System
-Requires: %{name}-common >= 1.04.4e
+Requires: %{name}-common >= 1.06.15l
 %if %{?python:0}%{!?python:1}
 Requires: python >= 2.3
 %endif
@@ -1276,6 +1276,9 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Mon May 24 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15n-2
+- Update dependencies.
+
 * Mon May 24 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15n-1
 - Correct import to GratiaCore in services.
 
