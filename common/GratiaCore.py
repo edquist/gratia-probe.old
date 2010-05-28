@@ -1195,13 +1195,14 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
             DebugPrintTraceback(1)
         response = Response(Response.Failed, r'Server unable to receive data: save for reprocessing')
     except httplib.BadStatusLine, ex:
-        DebugPrint(0, 'Received BadStatusLine exception:', ex.args)
         __connectionError__ = True
         if ex.args[0] == r'' and not __resending:
-            DebugPrint(0, 'Possible connection timeout: resend this record')
+            DebugPrint(0, 'Possible connection timeout.  Will now attempt to re-establish connection and send record.')
+            DebugPrint(2, 'Timeout seen as a BadStatusLine exception with the following argument:', ex.args)
             __resending = 1
             response = __sendUsageXML(meterId, recordXml, messageType)
         else:
+            DebugPrint(0, 'Received BadStatusLine exception:', ex.args)
             DebugPrintTraceback(1)
             response = Response(Response.Failed, 'Failed to send xml to web service')
     except:
