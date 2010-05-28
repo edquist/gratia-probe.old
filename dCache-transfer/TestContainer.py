@@ -1,15 +1,20 @@
+"""
+This module generates and executes a test of the dCache-transfer probe.
+
+We simulate the results of a DB query and make sure that it gets properly
+aggregated.
+"""
+
+import re
+import time
+import random
+import BillingRecSimulator
 import Collapse
 import datetime
 import TimeBinRange
-import time
-import re
-import random
-import BillingRecSimulator
-
 
 class SimInterrupt:
-   def  __init__(self):
-      pass
+    pass
 
 # test clean area
 # generate 6 hours worth of records
@@ -33,20 +38,21 @@ recordsToSend = []
 addedTransactions = {}
 
 def isTest():
-   return TEST
+    return TEST
 
 def getMaxAge():
-   global StartTime
-   return  (time.time() - StartTime)/(3600*24)
+    return  (time.time() - StartTime)/(3600*24)
 
 def getEndDateTime():
-    global EndTime
     return datetime.datetime.fromtimestamp(EndTime + 3600)
 
 def sendInterrupt(freq):
-   if ( TEST ):
-     if ( random.randint(0,freq) == 0 ):
-        raise SimInterrupt()
+    """
+    Randomly raises an interrupt exception
+    """
+    if TEST:
+        if random.randint(0,freq) == 0:
+            raise SimInterrupt()
 
 def processRow(dbRow,log):
    if ( dbRow['transaction'] not in addedTransactions):
@@ -64,9 +70,9 @@ def createStatistics(records):
 
    return overall,initiator,errorcode,totalRecords
 
-def countBy(records,fieldName,fieldValue):
+def countBy(records, fieldName, fieldValue):
 
-   sum = 0
+    sum = 0
 
    for r in records: 
       if ( fieldName != None and fieldValue != None):
