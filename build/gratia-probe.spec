@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.15n
-Release: 2
+Version: 1.06.15o
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -353,7 +353,6 @@ done
 %global fnal_collector %{default_fnal_collector}
 %global collector_port %{default_collector_port}
 %configure_probeconfig_pre -d pbs-lsf -m pbs-lsf
-m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 %max_pending_files_check pbs-lsf
@@ -477,7 +476,6 @@ m&^/>& and print <<EOF;
     PSACCTExceptionsRepository="$ENV{RPM_INSTALL_PREFIX1}/logs/exceptions/"
 EOF
 m&^\s*VDTSetupFile\s*=& and next;
-m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post -g Local
 
 # Configure boot-time activation of accounting.
@@ -563,7 +561,6 @@ The Condor probe for the Gratia OSG accounting system.
 %global fnal_collector %{default_fnal_collector}
 %global collector_port %{default_collector_port}
 %configure_probeconfig_pre -d condor -m condor
-m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 # Configure GRAM perl modules
@@ -657,7 +654,6 @@ The SGE probe for the Gratia OSG accounting system.
 m&^/>& and print <<EOF;
     SGEAccountingFile=""
 EOF
-m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 %max_pending_files_check sge
@@ -713,7 +709,6 @@ s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"/etc/grid-security/hostproxykey.pem"&;
 m&^/>& and print <<EOF;
     gLExecMonitorLog="/var/log/glexec/glexec_monitor.log"
 EOF
-m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 %max_pending_files_check glexec
@@ -772,7 +767,6 @@ s&(KeyFile\s*=\s*)\"[^\"]*\"&${1}"${RPM_INSTALL_PREFIX2}/grid-security/hostproxy
 m&^/>& and print <<EOF;
     metricMonitorLog="/var/log/metric/metric_monitor.log"
 EOF
-m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 %max_pending_files_check metric
@@ -832,6 +826,7 @@ Contributed by Greg Sharp and the dCache project.
 %configure_probeconfig_pre -d dCache-transfer -m dcache-transfer -M 600
 (m&\bVDTSetupFile\b& or m&\bUserVOMapFile\b&) and next; # Skip, not needed.
 m&^/>& and print <<EOF;
+    Summarize="0"
     UpdateFrequency="120"
     DBHostName="localhost"
     DBLoginName="srmdcache"
@@ -843,9 +838,9 @@ m&^/>& and print <<EOF;
     EmailToList=""
     AggrLogLevel="warn"
     OnlySendInterSiteTransfers="true"
-    MaxBillingAgeDays="31"
+    MaxBillingHistoryDays="31"
+    DBName="billing"
 EOF
-m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 # Configure init script
@@ -933,7 +928,6 @@ m&^/>& and print <<EOF;
     InfoProviderUrl="http://DCACHE_HOST:2288/info"
     ReportPoolUsage="0"
 EOF
-m&^\s*GridftpLogDir\s*=& and next;
 %configure_probeconfig_post
 
 perl -wapi.bak -e 's&^python &%{pexec} &g' \
@@ -1004,6 +998,9 @@ Contributed by Andrei Baranovski of the OSG storage team.
 %endif
 %global collector_port %{default_collector_port}
 %configure_probeconfig_pre -d gridftp-transfer -m gridftp-transfer -M 600
+m&^/>& and print <<EOF;
+    GridftpLogDir="MAGIC_VDT_LOCATION/globus/var/log"
+EOF
 %configure_probeconfig_post
 
 perl -wapi.bak -e 's&^python &%{pexec} &g' \
@@ -1276,6 +1273,14 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Fri May 28 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15o-1
+- Tweak ProbeConfig extra items for dCache-transfer probe.
+- Reorganize GridFtpLogDir config item insertion..
+- Sleep and configurable DB name for dCache-transfer probe from Brian.
+- Core updates for HTTP timeout waiting for acknowledgement from
+-  collector from Philippe.
+- Improve connection timeout mesage to avoid confusion (from Philippe).
+
 * Mon May 24 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15n-2
 - Update dependencies.
 
