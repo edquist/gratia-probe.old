@@ -67,7 +67,7 @@ def sleep_check(length, stopFileName):
     stop file exists at most once a second.  If the stop file is present, then
     return immediately.
     """
-    while length > 0 and length > 1:
+    while length > 1:
         if os.path.exists(stopFileName):
             return
         length -= 1
