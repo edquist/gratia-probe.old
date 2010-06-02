@@ -581,9 +581,10 @@ class DCacheAggregator:
             elif (next_endtime > nextSummary) and results:
                 num_agg = totalRecords - len(results)
                 if num_agg:
+                    factor = float(totalRecords)/float(len(results))
                     self._log.info("Aggregated %i of %i records for time " \
-                        "interval ending in %s" % (num_agg, totalRecords,
-                        nextSummary))
+                        "interval ending in %s.  %.1fx reduction." % \
+                        (num_agg, totalRecords, nextSummary, factor))
                 else:
                     self._log.debug("Unable to aggregate any of %i records" \
                         % totalRecords)
