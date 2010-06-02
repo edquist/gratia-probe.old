@@ -68,9 +68,10 @@ an RPM or VDT package.
 Edit the ProbeConfig file in this directory; you need to verify the values of:
 
 SOAPHost                   The host running your local gratia repository.
-DBHostName                 The fully qualified SRM DB Host name
+DBHostName                 The fully qualified SRM DB Host name.
 DBLoginName                The login name for the SRM DB.
-DBPassword                 The password for the SRM DB
+DBPassword                 The password for the SRM DB.
+DBName                     The name of the postgres database.
 DCacheServerHost           The fully qualified hostname of your dCache server.
 EmailServerHost            For problem emails -- SMTP server.
 EmailFromAddress           For problem emails -- from address.
