@@ -71,17 +71,15 @@ def createStatistics(records):
    return overall,initiator,errorcode,totalRecords
 
 def countBy(records, fieldName, fieldValue):
-
     sum = 0
+    for r in records: 
+        if fieldName != None and fieldValue != None:
+            if r[fieldName] == fieldValue:
+                sum = sum + r['transfersize']
+        else:
+            sum = sum + r['transfersize']
 
-   for r in records: 
-      if ( fieldName != None and fieldValue != None):
-        if (r[fieldName] == fieldValue ):
-          sum = sum + r['transfersize']
-      else:
-          sum = sum + r['transfersize']
-
-   return sum
+    return sum
 
 def dumpStatistics(log):
    global recordsToSend
