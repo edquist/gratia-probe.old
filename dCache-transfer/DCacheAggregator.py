@@ -482,15 +482,16 @@ class DCacheAggregator:
         # Gratia will make a best effort to map this to the VO name.
         mappedUID = row['mappeduid']
         try:
-            if mappedUID != None and int(mappedUID) > 0:
+            username = 'Unknown'
+            if mappedUID != None and int(mappedUID) >= 0:
                 try:
                     info = pwd.getpwuid(int(mappedUID))
+                    username = info[0]
                 except:
                     self._log.warn("UID %s not found locally; make sure " \
                         "/etc/passwd on this host and your dCache are using " \
                         "the same UIDs!" % str(int(mappedUID)))
-                    raise
-                rec.LocalUserId( info[0] )
+            rec.LocalUserId(username)
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception, e:
