@@ -57,6 +57,12 @@ class dCacheProbeConfig(Gratia.ProbeConfiguration):
     def get_DBLoginName(self):
         return self.getConfigAttribute('DBLoginName')
 
+    def get_DBName(self):
+        dbname = self.getConfigAttribute("DBName")
+        if not dbname:
+            dbname = 'billing'
+        return dbname
+
     def get_DBPassword(self):
         return self.getConfigAttribute('DBPassword')
 

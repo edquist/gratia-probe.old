@@ -175,9 +175,9 @@ class DCacheAggregator:
     def __init__( self, configuration, chkptdir=None ):
         # Pick up the logger
         self._log = logging.getLogger( 'DCacheAggregator' )
-        DBurl = 'postgres://' + configuration.get_DBLoginName() + ':' + \
-                configuration.get_DBPassword() + '@' + \
-                configuration.get_DBHostName() + ':5432/billing'
+        DBurl = 'postgres://%s:%s@%s:5432/%s' % \
+            (configuration.get_DBLoginName(), configuration.get_DBPassword(),
+             configuration.get_DBHostName(),  configuration.get_DBName())
 
         self._skipIntraSite = configuration.get_OnlySendInterSiteTransfers()
         self._stopFileName = configuration.get_StopFileName()
