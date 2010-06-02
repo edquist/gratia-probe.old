@@ -271,7 +271,7 @@ class DCacheAggregator:
         #self._log.debug('_sendToGratia: will execute ' + BILLINGDB_SELECT_CMD \
         #    % (datestr, datestr_end, maxSelect))
         select_time = -time.time()
-        if ( not TestContainer.isTest() ):
+        if not TestContainer.isTest():
           result = self._connection.execute(BILLINGDB_SELECT_CMD % (datestr,datestr_end, maxSelect)).fetchall()
         else:
           result = BillingRecSimulator.execute(BILLINGDB_SELECT_CMD % (datestr, datestr_end, maxSelect))
@@ -567,7 +567,7 @@ class DCacheAggregator:
             next_endtime = self._determineNextEndtime(next_starttime)
 
             # If we're not summarizing, we send up records each loop.
-            if not self._summarize and results:
+            if (not self._summarize) and results:
                 totalRecords = 0
                 # We now have all the rows we want; process them
                 self._BIcheckpoint.createPending(endtime, '')
@@ -591,10 +591,11 @@ class DCacheAggregator:
                 self._BIcheckpoint.createPending(nextSummary, '')
                 self._processResults(results)
                 self._BIcheckpoint.commit()
-                nextSummary = self._determineNextEndtime(next_starttime,
-                    summary=True)
                 results = []
                 self._range = STARTING_RANGE
+
+            nextSummary = self._determineNextEndtime(next_starttime,
+                summary=True)
 
             endtime = next_endtime
             starttime = next_starttime
