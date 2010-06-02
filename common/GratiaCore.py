@@ -7,6 +7,7 @@ Gratia Core Probe Library
 """
 
 import os
+import signal
 import errno
 import sys
 import time
@@ -78,6 +79,24 @@ def __disconnect_at_exit__():
     DebugPrint(0, '                          outstanding staged records: ' + str(__outstandingStagedRecordCount__))
     DebugPrint(0, '                          outstanding records tar files: ' + str(__outstandingStagedTarCount__))
     DebugPrint(1, 'End-of-execution disconnect ...')
+
+
+class GratiaTimeout:
+    """
+    Exception class to mark a connection timeout caught via the signal.alarm.
+    """ 
+    
+    __message = None
+    
+    def __init__(self, message = None):
+       self.__message = message
+
+def __handle_timeout__(signum, frame):
+    """
+    Insure that we properly shutdown the connection in case of timeout
+    """
+    DebugPrint(3, 'Signal handler "handle_timeout" called with signal', signum)
+    raise GratiaTimeout("Connection to Collector lasted more than: "+str(5)+" second")
 
 
 class ProbeConfiguration:
@@ -558,6 +577,13 @@ class ProbeConfiguration:
             __bundleSize__ = maxpending
         return __bundleSize__
 
+    def get_ConnectionTimeout(self):
+        val = self.__getConfigAttribute('ConnectionTimeout')
+        if val == None or val == r'':
+            return 900
+        else:
+            return int(val)    
+
 
 class Response:
 
@@ -665,6 +691,7 @@ __maxConnectionRetries__ = 2
 __maxFilesToReprocess__ = 100000
 __handshakeReg__ = []
 __bundleSize__ = 0
+__timeout__ = 3600
 
 # Instantiate a global connection object so it can be reused for
 # the lifetime of the server Instantiate a 'connected' flag as
@@ -748,6 +775,7 @@ def Initialize(customConfig='ProbeConfig'):
 
     global Config
     global __bundleSize__
+    global __timeout__
     global CurrentBundle
     if len(__backupDirList__) == 0:
 
@@ -763,6 +791,8 @@ def Initialize(customConfig='ProbeConfig'):
         atexit.register(__disconnect_at_exit__)
 
         __bundleSize__ = Config.get_BundleSize()
+        __timeout__ = Config.get_ConnectionTimeout()
+        
         CurrentBundle = Bundle()
 
         Handshake()
@@ -960,12 +990,21 @@ def __connect():
                 __connectionError__ = True
                 return __connected__
             try:
+                prev_handler = signal.signal(signal.SIGALRM, __handle_timeout__)
+                signal.alarm(__timeout__)
                 DebugPrint(4, 'DEBUG: Connect')
                 __connection__.connect()
                 DebugPrint(4, 'DEBUG: Connect: OK')
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, prev_handler)
             except socket.error, ex:
+                DebugPrint(3, 'Socket connection error: '+str(ex))
                 __connectionError__ = True
                 raise
+            except GratiaTimeout:
+                DebugPrint(3, 'Connection timeout (GratiaTimeout exception).')
+                __connectionError__ = True
+                raise                
             except Exception, ex:
                 __connectionError__ = True
                 DebugPrint(4, 'DEBUG: Connect: FAILED')
@@ -1008,12 +1047,20 @@ def __connect():
                 __connectionError__ = True
                 return __connected__
             try:
+                prev_handler = signal.signal(signal.SIGALRM, __handle_timeout__)
+                signal.alarm(__timeout__)
                 DebugPrint(4, 'DEBUG: Connect')
                 __connection__.connect()
                 DebugPrint(4, 'DEBUG: Connect: OK')
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, prev_handler)
             except socket.error, ex:
                 __connectionError__ = True
                 raise
+            except GratiaTimeout:
+                DebugPrint(3, 'Connection (GratiaTimeout exception).')
+                __connectionError__ = True
+                raise                
             except Exception, ex:
                 DebugPrint(4, 'DEBUG: Connect: FAILED')
                 DebugPrint(0, 'Error: While trying to connect to HTTPS, caught exception ' + str(ex))
@@ -1070,6 +1117,29 @@ def __disconnect():
 
 __resending = 0
 
+def __postRequest(connection, to, what, headers):
+    """
+    __postRequest calls requests on the connection to the destination 'to'
+    and containing the header 'headers' and the content 'what'.
+    
+    The resulting information is returned as as string object.
+    In case of connection time, the excetion GratiaTimeout is raised.
+    """
+    
+    prev_handler = signal.signal(signal.SIGALRM, __handle_timeout__)
+    signal.alarm(__timeout__)
+    
+    DebugPrint(4, 'DEBUG: POST')
+    connection.request('POST', to, what, headers)
+    DebugPrint(4, 'DEBUG: POST: OK')
+    DebugPrint(4, 'DEBUG: Read response')
+    responseString = connection.getresponse().read()
+    DebugPrint(4, 'DEBUG: Read response: OK')
+    
+    signal.alarm(0)
+    signal.signal(signal.SIGALRM, prev_handler)
+    
+    return responseString
 
 def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
     """
@@ -1122,8 +1192,9 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
             # Attempt to make sure Collector can actually read the post.
 
             headers = {'Content-type': 'application/x-www-form-urlencoded'}
-            __connection__.request('POST', Config.get_CollectorService(), queryString, headers)
-            responseString = __connection__.getresponse().read()
+            
+            responseString = __postRequest(__connection__, Config.get_CollectorService(), queryString, headers)
+            
             response = Response(Response.AutoSet, responseString)
             if response.getCode() == Response.UnknownCommand:
 
@@ -1150,12 +1221,7 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
             # Attempt to make sure Collector can actually read the post.
 
             headers = {'Content-type': 'application/x-www-form-urlencoded'}
-            DebugPrint(4, 'DEBUG: POST')
-            __connection__.request('POST', Config.get_SSLCollectorService(), queryString, headers)
-            DebugPrint(4, 'DEBUG: POST: OK')
-            DebugPrint(4, 'DEBUG: Read response')
-            responseString = __connection__.getresponse().read()
-            DebugPrint(4, 'DEBUG: Read response: OK')
+            responseString = __postRequest(__connection__, Config.get_SSLCollectorService(), queryString, headers)
             response = Response(Response.AutoSet, responseString)
 
             if response.getCode() == Response.UnknownCommand:
@@ -1194,6 +1260,17 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
                        '": ', sys.exc_info()[1])
             DebugPrintTraceback(1)
         response = Response(Response.Failed, r'Server unable to receive data: save for reprocessing')
+    except GratiaTimeout, ex:
+        __connectionError__ = True
+        if not __resending:
+            DebugPrint(0, 'Connection timeout.  Will now attempt to re-establish connection and send record.')
+            DebugPrint(2, 'Timeout seen as a GratiaTimeout.')
+            __resending = 1
+            response = __sendUsageXML(meterId, recordXml, messageType)
+        else:
+            DebugPrint(0, 'Received GratiaTimeout exception:')
+            DebugPrintTraceback(1)
+            response = Response(Response.Failed, 'Failed to send xml to web service')
     except httplib.BadStatusLine, ex:
         __connectionError__ = True
         if ex.args[0] == r'' and not __resending:
@@ -1249,12 +1326,10 @@ def SendStatus(meterId):
             response = Response(Response.Success, 'Status message not supported in SOAP mode')
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
 
-            __connection__.request('POST', Config.get_CollectorService(), queryString)
-            responseString = __connection__.getresponse().read()
+            responseString = __postResquest(__connection__, Config.get_CollectorService(), queryString)
             response = Response(Response.AutoSet, responseString)
         else:
-            __connection__.request('POST', Config.get_SSLCollectorService(), queryString)
-            responseString = __connection__.getresponse().read()
+            responseString = __postRequest(__connection__, Config.get_SSLCollectorService(), queryString)
             response = Response(Response.AutoSet, responseString)
     except SystemExit:
         raise
