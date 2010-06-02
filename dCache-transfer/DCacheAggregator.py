@@ -60,6 +60,21 @@ import TestContainer
 DCACHE_AGG_FIELDS = ['initiator', 'client', 'protocol', 'errorcode', 'isnew']
 DCACHE_SUM_FIELDS = ['njobs', 'transfersize', 'connectiontime']
 
+
+def sleep_check(length, stopFileName):
+    """
+    Sleep for the number of seconds specified by `length`.  Check to see if the
+    stop file exists at most once a second.  If the stop file is present, then
+    return immediately.
+    """
+    while length > 0 and length > 1:
+        if os.path.exists(stopFileName):
+            return
+        length -= 1
+        time.sleep(1)
+    if length > 0:
+        time.sleep(length)
+
 # If the DB query takes more than this amount of time, something is very wrong!
 # The probe will throw an exception and exit.
 MAX_QUERY_TIME_SECS = 180
@@ -380,7 +395,7 @@ class DCacheAggregator:
             self._log.error("Error sending : too many pending files")
             longsleep = 15*60
             self._log.warn("sleeping for = %i seconds." % longsleep)
-            time.sleep(longsleep)
+            sleep_check(longsleep, self._stopFileName)
         elif response.startswith('Fatal Error') or \
             response.startswith('Internal Error'):
             self._log.critical('error sending ' + baseMsg + \

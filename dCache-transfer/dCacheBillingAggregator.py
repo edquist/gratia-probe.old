@@ -25,7 +25,7 @@ import Gratia
 # Local modules
 import TestContainer
 from Alarm import Alarm
-from DCacheAggregator import DCacheAggregator
+from DCacheAggregator import DCacheAggregator, sleep_check
 
 ProgramName = "dCacheBillingAggregator"
 
@@ -247,7 +247,7 @@ if __name__ == '__main__':
                 break
 
             logger.warn("sleeping for = %.2f seconds" % updateFreq)
-            time.sleep(updateFreq)
+            sleep_check(updateFreq, stopFileName)
 
         # If we are profiling, print the results...
         if profiling:
