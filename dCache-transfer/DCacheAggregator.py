@@ -263,19 +263,17 @@ class DCacheAggregator:
         datestr = str(starttime)
         datestr_end = str(endtime)
        
-        dictRecordAgg = TimeBinRange.DictRecordAggregator(DCACHE_AGG_FIELDS,
-            DCACHE_SUM_FIELDS)
- 
         # Query the database.  If it takes more than MAX_QUERY_TIME_SECS, then
         # have the probe self-destruct.
         #self._log.debug('_sendToGratia: will execute ' + BILLINGDB_SELECT_CMD \
         #    % (datestr, datestr_end, maxSelect))
         select_time = -time.time()
         if not TestContainer.isTest():
-          result = self._connection.execute(BILLINGDB_SELECT_CMD % (datestr,datestr_end, maxSelect)).fetchall()
+            result = self._connection.execute(BILLINGDB_SELECT_CMD % (datestr,
+                datestr_end, maxSelect)).fetchall()
         else:
-          result = BillingRecSimulator.execute(BILLINGDB_SELECT_CMD % (datestr, datestr_end, maxSelect))
-
+            result = BillingRecSimulator.execute(BILLINGDB_SELECT_CMD % \
+                (datestr, datestr_end, maxSelect))
 
         select_time += time.time()
         if select_time > MAX_QUERY_TIME_SECS:
@@ -289,6 +287,17 @@ class DCacheAggregator:
         if not result:
             self._log.debug("No results from %s to %s." % (starttime, endtime))
             return endtime, result
+
+        # dCache sometimes returns a negative transfer size; when this happens,
+        # it also tosses up a complete garbage duration
+        filtered_result = []
+        for row in result:
+            row = dict(row)
+            if row['transfersize'] < 0:
+                row['transfersize'] = 0
+                row['connectiontime'] = 0
+            filtered_result.append(row)
+        result = filtered_result
 
         # If we hit our limit, there's no telling how many identical records
         # there are on the final millisecond; we must re-query with a smaller
