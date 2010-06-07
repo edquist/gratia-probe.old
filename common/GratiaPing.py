@@ -3,7 +3,7 @@
 #@(#)gratia/probe/common:$HeadURL$:$Id$
 
 import getopt,sys
-import Gratia
+import GratiaCore
 
 class UsageError(Exception):
     def __init__(self, msg):
@@ -36,11 +36,11 @@ if __name__ == '__main__':
                         sys.exit(0)
 
         rev = "$Revision$"
-        Gratia.RegisterReporter("GratiaPing.py",Gratia.ExtractSvnRevision(rev))
+        GratiaCore.RegisterReporter("GratiaPing.py",GratiaCore.ExtractSvnRevision(rev))
 
-        Gratia.Initialize()
+        GratiaCore.Initialize()
 
         if (verbose):
-                print "Number of successful handshakes: "+str(Gratia.successfulHandshakes)
-        sys.exit(0==Gratia.successfulHandshakes)
+                print "Number of successful handshakes: "+str(GratiaCore.successfulHandshakes)
+        sys.exit(0==GratiaCore.successfulHandshakes)
 
