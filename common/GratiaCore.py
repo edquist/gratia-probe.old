@@ -37,7 +37,7 @@ quiet = 0
 Config = None
 
 # Privates globals
-__wantUrlencodeRecords = 1
+global__wantUrlencodeRecords = 1
 __xmlintroRemove = re.compile(r'<\?xml[^>]*\?>')
 __certinfoLocalJobIdMunger = re.compile(r'(?P<ID>\d+(?:\.\d+)*)')
 __certinfoJobManagerExtractor = re.compile(r'gratia_certinfo_(?P<JobManager>(?:[^\d_][^_]*))')
@@ -96,7 +96,7 @@ def __handle_timeout__(signum, frame):
     Insure that we properly shutdown the connection in case of timeout
     """
     DebugPrint(3, 'Signal handler "handle_timeout" called with signal', signum)
-    raise GratiaTimeout("Connection to Collector lasted more than: "+str(5)+" second")
+    raise GratiaTimeout("Connection to Collector lasted more than: "+str(__timeout__)+" second")
 
 
 class ProbeConfiguration:
@@ -620,7 +620,7 @@ class Response:
     _message = r''
 
     def __init__(self, code, message):
-        global __wantUrlencodeRecords
+        global global__wantUrlencodeRecords
 
         if code == -1:
             if message == 'OK':
@@ -637,7 +637,7 @@ class Response:
             elif Response.__BundleProblemMatcher.match(message):
 
                 self._code = Response.BundleNotSupported
-            elif __wantUrlencodeRecords == 1 and Response.__responseMatcherURLCheck.search(message):
+            elif global__wantUrlencodeRecords == 1 and Response.__responseMatcherURLCheck.search(message):
 
                 self._code = Response.UnknownCommand
             elif Response.__responseMatcherPostTooLarge.search(message):
@@ -1158,12 +1158,12 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
     global __connectionError__
     global __certificateRejected__
     global __connectionRetries__
-    global __wantUrlencodeRecords
+    global global__wantUrlencodeRecords
     global __resending
 
     # Backward compatibility with old collectors
 
-    if __wantUrlencodeRecords == 0:
+    if global__wantUrlencodeRecords == 0:
         messageType = 'update'
 
     try:
@@ -1203,7 +1203,7 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
                 DebugPrint(0,
                            'Unable to send new record to old collector -- engaging backwards-compatible mode for remainder of connection'
                            )
-                __wantUrlencodeRecords = 0
+                global__wantUrlencodeRecords = 0
 
                 # Try again with the same record before returning to the
                 # caller. There will be no infinite recursion because
@@ -1231,7 +1231,7 @@ def __sendUsageXML(meterId, recordXml, messageType='URLEncodedUpdate'):
                 DebugPrint(0,
                            'Unable to send new record to old collector -- engaging backwards-compatible mode for remainder of connection'
                            )
-                __wantUrlencodeRecords = 0
+                global__wantUrlencodeRecords = 0
 
                 # Try again with the same record before returning to the
                 # caller. There will be no infinite recursion because
