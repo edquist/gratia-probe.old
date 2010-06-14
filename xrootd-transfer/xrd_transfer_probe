@@ -27,6 +27,7 @@ XRD_EXPIRE_TIME = 3600 # Records are assumed to have lost the "close" packet if
                        # no activity has happened in this amount of time.
 XRD_AUTH_EXPIRE_TIME = 4*3600 # Time for authentication session to expire
 
+
 # Author: Chad J. Schroeder
 # Copyright: Copyright (C) 2005 Chad J. Schroeder
 # This script is one I've found to be very reliable for creating daemons.
@@ -129,6 +130,9 @@ class XrdMonInfo(object):
 
     def __str__(self):
         return "XrdMonInfo %s" % self.uniq_id
+
+    def __del__(self):
+        DebugPrint(5, "Deleting XrdMonInfo object: %s" % self)
 
 class XrdMonMapInfo(XrdMonInfo):
 
@@ -474,12 +478,14 @@ class XrdFileEvent(object):
     def is_closed(self):
         return self.closed
 
+def isAuthInfo(evt):
+   return isinstance(evt, XrdMonMapLoginInfo) or \
+       isinstance(evt, XrdMonMapAuthInfo)
+
 class GratiaHandler(object):
 
     def __init__(self):
-        self.host_info = {}
         self.cur_host = None
-        self.cur_host_info = None
         t = threading.Thread(target=self.process)
         t.setDaemon(True)
         t.setName("Gratia Processing Thread")
@@ -537,7 +543,7 @@ class GratiaHandler(object):
         DebugPrint(4, "GratiaHandler processed message: %s" %  xrdMon)
         if self.stop:
             raise self.stop_exception
-        if isinstance(xrdMon, XrdMonMapAuthInfo):
+        if isAuthInfo(xrdMon):
             self.auth_info[xrdMon.user] = [xrdMon, time.time()]
         if isinstance(xrdMon, XrdMonWindowInfo):
             for evt in self.prev_events:
@@ -547,16 +553,24 @@ class GratiaHandler(object):
             return
         if not isinstance(xrdMon, XrdMonInfo):
             return
-        uniq_id = xrdMon.uniq_id
-        evt = self.events.get(uniq_id, None)
-        if not evt:
-            evt = XrdFileEvent(uniq_id, self.last_window)
-            self.events[uniq_id] = evt
-        self.prev_events.append(evt)
-        evt.handle(xrdMon, addr)
-        if isinstance(xrdMon, XrdMonMapOpenInfo) and xrdMon.user in self.auth_info:
-            evt.handle(self.auth_info[xrdMon.user][0], addr)
-            self.auth_info[xrdMon.user][1] = time.time()
+        if not isAuthInfo(xrdMon):
+            uniq_id = xrdMon.uniq_id
+            evt = self.events.get(uniq_id, None)
+            if not evt and not isinstance(xrdMon, XrdMonDiscInfo):
+                evt = XrdFileEvent(uniq_id, self.last_window)
+                self.events[uniq_id] = evt
+                DebugPrint(4, "Creating new event object; global count is %i." \
+                    % len(self.events))
+            # We just ignore disconnect messages that we haven't recorded the
+            # corresponding connect message for.
+            if not evt:
+                return
+            self.prev_events.append(evt)
+            evt.handle(xrdMon, addr)
+            if isinstance(xrdMon, XrdMonMapOpenInfo) and (xrdMon.user in \
+                    self.auth_info):
+                evt.handle(self.auth_info[xrdMon.user][0], addr)
+                self.auth_info[xrdMon.user][1] = time.time()
 
     def send_gratia_record(self, evt):
 
@@ -628,6 +642,9 @@ class GratiaHandler(object):
         timestamp = time.time()
 
         to_delete = []
+        start_events = len(self.events)
+        DebugPrint(2, "Number of events at the start of the summary call: %i" %\
+            start_events)
         for id, evt in self.events.items():
             if evt.is_closed() and timestamp - evt.last_window > XRD_WAIT_TIME \
                     or timestamp - evt.last_timestamp() > XRD_EXPIRE_TIME:
@@ -635,19 +652,27 @@ class GratiaHandler(object):
                 to_delete.append(id)
         for id in to_delete:
             del self.events[id]
+        end_events = len(self.events)
+        DebugPrint(2, "Number of events at the end of the summary call: %i" % \
+            end_events)
 
         to_delete = []
+        DebugPrint(2, "Number of auth items prior to pruning: %i" % \
+            len(self.auth_info))
         for id, tmp in self.auth_info.items():
-             auth_info, last_used = tmp
-             if timestamp - last_used > XRD_AUTH_EXPIRE_TIME:
-                 to_delete.append(id)
+            auth_info, last_used = tmp
+            if timestamp - last_used > XRD_AUTH_EXPIRE_TIME:
+                to_delete.append(id)
         for id in to_delete:
-             del self.auth_info[id]
+            del self.auth_info[id]
+        DebugPrint(2, "Number of auth item after pruning: %i" % \
+            len(self.auth_info))
 
     def exit_summary(self):
         global timestamp
         timestamp = time.time()
-        
+       
+        DebugPrint(2, "Sending %i records prior to exit." % len(self.events)) 
         for evt in self.events.values():
             self.send_gratia_record(evt)
 
@@ -704,7 +729,8 @@ def parse_opts():
     if not gratia_home and vdt_location:
         gratia_home = os.path.join(vdt_location, "gratia")
     if not gratia_home:
-        raise Exception("Gratia home is not specified and $VDT_LOCATION is not set.")
+        raise Exception("Gratia home is not specified and $VDT_LOCATION is " \
+            "not set.")
     # Set gratia_home to the location we decided on.
     opts.gratia_home = gratia_home
 
