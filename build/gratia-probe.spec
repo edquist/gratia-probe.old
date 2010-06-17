@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.15p
+Version: 1.06.16a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1273,6 +1273,9 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Thu Jun 17 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.16a-1
+- Fix from Philippe for global variable scope issue.
+
 * Thu Jun  3 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.15p-1
 - Hopefully final pre-release tweaks to dCache probe from Brian.
 
