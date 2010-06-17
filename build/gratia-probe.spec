@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 1.06.16a
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -1201,7 +1201,6 @@ Contributed by University of Nebraska Lincoln.
 %defattr(-,root,root,-)
 /etc/rc.d/init.d/gratia-xrootd-transfer
 %{default_prefix}/probe/xrootd-transfer/xrd_transfer_probe
-%{default_prefix}/probe/xrootd-transfer/watchXrootdLogs.py
 %{default_prefix}/probe/xrootd-transfer/SL4_init_script_patches
 %config(noreplace) %{default_prefix}/probe/xrootd-transfer/ProbeConfig
 
@@ -1273,6 +1272,9 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Thu Jun 17 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.16a-2
+- Remove file entry for removed file xrootd-transfer/watchXrootdLogs.py.
+
 * Thu Jun 17 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.16a-1
 - Fix from Philippe for global variable scope issue.
 
