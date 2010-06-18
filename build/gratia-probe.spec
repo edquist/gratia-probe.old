@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.16a
-Release: 2
+Version: 1.06.16b
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -1272,6 +1272,9 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Fri Jun 18 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.16b-1
+- Fix daft typo in GratiaCore.py
+
 * Thu Jun 17 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.16a-2
 - Remove file entry for removed file xrootd-transfer/watchXrootdLogs.py.
 
