@@ -1326,7 +1326,7 @@ def SendStatus(meterId):
             response = Response(Response.Success, 'Status message not supported in SOAP mode')
         elif Config.get_UseSSL() == 0 and Config.get_UseSoapProtocol() == 0:
 
-            responseString = __postResquest(__connection__, Config.get_CollectorService(), queryString)
+            responseString = __postRequest(__connection__, Config.get_CollectorService(), queryString)
             response = Response(Response.AutoSet, responseString)
         else:
             responseString = __postRequest(__connection__, Config.get_SSLCollectorService(), queryString)
