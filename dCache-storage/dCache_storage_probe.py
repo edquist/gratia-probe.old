@@ -93,8 +93,6 @@ def main():
 
     cmd = "java  org.apache.xalan.xslt.Process %s -PARAM now %d -PARAM SE %s -XSL %s/probe/dCache-storage/create_se_record.xsl -IN %s " % ( noPoolsArg, timeNow, get_se(cp) ,cp.GratiaLocation, dCacheUrl )
 
-    print cmd
-
     fd = os.popen(cmd)
 
     result = XmlBuilder.Xml2ObjectBuilder(fd)
