@@ -12,6 +12,15 @@ pools, storage areas , and storage quotas. The first two represent physical
 (hardware) layout of the system. The rest are logical view of how storage is
 partitioned between user groups.
 
+If you turned on Gratia dCache storage probes you should be able to see the 
+accounting information by accessing your Gratia collector. 
+To access the information about Gratia dCache-storage probe, go to 
+http://<gratia_host>:<gratia_port>/gratia-reporting/, click on "Custom SQL Query" 
+on the left site menu frame, enter the following query into provided text box:
+
+select * from StorageElement where ProbeName like 'dcache-storage:<dcache_admin_host_name>';
+
+
 Detailed description of fields for each record type.
 
 Common fields:
