@@ -105,50 +105,18 @@ need those file(s) to know which records have been sent to Gratia already.
 
 TESTING:
 =======
-1. Open the web page
-      http://gratia-transfer.opensciencegrid.org:8886/gratia-reporting/
-   or other address based on the value of SOAPHost in ProbeConfig. If
-  configured for ITB, use
-      http://gratia.opensciencegrid.org:8881/gratia-reporting/
-  or if configured for FNAL, use
-      http://gratia-fermi.fnal.gov:8886/gratia-reporting
+If you turned on Gratia dCache transfer probe you should be able to see the 
+accounting information by accessing your Gratia collector. Keep in mind that 
+storage probe collection is executed by a cron job, so check the time the cron 
+job will be executed:
 
-2. Click on "Custom SQL Report" in the left frame.
+# cat /etc/cron.d/gratia-probe-dcache-storage.cron 
+22 * * * * root "/opt/d-cache/gratia/probe/dCache-storage/dCache-storage_meter.cron.sh"
 
-3. In the text box, enter:
+To access the information about Gratia dCache-transfer probe, 
+go to http://<gratia_host>:<gratia_port>/gratia-reporting/, click on "Custom SQL Query" 
+on the left site menu frame, enter the following query into provided text box:
 
-select j.dbid, 
-	j.LocalJobId, 
-	j.CommonName, 
-	j.StartTime, 
-	m.CreateTime, 
-	td.*, 
-	N.* 
-from JobUsageRecord j 
-	join JobUsageRecord_Meta m on (j.dbid = m.dbid) 
-	join TDCorr on (j.dbid = TDCorr.dbid) 
-	join TransferDetails td on (TDCorr.TransferDetailsId = td.TransferDetailsId) 
-	join Probe P on (m.probeid = P.probeid) 
-	join Network N on (j.dbid = N.dbid) 
-where td.Protocol like '%ftp%' and P.probename like 'dcache-transfer:%' 
-order by StartTime desc limit 200;
+select * from MasterTransferSummary where ProbeName like 'dcache-transfer:<dcache_admin_host_name>';
 
-To show ReplicaManager transfers only:
-select j.dbid, 
-        j.LocalJobId, 
-        j.CommonName, 
-        j.StartTime, 
-        m.CreateTime, 
-        td.*, 
-        N.* 
-from JobUsageRecord j 
-        join JobUsageRecord_Meta m on (j.dbid = m.dbid) 
-        join TDCorr on (j.dbid = TDCorr.dbid) 
-        join TransferDetails td on (TDCorr.TransferDetailsId = td.TransferDetailsId) 
-        join Probe P on (m.probeid = P.probeid) 
-        join Network N on (j.dbid = N.dbid) 
-where td.Protocol like '%dcap%' and P.probename like 'dcache-transfer:%' and j.CommonName='Unknown' 
-order by StartTime desc limit 200;
-
-To show all transfers, remove the conditional checks on CommonName and
-rp.Value; and the limit clause.
+click on "Execute Query" and you will see the total number of transfer per user. 
