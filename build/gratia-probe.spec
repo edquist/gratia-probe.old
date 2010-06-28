@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.16b
+Version: 1.06.16c
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1272,6 +1272,10 @@ Contributed as effort from OSG-Storage.
 %endif # noarch
 
 %changelog
+* Mon Jun 21 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.16c-1
+- Updated dCache-storage and dCache-transfer and README files from Neha.
+- Remove unnecessary debug print from dCache-storage probe.
+
 * Fri Jun 18 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.16b-1
 - Fix daft typo in GratiaCore.py
 
