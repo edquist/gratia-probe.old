@@ -901,6 +901,10 @@ sub Feed_Gratia {
     # Sample: CumulativeSuspensionTime = 0
     print $py Create_Try_Except("r.TimeDuration", $hash{'CumulativeSuspensionTime'}, "CumulativeSuspensionTime");
   }
+  if ( defined ($hash{'CommittedSuspensionTime'})) {
+    # Sample: CommittedSuspensionTime = 0
+    print $py Create_Try_Except("r.TimeDuration", $hash{'CommittedSuspensionTime'}, "CommittedSuspensionTime");
+  }
   if ( defined ($hash{'CommittedTime'})) {
     # Sample: CommittedTime = 0
     print $py Create_Try_Except("r.TimeDuration", $hash{'CommittedTime'}, "CommittedTime");
@@ -983,6 +987,10 @@ sub Feed_Gratia {
   }
 
   # 2.24 - Processors - optional, positive integer - processors used/requested
+  if ( defined ($hash{'MachineAttrCpus0'})) {
+    # Sample: MachineAttrCpus0 = 1
+    print $py qq/r.Processors(\"/ . $hash{'MachineAttrCpus0'} . qq/\", metric="max" )\n/;
+  }
 
   # 2.25 - ServiceLevel - optional, string (referred to as record identity?)
     
