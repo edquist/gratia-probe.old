@@ -693,6 +693,7 @@ sub PythonStringLiteral {
 	
     $s =~ s/\\/\\\\/g;   # escape \'s first, MUST be done first
     $s =~ s/'/\\'/g;     #        single quotes
+    $s =~ s/"/\\"/g;     #        double quotes
     $s =~ s/\n/\\n/g;    #        new-lines, and everything next
     $s =~ s/([^[:print:]])/sprintf("\\x%02x", ord $1)/eg;
 
