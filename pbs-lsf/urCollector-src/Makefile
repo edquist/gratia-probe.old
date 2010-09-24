@@ -4,7 +4,7 @@ INSTALLDIR=/opt/urCollector
 INSTALLDIR_LIBEXEC=$(INSTALLDIR)/libexec/
 INSTALLDIR_SBIN=$(INSTALLDIR)/sbin/
 INSTALLDIR_ETC=$(INSTALLDIR)/etc/
-urCreator : 
+urCreator : urCreator.cpp urwg.cpp xmlUtil.cpp hlr_prot_errcode.h  int2string.h  stringSplit.h  urwg.h  xmlUtil.h
 	$(CC) -o urCreator urCreator.cpp urwg.cpp xmlUtil.cpp 
 	chmod +x urCreator
 all: urCreator
