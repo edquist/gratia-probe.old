@@ -477,7 +477,7 @@ class UsageRecord(Record):
         self.XmlData.append('<RecordIdentity urwg:recordId="' + socket.getfqdn() + ':' + str(RecordPid) + '.'
                             + str(GratiaCore.RecordId) + '" urwg:createTime="' + TimeToString(time.gmtime()) + '" />\n')
         GratiaCore.RecordId = GratiaCore.RecordId + 1
-        
+ 
         if len(self.JobId) > 0:
             self.XmlData.append('<JobIdentity>\n')
             for data in self.JobId:

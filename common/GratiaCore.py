@@ -2101,7 +2101,7 @@ def OpenNewRecordFile(dirIndex):
                 if not os.path.exists(working_dir):
                     continue
 
-               # Need to find and pack the full outbox
+                # Need to find and pack the full outbox
 
                 outfiles = os.listdir(working_dir)
                 if len(outfiles) == 0:
@@ -2109,19 +2109,19 @@ def OpenNewRecordFile(dirIndex):
 
                 if CompressOutbox(probe_dir, working_dir, outfiles):
 
-                   # then delete the content
+                    # then delete the content
 
                     for f in os.listdir(working_dir):
                         RemoveRecordFile(os.path.join(working_dir, f))
                 else:
                     continue
 
-               # and retry
+                # and retry
 
                 toomanyfiles = __outstandingRecordCount__ >= Config.get_MaxPendingFiles()
                 if toomanyfiles:
 
-                   # We did not suppress enough file, let's go on
+                    # We did not suppress enough file, let's go on
 
                     continue
 
@@ -3278,8 +3278,9 @@ def SendXMLFiles(fileDir, removeOriginal=False, resourceType=None):
         f = 0
 
         toomanyfiles = __outstandingRecordCount__ >= Config.get_MaxPendingFiles()
+        toomanystaged = __outstandingStagedTarCount__ >= Config.get_MaxStagedArchives()
 
-        if toomanyfiles:
+        if toomanyfiles and toomanystaged:
             DebugPrint(4, 'DEBUG: Too many pending files, the record has not been backed up')
             f = sys.stdout
         else:
