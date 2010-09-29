@@ -15,7 +15,7 @@ BuildRequires: python-devel >= 2.3
 %if %{?no_dcache:0}%{!?no_dcache:1}
 BuildRequires: postgresql-devel
 %endif
-BuildRequires: gcc-c++
+BuildRequires: gcc-c++, python-setuptools
 
 # Required for dCache transfer probe.
 %global sqlalchemy_version 0.4.1
