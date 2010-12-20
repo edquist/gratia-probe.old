@@ -11,15 +11,15 @@ import ConfigParser
 hostname = socket.gethostname()
 ProbeConfig = None
 
-# We assume that if gratia_gip_common isn't in sys.path, it's in the same
+# We assume that if bdii_common isn't in sys.path, it's in the same
 # directory as this script.
 # Oh the woes of poor package management.
 dir = os.path.abspath(os.path.split(sys.argv[0])[0])
 if dir and dir not in sys.path:
     sys.path.append(dir)
 
-import gratia_gip_common
-gratia_gip_common.bootstrap()
+import bdii_common
+bdii_common.bootstrap()
 
 GratiaCore = None
 ProbeConfig = None
@@ -110,15 +110,15 @@ def do_ce_info(cp, ce_entries):
         add_info(info, cluster, 'waitingJobs', waiting)
 
 def do_se_info(cp):
-    site_entries = gratia_gip_common.read_bdii(cp, "(objectClass=GlueSite)")
-    se_entries = gratia_gip_common.read_bdii(cp, "(objectClass=GlueSE)")
+    site_entries = bdii_common.read_bdii(cp, "(objectClass=GlueSite)")
+    se_entries = bdii_common.read_bdii(cp, "(objectClass=GlueSE)")
     today = datetime.date.today()
     time_now = time.time()
 
     gratia_info = {}
     for entry in se_entries:
         try:
-            site = gratia_gip_common.join_FK(entry, site_entries,
+            site = bdii_common.join_FK(entry, site_entries,
                 "SiteUniqueID")
         except ValueError, ve:
             log.warn("Unable to match SE:\n%s" % entry)
@@ -136,7 +136,7 @@ def do_se_info(cp):
             continue
 
         unique_id = entry.glue['SEUniqueID']
-        probeName = 'gip_storage:%s:%s' % (unique_id, hostname)
+        probeName = 'bdii_storage:%s:%s' % (unique_id, hostname)
         GratiaCore.Config.setMeterName(probeName)
         GratiaCore.Config.setSiteName(se_name)
         se = StorageElement.StorageElement()
@@ -165,10 +165,10 @@ def do_se_info(cp):
     sendToGratia(gratia_info)
 
 def do_site_info(cp):
-    ce_entries = gratia_gip_common.read_bdii(cp, "(objectClass=GlueCE)")
-    cluster_entries = gratia_gip_common.read_bdii(cp,
+    ce_entries = bdii_common.read_bdii(cp, "(objectClass=GlueCE)")
+    cluster_entries = bdii_common.read_bdii(cp,
         "(objectClass=GlueCluster)", multi=True)
-    site_entries = gratia_gip_common.read_bdii(cp, "(objectClass=GlueSite)")
+    site_entries = bdii_common.read_bdii(cp, "(objectClass=GlueSite)")
     ce_map = {}
     ce_map2 = {}
     for ce in ce_entries:
@@ -206,23 +206,23 @@ def findCE(vo_entry, ce_entries):
 def main():
 
     # Load up the config file.
-    opts = gratia_gip_common.parse_opts()
+    opts = bdii_common.parse_opts()
 
     # Copy the Gratia libraries into our namespace
     global GratiaCore
-    GratiaCore = gratia_gip_common.GratiaCore
+    GratiaCore = bdii_common.GratiaCore
     global ProbeConfig
-    ProbeConfig = gratia_gip_common.ProbeConfig
+    ProbeConfig = bdii_common.ProbeConfig
     global ComputeElement
-    ComputeElement = gratia_gip_common.ComputeElement
+    ComputeElement = bdii_common.ComputeElement
     global ComputeElementRecord
-    ComputeElementRecord = gratia_gip_common.ComputeElementRecord
+    ComputeElementRecord = bdii_common.ComputeElementRecord
     global StorageElement
-    StorageElement = gratia_gip_common.StorageElement
+    StorageElement = bdii_common.StorageElement
     global StorageElementRecord
-    StorageElementRecord = gratia_gip_common.StorageElementRecord
+    StorageElementRecord = bdii_common.StorageElementRecord
     global log
-    log = gratia_gip_common.log
+    log = bdii_common.log
 
     # Use the CLI option, ProbeConfig val, then default (in that order)
     bdii = GratiaCore.Config.getConfigAttribute("BDII")
@@ -234,8 +234,8 @@ def main():
     cp.add_section("bdii")
     cp.set("bdii", "endpoint", bdii)
 
-    vo_entries = gratia_gip_common.read_bdii(cp, "(objectClass=GlueVOView)")
-    ce_entries = gratia_gip_common.read_bdii(cp, "(objectClass=GlueCE)")
+    vo_entries = bdii_common.read_bdii(cp, "(objectClass=GlueVOView)")
+    ce_entries = bdii_common.read_bdii(cp, "(objectClass=GlueCE)")
     now = datetime.datetime.now()
     time_now = time.time()
 
@@ -287,7 +287,7 @@ def main():
             log.warn("Site ID %s is not in site_map" % cluster_map[ce_map[\
                 ce_unique_id]])
             continue
-        probeName = 'gip_compute:%s:%s' % (ce_map[ce_unique_id], hostname)
+        probeName = 'bdii_compute:%s:%s' % (ce_map[ce_unique_id], hostname)
         siteName = site_map[cluster_map[ce_map[ce_unique_id]]]
         GratiaCore.Config.setMeterName(probeName)
         GratiaCore.Config.setSiteName(siteName)

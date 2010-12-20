@@ -16,15 +16,15 @@ import xml.dom.minidom
 hostname = socket.gethostname()
 ProbeConfig = None
 
-# We assume that if gratia_gip_common isn't in sys.path, it's in the same
+# We assume that if bdii_common isn't in sys.path, it's in the same
 # directory as this script.
 # Oh the woes of poor package management.
 dir = os.path.abspath(os.path.split(sys.argv[0])[0])
 if dir and dir not in sys.path:
     sys.path.append(dir)
 
-import gratia_gip_common
-gratia_gip_common.bootstrap()
+import bdii_common
+bdii_common.bootstrap()
 
 GratiaCore = None
 Subcluster = None
@@ -80,9 +80,9 @@ def create_site_dict(ce_entries, cp):
     Determine site ownership of CEs.
     """
     # Query BDII for the cluster and site entries
-    cluster_entries = gratia_gip_common.read_bdii(cp,
+    cluster_entries = bdii_common.read_bdii(cp,
         query="(objectClass=GlueCluster)", multi=True)
-    site_entries = gratia_gip_common.read_bdii(cp,
+    site_entries = bdii_common.read_bdii(cp,
         query="(objectClass=GlueSite)")
     ownership = {}
 
@@ -90,12 +90,12 @@ def create_site_dict(ce_entries, cp):
     for ce in ce_entries:
         try:
             # First, we join the CE to the cluster:
-            cluster = gratia_gip_common.join_FK(ce, cluster_entries,
+            cluster = bdii_common.join_FK(ce, cluster_entries,
                 "ClusterUniqueID")
             #if ce.glue['CEHostingCluster'] == 'red.unl.edu':
             #    print cluster
             # Then, join the cluster to the site:
-            site = gratia_gip_common.join_FK(cluster, site_entries,
+            site = bdii_common.join_FK(cluster, site_entries,
                 "SiteUniqueID")
             ownership[ce.glue["CEHostingCluster"]] = site.glue["SiteName"]
         except Exception, e:
@@ -163,7 +163,7 @@ def sub_cluster_info(ce_list, cp):
     the key is the CE name and the value is a list of SubClusters associated
     with that CE.
     """
-    sc_entries = gratia_gip_common.read_bdii(cp,
+    sc_entries = bdii_common.read_bdii(cp,
         query="(objectClass=GlueSubCluster)")
     sc_info = {}
     sc_total = {}
@@ -181,14 +181,14 @@ def sub_cluster_info(ce_list, cp):
 def main():
 
     # Load up the config file.
-    opts = gratia_gip_common.parse_opts()
+    opts = bdii_common.parse_opts()
 
     global GratiaCore
-    GratiaCore = gratia_gip_common.GratiaCore
+    GratiaCore = bdii_common.GratiaCore
     global ProbeConfig
-    ProbeConfig = gratia_gip_common.ProbeConfig
+    ProbeConfig = bdii_common.ProbeConfig
     global Subcluster
-    Subcluster = gratia_gip_common.Subcluster
+    Subcluster = bdii_common.Subcluster
 
     # Use the CLI option, ProbeConfig val, then default (in that order)
     bdii = GratiaCore.Config.getConfigAttribute("BDII")
@@ -201,7 +201,7 @@ def main():
     cp.set("bdii", "endpoint", bdii)
 
     # Read the CE entries from the BDII.    
-    entries = gratia_gip_common.read_bdii(cp, query="(&(objectClass=GlueCE))")
+    entries = bdii_common.read_bdii(cp, query="(&(objectClass=GlueCE))")
     
     cluster_info = create_count_dict(entries)
 
@@ -260,7 +260,8 @@ def main():
 
             # Send the subcluster to Gratia
             GratiaCore.Config.setSiteName(site)
-            GratiaCore.Config.setMeterName('gip_subcluster:%s:%s' % (cluster, hostname))
+            GratiaCore.Config.setMeterName('bdii_subcluster:%s:%s' % (cluster,
+                hostname))
 
             s = Subcluster.Subcluster()
             s.UniqueID(sc.glue['SubClusterUniqueID'])
@@ -305,7 +306,7 @@ def sendToGratia_child(cluster, sc_list):
         print e
         return
     GratiaCore.Config.setSiteName(site)
-    GratiaCore.Config.setMeterName('gip_subcluster:%s' % cluster)
+    GratiaCore.Config.setMeterName('bdii_subcluster:%s' % cluster)
 
     for s in sc_list:
         print "Sending subcluster of cluster %s in site %s to Gratia: %s."% \

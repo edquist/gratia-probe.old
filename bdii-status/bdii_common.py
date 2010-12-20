@@ -24,9 +24,9 @@ def bootstrap():
     # configurations in the case where our environment wasn't really configured
     # correctly.
     paths = ['/opt/vdt/gratia/probe/common', '/opt/vdt/gratia/probe/services',
-        '/opt/vdt/gratia/probe/gip-status', '$VDT_LOCATION/gratia/probe/common',
+        '/opt/vdt/gratia/probe/bdii-status', '$VDT_LOCATION/gratia/probe/common',
         '$VDT_LOCATION/gratia/probe/services',
-        '$VDT_LOCATION/gratia/probe/gip-status']
+        '$VDT_LOCATION/gratia/probe/bdii-status']
     for path in paths:
         gratia_path = os.path.expandvars(path)
         if gratia_path not in sys.path and os.path.exists(gratia_path):
@@ -280,7 +280,7 @@ def parse_opts():
         "Gratia directory; defaults to $VDT_LOCATION/gratia",
         dest="gratia_home")
     parser.add_option("-c", "--gratia_config", help="Location of the Gratia " \
-        "config; defaults to $GRATIA_HOME/gip-status/ProbeConfig",
+        "config; defaults to $GRATIA_HOME/bdii-status/ProbeConfig",
         dest="gratia_config")
     parser.add_option("--bdii", help="BDII to query; defaults to %s" % \
         default_bdii, dest="bdii")
@@ -311,7 +311,7 @@ def parse_opts():
     opts.gratia_home = gratia_home
 
     # Initialize logging
-    logfile = os.path.join(gratia_home, "var", "logs", "gip-status.log")
+    logfile = os.path.join(gratia_home, "var", "logs", "bdii-status.log")
     if opts.logfile:
         logfile = opts.logfile
     path, _ = os.path.split(logfile)
@@ -320,10 +320,10 @@ def parse_opts():
     try:
         fp = open(logfile, 'w')
     except Exception, e:
-        raise Exception("Could not open gip-status logfile, %s, for " \
+        raise Exception("Could not open bdii-status logfile, %s, for " \
             "write.  Error: %s." % (logfile, str(e)))
     global log
-    log = logging.getLogger("XrdStorage")
+    log = logging.getLogger("BdiiStatus")
     log.setLevel(logging.DEBUG)
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     handler = logging.handlers.RotatingFileHandler(
@@ -339,7 +339,7 @@ def parse_opts():
 
     # Bootstrap Gratia environment
     log.debug("Gratia home: %s" % gratia_home)
-    probe_home = os.path.join(gratia_home, "probe", "gip-status")
+    probe_home = os.path.join(gratia_home, "probe", "bdii-status")
     if os.path.exists(probe_home) and probe_home not in sys.path:
         sys.path.insert(0, probe_home)
         log.debug("Gratia Probe home: %s" % probe_home)
