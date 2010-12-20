@@ -317,17 +317,24 @@ def parse_opts():
     path, _ = os.path.split(logfile)
     if path and not os.path.exists(path):
         os.makedirs(path)
+    has_logfile = True
     try:
         fp = open(logfile, 'w')
+        fp.close()
     except Exception, e:
-        raise Exception("Could not open bdii-status logfile, %s, for " \
+        has_logfile = False
+        print >> sys.stderr, ("Could not open bdii-status logfile, %s, for " \
             "write.  Error: %s." % (logfile, str(e)))
+        print >> sys.stderr, "Logging will be written to stderr."
     global log
     log = logging.getLogger("BdiiStatus")
     log.setLevel(logging.DEBUG)
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    handler = logging.handlers.RotatingFileHandler(
-        logfile, maxBytes=20*1024*1024, backupCount=5)
+    if has_logfile:
+        handler = logging.handlers.RotatingFileHandler(
+            logfile, maxBytes=20*1024*1024, backupCount=5)
+    else:
+        handler = logging.StreamHandler()
     handler.setLevel(logging.DEBUG)
     handler.setFormatter(formatter)
     log.addHandler(handler)

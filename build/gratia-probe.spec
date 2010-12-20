@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.06.16c
-Release: 1
+Version: 1.07.1
+Release: 0.1.pre1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -96,6 +96,7 @@ Source16: %{name}-hadoop-storage-%{version}.tar.bz2
 Source17: %{name}-condor-events-%{version}.tar.bz2
 Source18: %{name}-xrootd-transfer-%{version}.tar.bz2
 Source19: %{name}-xrootd-storage-%{version}.tar.bz2
+Source20: %{name}-bdii-status-%{version}.tar.bz2
 ########################################################################
 
 # Build settings.
@@ -127,6 +128,7 @@ Prefix: /etc
 %setup -q -D -T -a 17
 %setup -q -D -T -a 18
 %setup -q -D -T -a 19
+%setup -q -D -T -a 20
 
 %build
 %ifnarch noarch
@@ -1269,9 +1271,76 @@ Contributed as effort from OSG-Storage.
 
 # End of xrootd-storage post
 
+%package bdii-status%{?maybe_itb_suffix}
+Summary: Probes that emits records of BDII status
+Group: Application/System
+Requires: %{name}-common >= 1.07.1
+%if %{?python:0}%{!?python:1}
+Requires: python >= 2.3
+%endif
+Requires: %{name}-common
+License: See LICENSE.
+%{?config_itb:Obsoletes: %{name}-bdii-status}
+%{!?config_itb:Obsoletes: %{name}-bdii-status%{itb_suffix}}
+
+%description bdii-status%{?maybe_itb_suffix}
+Records a BDII's status into the Gratia accounting system.
+Creates a record for CEs, SEs, and Subcluster objects.
+Contributed by University of Nebraska Lincoln.
+
+%files bdii-status%{?maybe_itb_suffix}
+%defattr(-,root,root,-)
+%{default_prefix}/probe/bdii-status/bdii_cese_record
+%{default_prefix}/probe/bdii-status/bdii_subcluster_record
+%{default_prefix}/probe/bdii-status/bdii_common.py
+%config(noreplace) %{default_prefix}/probe/bdii-status/ProbeConfig
+
+%post bdii-status%{?maybe_itb_suffix}
+# /usr -> "${RPM_INSTALL_PREFIX0}"
+# %{default_prefix} -> "${RPM_INSTALL_PREFIX1}"
+
+%global osg_collector %{default_osg_collector}
+%global fnal_collector %{default_fnal_collector}
+%global collector_port %{default_collector_port}
+%configure_probeconfig_pre -d bdii-status -m bdii-status -M 900
+%configure_probeconfig_post
+
+%max_pending_files_check bdii-status
+
+%scrub_root_crontab bdii-status
+
+# One crontab for bdii_cese_status running every 15 minutes
+(( min = $RANDOM % 15 ))
+%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-condor-events.cron <<EOF
+$min,$(( $min + 15 )),$(( $min + 30 )),$(( $min + 45 )) * * * * root \
+"${RPM_INSTALL_PREFIX1}/probe/bdii-status/bdii_cese_record" 2> /dev/null > /dev/null
+EOF
+
+# One crontab for bdii_subcluster_status running once a day.
+(( min = $RANDOM % 60 ))
+(( hour = $RANDOM % 24 ))
+%{__cat} >${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-condor-events.cron <<EOF
+$min $hour * * * root \
+"${RPM_INSTALL_PREFIX1}/probe/bdii-status/bdii_subcluster_record" 2> /dev/null > /dev/null
+EOF
+
+# End of bdii-status post
+
+
+%preun condor-events%{?maybe_itb_suffix}
+# Only execute this if we're uninstalling the last package of this name
+if [ $1 -eq 0 ]; then
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-condor-events.cron
+fi
+#   End of condor-events preun
+# End of condor-events section
+
 %endif # noarch
 
 %changelog
+* Mon Dec 20 2010 Brian Bockelman <bbockelm@cse.unl.edu> - 1.07.1-0.1.pre1
+- First pre-release of 1.07, including the bdii-status probes.
+
 * Mon Jun 21 2010 Christopher Green <greenc@gr6x1.fnal.gov> - 1.06.16c-1
 - Updated dCache-storage and dCache-transfer and README files from Neha.
 - Remove unnecessary debug print from dCache-storage probe.
