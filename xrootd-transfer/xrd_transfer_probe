@@ -91,13 +91,13 @@ def gratia_log_traceback(lvl=0):
     if DebugPrint: # Make sure this has been initialized
         DebugPrint(lvl, "Encountered exception:\n%s" % tb_str)
 
-def print_handler(obj):
-    DebugPrint(-1, str(obj))
+def print_handler(obj, addr):
+    DebugPrint(-1, '%s (from %s)' % (str(obj), '%s:%i' % addr))
 
 def udp_server(data_handler, port=3334, bind="0.0.0.0"):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.bind((bind, port))
-    buf = 4096
+    buf = 64*1024
     while 1:
         data, addr = server_socket.recvfrom(buf)
         try:
