@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.07.1
-Release: 0.1.pre1
+Version: 1.07.01a
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -1338,6 +1338,20 @@ fi
 %endif # noarch
 
 %changelog
+* Mon Dec 20 2010 Brian Bockelman <bbockelm@cse.unl.edu> - 1.07.1a-1
+- Increase buffer size on the server to make sure we get the full 
+-  message from the xrootd daemon.
+- Enhance detection of number of core in PBS and LSF accounting log 
+-  (hence fixing the calculation for HTPC/whole node jobs)
+- Since GratiaCore.py has a very efficient (tar.gz) way of keeping in 
+-  store the record that can not be sent up to the collector, we now 
+-  use this mechanism rather than keeping any input that is already in 
+-  UsageRecord XML format.
+- Addresses a security problem in which users can submit jobs that cause 
+-  the gratia probe to execute arbitrary python code supplied by the user.  
+- Reporting the number of processors is so that multi-core jobs (HTPC) on OSG 
+-  condor sites will be correctly accounted.
+
 * Mon Dec 20 2010 Brian Bockelman <bbockelm@cse.unl.edu> - 1.07.1-0.1.pre1
 - First pre-release of 1.07, including the bdii-status probes.
 
