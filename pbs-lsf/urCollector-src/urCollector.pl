@@ -18,6 +18,8 @@ use File::Basename;
 use urCollector::Common qw(:DEFAULT :Locking);
 use urCollector::Configuration;
 
+use List::Util qw(first); 
+
 # turn off buffering of STDOUT
 $| = 1;
 
@@ -987,16 +989,6 @@ sub writeGGFURFile {
    
    if (exists($urAcctlogInfo{execHost}) && $urAcctlogInfo{execHost} ne "") {
       $cmd .= "-y \"$urAcctlogInfo{execHost}\" -Y \"executing host\" ";
-      # Get the number of Processors
-      
-      if (!exists($urAcctlogInfo{processors}) || $urAcctlogInfo{processors} eq "" || $urAcctlogInfo{processors} eq "1") {
-         # Execute: lshosts $execHost
-         # which returns
-         #HOST_NAME      type    model  cpuf ncpus maxmem maxswp server RESOURCES
-         #c485         X86_64   PC1133  23.1     8 16046M 16378M    Yes (mpich2)
-         
-         #            $urAcctlogInfo{processors} = $results{"ncpus"} || 1;
-      }
    }
    
    if (exists($urAcctlogInfo{queue}) && $urAcctlogInfo{queue} ne "") {
@@ -1434,8 +1426,38 @@ sub parseUR_lsf {
    $urAcctlogInfo{start}=$$lrmsJobRecordFields[10];
    $urAcctlogInfo{end}=$$lrmsJobRecordFields[2];
    $urAcctlogInfo{ctime}=$$lrmsJobRecordFields[7];
+   if ($$lrmsJobRecordFields[23+$shift1]) {
+      $urAcctlogInfo{execHost}=$$lrmsJobRecordFields[23+$shift2];
+   }
    $urAcctlogInfo{jobName}=$$lrmsJobRecordFields[26+$shift2];
+   $urAcctlogInfo{command}=$$lrmsJobRecordFields[27+$shift2];
    $urAcctlogInfo{exitStatus}=$$lrmsJobRecordFields[49+$shift2];
+   
+   # Get the number of Processors if the node is in exclusive mode.
+   if  ( $urAcctlogInfo{command} =~ m/#BSUB -x/i
+         && ((exists($urAcctlogInfo{execHost}) && $urAcctlogInfo{execHost} ne "") 
+         && (!exists($urAcctlogInfo{processors}) || $urAcctlogInfo{processors} eq "" || $urAcctlogInfo{processors} eq "1") ) )
+   {
+         # Execute: lshosts $exec   Host
+         # which returns
+         #HOST_NAME      type    model  cpuf ncpus maxmem maxswp server RESOURCES
+         #c485         X86_64   PC1133  23.1     8 16046M 16378M    Yes (mpich2)
+         
+         # print "Will execute lshost $urAcctlogInfo{execHost}\n";
+         open FH, "lshosts $urAcctlogInfo{execHost} |" or die "Failed to open pipeline to/from lshost";
+         my @lines = <FH>;
+         close(FH);
+         print "Need: @lines\n";
+         if ( scalar @lines == 2) {
+            my @headers = split(/ +/,$lines[0]);
+            my @values = split(/ +/,$lines[1]);
+            my $search = "ncpus";
+            my $index = first { $headers[$_] eq $search } 0 .. $#headers;
+            # print "Found value for $search = $values[$index]\n";
+            $urAcctlogInfo{processors} = $values[$index] || 1;
+         }
+   }
+   # print "DEBUG: $urAcctlogInfo{execHost}\n";
 }
 
 
