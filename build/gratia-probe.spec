@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 1.07.01a
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -152,7 +152,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
 
 %ifarch noarch
   # Obtain files
-  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer,services,hadoop-storage,condor-events,xrootd-transfer,xrootd-storage} \
+  %{__cp} -pR {common,condor,psacct,sge,glexec,metric,dCache-transfer,dCache-storage,gridftp-transfer,services,hadoop-storage,condor-events,xrootd-transfer,xrootd-storage,bdii-status} \
               "${RPM_BUILD_ROOT}%{default_prefix}/probe"
 
   # Get uncustomized ProbeConfigTemplate files (see post below)
@@ -170,6 +170,7 @@ cd SQLAlchemy-%{sqlalchemy_version}
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/condor-events/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-transfer/ProbeConfig" \
       "${RPM_BUILD_ROOT}%{default_prefix}/probe/xrootd-storage/ProbeConfig" \
+      "${RPM_BUILD_ROOT}%{default_prefix}/probe/bdii-status/ProbeConfig" \
       ; do
     %{__cp} -p "common/ProbeConfigTemplate" "$probe_config"
     echo "%{ProbeConfig_template_marker}" >> "$probe_config"
@@ -1326,18 +1327,20 @@ EOF
 
 # End of bdii-status post
 
-
-%preun condor-events%{?maybe_itb_suffix}
+%preun bdii-status%{?maybe_itb_suffix}
 # Only execute this if we're uninstalling the last package of this name
 if [ $1 -eq 0 ]; then
-  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-condor-events.cron
+  %{__rm} -f ${RPM_INSTALL_PREFIX2}/cron.d/gratia-probe-bdii-status.cron
 fi
-#   End of condor-events preun
-# End of condor-events section
+#   End of bdii-status preun
+# End of bdii-status section
 
 %endif # noarch
 
 %changelog
+* Thu Jan 20 2011 Christopher Green <greenc@gr6x1.fnal.gov> - 1.07.01a-2
+- Correct bad preun for bdii-status.
+
 * Mon Dec 20 2010 Brian Bockelman <bbockelm@cse.unl.edu> - 1.07.1a-1
 - Increase buffer size on the server to make sure we get the full 
 -  message from the xrootd daemon.
