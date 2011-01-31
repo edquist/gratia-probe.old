@@ -360,7 +360,7 @@ foreach $logfile (@logfiles) {
       # Parse the XML log file
       while (<LOGF>) {
         # See fngp-osg:/export/osg/grid/globus/lib/perl/Globus/GRAM
-        # And the JobManger/condor.pm module - under sub poll()
+        # And the JobManager/condor.pm module - under sub poll()
 
         # I adapted the code the Globus condor JobManager uses. While
         # it lacks some error handling, it will work as well or
@@ -1634,7 +1634,7 @@ sub open_new_py {
     $prog_revision, " (tag ", $prog_version, ")\")\n";
   if ($condor_version) {
     print $py "Gratia.RegisterService(\"Condor\", \"",
-      $condor_version, "\")\n";
+      PythonStringLiteral($condor_version), "\")\n";
   }
   print $py "Gratia.setProbeBatchManager(\"condor\")\n";
   if (defined($gratia_config)) {
