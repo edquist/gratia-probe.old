@@ -129,6 +129,7 @@ fi
 ./condor_meter.pl \
   -d \
   -v \
+  -x \
   -s "${WorkingFolder}/globus-condor-log-state.dat" \
   ${DataFolder} | ${pp_dir}/DebugPrint.py -l 1
 ExitCode=$?

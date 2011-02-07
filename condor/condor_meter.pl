@@ -836,6 +836,13 @@ sub Feed_Gratia {
       print $py qq/r.DN("$dn")\n/ if $dn;
       print $py qq/r.VOName("$fqan")\n/ if $fqan;
       print $py qq/r.ReportableVOName("$vo")\n/ if $vo;
+     
+     if ( defined ($hash{'x509UserProxyFirstFQAN'})) {
+        printf $py qq/r.VOName("$hash{'x509UserProxyFirstFQAN'}")\n/;
+     }
+     if ( defined ($hash{'x509UserProxyVOName'})) {
+        printf $py qq/r.ReportableVOName("$hash{'x509UserProxyVOName'}")\n/;
+     }
   }
 
   # 2.7 JobName - Condors name? for this job? - optional, string
@@ -1038,7 +1045,10 @@ sub Feed_Gratia {
   #print $py qq/r.AdditionalInfo(\"\", \"/ . $hash{''} . qq/\")\n/;
   # Sample:
 
-  print $py "Gratia.Send(r)\n";
+  print $py "response = Gratia.Send(r)\n";
+  print $py "if response[:2] != 'OK':\n";
+  print $py "   print response\n";
+  print $py "   sys.exit(1)\n";
   print $py "#\n";
   ++$count_submit;
   if (($count_submit % $max_batch_size) == 0) {
@@ -1602,17 +1612,22 @@ sub checkSeenLocalJobId {
 }
 
 sub close_py_and_cleanup {
-  $py->close() if $py;
+  $send_success = 1;
+  $py->close() or $send_success = 0 if $py;
   # Now we have closed the Python pipe, I can delete the log files that
   # were just processed.
   if ($delete_flag) {
-    foreach $plog (@processed_logfiles) {
-      if (unlink ($plog)) {
-        if ($verbose) {
-          print "Removed logfile ($plog)\n";
+    if (!$send_success) {
+      warn "No logfile was removed due to errors in the Gratia python script\n";
+    } else {
+      foreach $plog (@processed_logfiles) {
+        if (unlink ($plog)) {
+          if ($verbose) {
+            print "Removed logfile ($plog)\n";
+          }
+        } else {
+          warn "Unable to remove logfile ($plog)\n"
         }
-      } else {
-        warn "Unable to remove logfile ($plog)\n"
       }
     }
   }
@@ -1629,7 +1644,7 @@ sub open_new_py {
                                   dirname($gram_log_state_file)):">/dev/null 2>&1";
   $py->open("|${tmp_py} python -u ${py_out}");
   autoflush $py 1;
-  print $py "import Gratia\n\n";
+  print $py "import Gratia\nimport sys\n";
   print $py "Gratia.RegisterReporter(\"condor_meter.pl\", \"",
     $prog_revision, " (tag ", $prog_version, ")\")\n";
   if ($condor_version) {
