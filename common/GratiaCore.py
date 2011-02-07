@@ -42,7 +42,7 @@ __xmlintroRemove = re.compile(r'<\?xml[^>]*\?>')
 __certinfoLocalJobIdMunger = re.compile(r'(?P<ID>\d+(?:\.\d+)*)')
 __certinfoJobManagerExtractor = re.compile(r'gratia_certinfo_(?P<JobManager>(?:[^\d_][^_]*))')
 __lrms = None
-
+__quoteSplit = re.compile(' *"([^"]*)"')
 
 def __disconnect_at_exit__():
     """
@@ -118,6 +118,7 @@ class ProbeConfiguration:
     __UseSyslog = None
     __UserVOMapFile = None
     __FilenameFragment = None
+    __CertInfoLogPattern = None
 
     def __init__(self, customConfig='ProbeConfig'):
         if os.path.exists(customConfig):
@@ -464,6 +465,14 @@ class ProbeConfiguration:
 
     def get_PSACCTExceptionsRepository(self):
         return self.__getConfigAttribute('PSACCTExceptionsRepository')
+
+    def get_CertInfoLogPattern(self):
+        if self.__CertInfoLogPattern:
+            return self._CertInfoLogPattern
+        val = self.__getConfigAttribute('get_CertInfoLogPattern')
+        if val == None: val = ''
+        self.__CertInfoLogPattern = val
+        return self.__CertInfoLogPattern
 
     def get_UserVOMapFile(self):
         if self.__UserVOMapFile:
@@ -4051,8 +4060,45 @@ def verifyFromCertInfo(
 
 jobManagers = []
 
+def readCertInfoLog(localJobId):
+    ''' Look for and read contents of certificate log if present'''
 
-def readCertInfo(localJobId, probeName):
+    DebugPrint(4, 'readCertFromBlahpLog: received (' + str(localJobId) + r')')
+
+    global __quoteSplit
+
+    # First get the list of accounting log file
+    pattern = Config.get_CertInfoLogPattern()
+    #pattern = "/home/pcanal/work/blahp.log-*"
+    if pattern == r'': 
+        return None
+    logs = glob.glob(pattern)
+
+    # Sort from newest first
+    logs.sort(key=lambda x: -os.path.getmtime(x))
+    
+    # Search in each log
+    what="lrmsID="+str(localJobId)
+    for file in logs:
+        for line in open(file).readlines():
+            if what in line:
+#               res = dict(item.split('=',1) for item in shlex.split(line))
+               res = dict(item.split('=',1) for item in __quoteSplit.findall(line))
+               if res.has_key('userDN'):
+                  res['DN'] = res['userDN']
+               else:
+                  res['DN'] = None
+               if res.has_key('userFQAN'):
+                  res['FQAN'] = res['userFQAN']
+               else:
+                  res['FQAN'] = None
+               res['VO'] = None
+               print res
+               return res
+    DebugPrint(0, 'ERROR: unable to find valid certinfo file for '+localJobId +' " in the log file: ' + pattern)
+    return None
+
+def readCertInfoFile(localJobId, probeName):
     ''' Look for and read contents of cert info file if present'''
 
     global Config
@@ -4161,6 +4207,18 @@ def readCertInfo(localJobId, probeName):
         DebugPrint(0, 'ERROR: unable to find valid certinfo file for job ' + localJobId)
     return result
 
+
+def readCertInfo(localJobId, probeName):
+    ''' Look for the certifcate information for a job if available'''
+
+    # First try the one per job CertInfo file
+    result = readCertInfoFile(localJobId, probeName)
+    
+    if (result == None):
+        # Second try the log files containing many certicate info, one per line.
+        result = readCertInfoLog(localJobId)
+    
+    return result
 
 def GetNode(nodeList, nodeIndex=0):
     if nodeList == None or nodeList.length <= nodeIndex:
