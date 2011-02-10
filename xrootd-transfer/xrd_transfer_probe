@@ -19,7 +19,7 @@ DebugPrint = None
 
 log = None
 timestamp = time.time()
-SLEEP_TIME = 30*60
+SLEEP_TIME = 1*60
 XRD_NAME = 'Xrootd'
 XRD_WAIT_TIME = 10 # Seconds to wait after closing the file before sending a
                    # record.
@@ -486,13 +486,8 @@ class GratiaHandler(object):
 
     def __init__(self):
         self.cur_host = None
-        t = threading.Thread(target=self.process)
-        t.setDaemon(True)
-        t.setName("Gratia Processing Thread")
-        self.thread = t
         self.stop = False
         self.stop_exception = None
-        t.start()
         self.lock = threading.Lock()
         self.events = {}
         self.last_window = int(time.time())
@@ -510,34 +505,6 @@ class GratiaHandler(object):
              finally:
                  self.lock.release()
         return lock_fcn
-
-    def process(self):
-        try:
-            DebugPrint(0, "Will send new Gratia data in %i seconds." % \
-                SLEEP_TIME)
-            time.sleep(SLEEP_TIME)
-        except KeyboardInterrupt, SystemExit:
-            raise
-        except Exception, e:
-            gratia_log_traceback(lvl=1)
-        try:
-            DebugPrint(1, "Creating a new Xrootd Gratia report.")
-            self.summary()
-        except KeyboardInterrupt, SystemExit:
-            raise
-        except Exception, e:
-            gratia_log_traceback(lvl=1)
-        try:
-            t = threading.Thread(target=self.process)
-            t.setDaemon(True)
-            t.setName("Gratia Processing Thread")
-            self.thread = t
-            t.start()
-        except Exception, e:
-            gratia_log_traceback(lvl=0)
-            self.stop_exception = e
-            self.stop = True
-            raise
 
     def handle(self, xrdMon, addr):
         DebugPrint(4, "GratiaHandler processed message: %s" %  xrdMon)
@@ -824,6 +791,7 @@ def main():
                 gratia_handler = GratiaHandler()
                 my_handler = gratia_handler.handle
 
+
     se = get_se()
     version = get_version()
     DebugPrint(1, "Running %s version %s for SE %s." % (XRD_NAME, version, se))
@@ -831,7 +799,10 @@ def main():
     handler = XrdMonHandler(my_handler)
     if not opts.input:
         try:
-            udp_server(handler, port=opts.port, bind=opts.bind)
+	    udpserverthread = threading.Thread(target=udp_server,args=(handler, opts.port, opts.bind))
+	    udpserverthread.setDaemon(True)
+	    udpserverthread.setName("Gratia udp_server Thread")
+	    udpserverthread.start()
         finally:
             if not opts.print_only:
                 gratia_handler.exit_summary()
@@ -847,6 +818,25 @@ def main():
         finally:
             if not opts.print_only:
                 gratia_handler.exit_summary()
+    try:
+	while 1 == 1:
+	    try:
+	        DebugPrint(0, "Will send new Gratia data in %i seconds." % SLEEP_TIME)
+	        time.sleep(SLEEP_TIME)
+	    except KeyboardInterrupt, SystemExit:
+	        raise
+	    except Exception, e:
+	        gratia_log_traceback(lvl=1)
+	    try:
+	        DebugPrint(1, "Creating a new Xrootd Gratia report.")
+	        gratia_handler.summary()
+	    except KeyboardInterrupt, SystemExit:
+	        raise
+	    except Exception, e:
+	        gratia_log_traceback(lvl=1)
+    finally:
+        if not opts.print_only:
+            gratia_handler.exit_summary()
 
 if __name__ == '__main__':
     try:
