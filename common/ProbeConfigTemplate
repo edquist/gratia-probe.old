@@ -59,6 +59,8 @@
 
     VDTSetupFile="MAGIC_VDT_LOCATION/setup.sh"
     UserVOMapFile="MAGIC_VDT_LOCATION/monitoring/grid3-user-vo-map.txt"
+    CertInfoLogPattern="MAGIC_VDT_LOCATION/var/log/accounting/blahp.log-*"
+        Comments51="Location and wildcard pattern of log files that contains certificate information about the jobs in the format followed by the 'blah demons'."
 
     DataFolder="MAGIC_VDT_LOCATION/gratia/var/data/"
     WorkingFolder="MAGIC_VDT_LOCATION/gratia/var/tmp"

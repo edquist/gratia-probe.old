@@ -44,6 +44,11 @@ __certinfoJobManagerExtractor = re.compile(r'gratia_certinfo_(?P<JobManager>(?:[
 __lrms = None
 __quoteSplit = re.compile(' *"([^"]*)"')
 
+# List of externals files used:
+# Probe configuration file
+# Grid mapfile as defined by Config.get_UserVOMapFile()
+# Certificate information files matching the pattern: Config.get_DataFolder() + 'gratia_certinfo' + r'_' + jobManager + r'_' + localJobId
+
 def __disconnect_at_exit__():
     """
     Insure that we properly shutdown the connection at the end of the process.
@@ -468,8 +473,8 @@ class ProbeConfiguration:
 
     def get_CertInfoLogPattern(self):
         if self.__CertInfoLogPattern:
-            return self._CertInfoLogPattern
-        val = self.__getConfigAttribute('get_CertInfoLogPattern')
+            return self.__CertInfoLogPattern
+        val = self.__getConfigAttribute('CertInfoLogPattern')
         if val == None: val = ''
         self.__CertInfoLogPattern = val
         return self.__CertInfoLogPattern
@@ -4063,16 +4068,18 @@ jobManagers = []
 def readCertInfoLog(localJobId):
     ''' Look for and read contents of certificate log if present'''
 
-    DebugPrint(4, 'readCertFromBlahpLog: received (' + str(localJobId) + r')')
+    DebugPrint(4, 'readCertInfoLog: received (' + str(localJobId) + r')')
 
     global __quoteSplit
 
     # First get the list of accounting log file
     pattern = Config.get_CertInfoLogPattern()
-    #pattern = "/home/pcanal/work/blahp.log-*"
+
     if pattern == r'': 
         return None
     logs = glob.glob(pattern)
+    if not logs:
+        return None
 
     # Sort from newest first
     logs.sort(key=lambda x: -os.path.getmtime(x))
@@ -4082,20 +4089,23 @@ def readCertInfoLog(localJobId):
     for file in logs:
         for line in open(file).readlines():
             if what in line:
-#               res = dict(item.split('=',1) for item in shlex.split(line))
+               # If we could use a newer version of python (we have to work with 1.4), we could use
+               # shlex:
+               # res = dict(item.split('=',1) for item in shlex.split(line))
                res = dict(item.split('=',1) for item in __quoteSplit.findall(line))
-               if res.has_key('userDN'):
-                  res['DN'] = res['userDN']
-               else:
-                  res['DN'] = None
-               if res.has_key('userFQAN'):
-                  res['FQAN'] = res['userFQAN']
-               else:
-                  res['FQAN'] = None
-               res['VO'] = None
-               print res
-               return res
-    DebugPrint(0, 'ERROR: unable to find valid certinfo file for '+localJobId +' " in the log file: ' + pattern)
+               if res.has_key('lrmsID') and res['lrmsID'] == str(localJobId):
+                  if res.has_key('userDN'):
+                     res['DN'] = res['userDN']
+                  else:
+                     res['DN'] = None
+                  if res.has_key('userFQAN'):
+                     res['FQAN'] = res['userFQAN']
+                  else:
+                     res['FQAN'] = None
+                  res['VO'] = None
+                  DebugPrint(0, 'Warning: found valid certinfo file for '+str(localJobId)+' in the log files: ' + pattern + ' with ' + str(res))
+                  return res
+    DebugPrint(0, 'Warning: unable to find valid certinfo file for '+str(localJobId)+' in the log files: ' + pattern)
     return None
 
 def readCertInfoFile(localJobId, probeName):
