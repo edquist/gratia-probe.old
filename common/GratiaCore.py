@@ -3778,6 +3778,11 @@ def CheckAndExtendUserIdentity(
                    + str(vo_info['ReportableVOName']))
         VONameNodes[0].firstChild.data = vo_info['VOName']
         VOName = vo_info['VOName']
+        if vo_info['ReportableVOName'] == None:
+           if VOName[0] == r'/':
+              vo_info['ReportableVOName'] = string.split(VOName,r'/')[1]
+           else:
+              vo_info['ReportableVOName'] = VOName
         ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
         ReportableVOName = vo_info['ReportableVOName']
 
