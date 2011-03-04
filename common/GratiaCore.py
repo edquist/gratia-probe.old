@@ -4087,7 +4087,9 @@ def readCertInfoLog(localJobId):
         return None
 
     # Sort from newest first
-    logs.sort(key=lambda x: -os.path.getmtime(x))
+    logs_sorting = [(-os.path.getmtime(filename),filename) for filename in logs]
+    logs_sorting.sort()
+    logs = [filename for (key,filename) in logs_sorting]
     
     # Search in each log
     what="lrmsID="+str(localJobId)
@@ -4097,7 +4099,12 @@ def readCertInfoLog(localJobId):
                # If we could use a newer version of python (we have to work with 1.4), we could use
                # shlex:
                # res = dict(item.split('=',1) for item in shlex.split(line))
-               res = dict(item.split('=',1) for item in __quoteSplit.findall(line))
+               # Newer version of python support this one line creation of the dictionary by not 1.3.4 (SL4 :()
+               # res = dict(item.split('=',1) for item in __quoteSplit.findall(line))
+               res = {}
+               for item in __quoteSplit.findall(line):
+                  split_item = item.split('=',1)
+                  res[split_item[0]] = split_item[1]
                if res.has_key('lrmsID') and res['lrmsID'] == str(localJobId):
                   if res.has_key('userDN'):
                      res['DN'] = res['userDN']

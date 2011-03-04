@@ -2,7 +2,7 @@ Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
 Version: 1.07.02a
-Release: 1
+Release: 2
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -1338,6 +1338,9 @@ fi
 %endif # noarch
 
 %changelog
+* Thu Mar 04 2011 Philippe Canal <pcanal@fnal.gov> - 1.07.02a-2
+- Backport to ancient python (2.3.4)
+
 * Thu Mar 03 2011 Philippe Canal <pcanal@fnal.gov> - 1.07.02a-1
 - Add support for CREAM Computing Element by adding support for extract
 -  the cerfication information from the blahp.log files
