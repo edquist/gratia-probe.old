@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.07.01a
-Release: 2
+Version: 1.07.02a
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -1338,6 +1338,10 @@ fi
 %endif # noarch
 
 %changelog
+* Thu Mar 03 2011 Philippe Canal <pcanal@fnal.gov> - 1.07.02a-1
+- Add support for CREAM Computing Element by adding support for extract
+-  the cerfication information from the blahp.log files
+
 * Thu Jan 20 2011 Christopher Green <greenc@gr6x1.fnal.gov> - 1.07.01a-2
 - Correct bad preun for bdii-status.
 
