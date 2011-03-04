@@ -201,7 +201,9 @@ if (( $status == 0 )) && (( ${publish:-0} )); then
   scp -p "${rpmbuild_top}/SRPMS/gratia-probe-$version-$release.src.rpm" \
    "${publish_host}:${publish_dir}/SRPMS/"
   status=$?
-  ssh ${publish_host} "
+  publish_script=/tmp/public_script.$$
+  echo "
+  #!/bin/sh -x
   if (( $status == 0 )) && (( ${yum:-0} )); then
     if type -p createrepo; then
       createrepo -c \"${yum_cache}\" -p \"${publish_dir}/RPMS\"
@@ -215,7 +217,10 @@ if (( $status == 0 )) && (( ${publish:-0} )); then
       echo \"Unable to find yum-arch command to update old-style yum repository metadata\" 1>&2
       exit 1
     fi
-  fi"
+  fi" > ${publish_script}
+  chmod u+x ${publish_script}
+  scp ${publish_script} ${publish_host}:/tmp
+  ssh ${publish_host} ${publish_script} \; rm ${publish_script}
   status=$?
 else
   exit $status
