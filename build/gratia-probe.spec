@@ -1,8 +1,8 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.07.02a
-Release: 2
+Version: 1.07.02b
+Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
@@ -1338,6 +1338,9 @@ fi
 %endif # noarch
 
 %changelog
+* Tue Mar 08 2011 Philippe Canal <pcanal@fnal.gov> - 1.07.02b
+- Update the use of ServiceLevel in the sge probe that prevent it from running properly.
+
 * Thu Mar 04 2011 Philippe Canal <pcanal@fnal.gov> - 1.07.02a-2
 - Backport to ancient python (2.3.4)
 

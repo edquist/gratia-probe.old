@@ -387,9 +387,12 @@ class UsageRecord(Record):
     def ServiceLevel(
         self,
         value,
-        servicetype,
+        serviceLevelType=r'',
         description=r'',
+        servicetype=r'' # Obsolete use serviceLevelType instead.
         ):
+        if ( serviceLevelType == r'' ) :
+           serviceLevelType = servicetype
         self.AppendToList(self.RecordData, 'ServiceLevel', self.Type(servicetype) + self.Description(description),
                           str(value))
 

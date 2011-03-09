@@ -263,7 +263,7 @@ class SGE:
         # priority associated with the usage.
         # SGE field - priority
 
-        r.ServiceLevel(self.sgeRecord['priority'], type="string", description="SGE Priority")
+        r.ServiceLevel(self.sgeRecord['priority'], serviceLevelType="priority", description="SGE Priority")
         
         # 4.10 Extension
         # TBD lookup grid VO related information and add  it to record
