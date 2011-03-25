@@ -701,6 +701,7 @@ __hasMoreOutstandingRecord__ = False
 __outstandingRecordCount__ = 0
 __outstandingStagedRecordCount__ = 0
 __outstandingStagedTarCount__ = 0
+__estimatedServiceBacklog__ = 0
 __maxConnectionRetries__ = 2
 __maxFilesToReprocess__ = 100000
 __handshakeReg__ = []
@@ -749,6 +750,11 @@ def RegisterService(name, version):
 
     __handshakeReg__.append(('Service', 'version="' + version + '"', name))
 
+def ResgisterEstimatedServiceBacklog(count):
+    '''Register the estimated amount of data that the probe still have to process. '''
+
+    global __estimatedServiceBacklog__
+    __estimatedServiceBacklog__ = count
 
 def ExtractCvsRevision(revision):
 
@@ -3992,12 +3998,25 @@ def VOfromUser(user):
 
 
 def __encodeData(messageType, xmlData):
+    ''' To the payload, we add the meta information: '''
+    '''    from: the name of the sender '''
+    '''    xmlfiles: number of records already passed to GratiaCore, still to be sent and still in individual xml files (i.e. number of gratia record in the outbox)'''
+    '''    tarfiles: number of outstanding tar files '''
+    '''    maxpendingfiles: 'current' number of files in a new tar file (i.e. an estimate of the number of individual records per tar file). '''
+    '''    backlog: estimated amount of data to be processed by the probe '''
     probename = Config.get_ProbeName()
+    maxpending = Config.get_MaxPendingFiles()
     if messageType[0:3] == 'URL' or messageType == 'multiupdate':
-        return urllib.urlencode([('command', messageType), ('arg1', xmlData), ('from', probename)])
+        return urllib.urlencode([
+               ('command', messageType), ('arg1', xmlData), ('from', probename),
+               ('xmlfiles', __outstandingRecordCount__ + __outstandingStagedRecordCount__),  ('tarfiles', __outstandingStagedTarCount__),  ('maxpendingfiles', maxpending),  ('backlog', __estimatedServiceBacklog__),
+               ])
     else:
-        return 'command=' + messageType + '&arg1=' + xmlData + '&from=' + probename
-
+        return 'command=' + messageType + '&arg1=' + xmlData + '&from=' + probename + \
+               '&xmlfiles=' + str(__outstandingRecordCount__ + __outstandingStagedRecordCount__) + \
+               '&tarfiles=' + str(__outstandingStagedTarCount__) + \
+               '&maxpendingfiles=' + str(maxpending) + \
+               '&backlog=' + str(__estimatedServiceBacklog__)
 
 def verifyFromCertInfo(
     xmlDoc,
