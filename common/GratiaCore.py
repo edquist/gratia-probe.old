@@ -4006,17 +4006,27 @@ def __encodeData(messageType, xmlData):
     '''    backlog: estimated amount of data to be processed by the probe '''
     probename = Config.get_ProbeName()
     maxpending = Config.get_MaxPendingFiles()
+    xmlfiles = __outstandingRecordCount__ + __outstandingStagedRecordCount__
+    # Remove from the backlog number, the number of record we are about to upload
+    if __bundleSize__ > 0:
+       xmlfiles -= (CurrentBundle.nItems - CurrentBundle.nHandshakes)
+    else:
+       xmlfiles -= 1
     if messageType[0:3] == 'URL' or messageType == 'multiupdate':
-        return urllib.urlencode([
+        result =  urllib.urlencode([
                ('command', messageType), ('arg1', xmlData), ('from', probename),
-               ('xmlfiles', __outstandingRecordCount__ + __outstandingStagedRecordCount__),  ('tarfiles', __outstandingStagedTarCount__),  ('maxpendingfiles', maxpending),  ('backlog', __estimatedServiceBacklog__),
+               ('xmlfiles', xmlfiles),  ('tarfiles', __outstandingStagedTarCount__),  ('maxpendingfiles', maxpending),  ('backlog', __estimatedServiceBacklog__),
+               ('bundlesize', __bundleSize__),
                ])
+#        print  "xmlfiles: "+str(xmlfiles)+" bundle:"+str(CurrentBundle.nItems - CurrentBundle.nHandshakes)
+        return result
     else:
         return 'command=' + messageType + '&arg1=' + xmlData + '&from=' + probename + \
-               '&xmlfiles=' + str(__outstandingRecordCount__ + __outstandingStagedRecordCount__) + \
+               '&xmlfiles=' + str(xmlfiles) + \
                '&tarfiles=' + str(__outstandingStagedTarCount__) + \
                '&maxpendingfiles=' + str(maxpending) + \
-               '&backlog=' + str(__estimatedServiceBacklog__)
+               '&backlog=' + str(__estimatedServiceBacklog__) + \
+               '&bundlesize=' + str(__bundleSize__)
 
 def verifyFromCertInfo(
     xmlDoc,
