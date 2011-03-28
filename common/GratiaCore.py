@@ -2747,7 +2747,6 @@ def ProcessBundle(bundle):
 def Reprocess():
     (response, result) = ReprocessList()
     while not __connectionError__ and result and __hasMoreOutstandingRecord__:
-
         # This is decreased in SearchOutstanding
 
         tarcount = __outstandingStagedTarCount__
@@ -2858,7 +2857,7 @@ def ReprocessList():
                                'Connection problems: reprocessing suspended; new record processing shall continue'
                                )
             else:
-                if CurrentBundle.nReprocessed != 0:
+                if CurrentBundle.nReprocessed == 0:
                     currentSuccessCount += CurrentBundle.nLastProcessed - prevBundled
                     currentBundledCount = CurrentBundle.nItems
                     prevBundled = 0
