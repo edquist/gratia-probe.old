@@ -3,8 +3,6 @@
     Title1="Collector Information"
 
     CollectorHost="gratia-osg-itb.opensciencegrid.org:80"
-       Comments10="SOAPHost is now replaced with CollectorHost"
-    SOAPHost="gratia-osg-itb.opensciencegrid.org:80" 
     SSLHost="gratia-osg-itb.opensciencegrid.org:443" 
     SSLRegistrationHost="gratia-osg-itb.opensciencegrid.org:80"
 
