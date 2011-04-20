@@ -28,8 +28,6 @@ Gratia.py - the Gratia library.
 ProbeConfig - this is the Gratia configuration file. It tells the Aggregator
               where to find the Gratia server, security setup, etc.
 external/psycopg2-2.0.5.1.tar.gz - the psycopg2 python module.
-external/SQLAlchemy-0.3.3.tar.gz - the SQLAlchemy python module.
-                                   Also installs setuptools.
 
 
 HOW IT WORKS:
@@ -69,8 +67,8 @@ need those file(s) to know which records have been sent to Gratia already.
 INSTALLATION:
 ============
 
-The Aggregator is written in Python. It relies on four other 3rd-party
-packages: Python, Gratia, SQLAlchemy and psycopg2. The following is a
+The Aggregator is written in Python. It relies on three other 3rd-party
+packages: Python, Gratia and psycopg2. The following is a
 step-by-step for getting everything to work.
 
 1. Untar the package on the node which is running postgres for the billing
@@ -79,7 +77,7 @@ step-by-step for getting everything to work.
 
 2. Ensure that you have Python 2.3.4 or newer and postgres 7.3 or newer.
    Ensure that python is in your path and the PYTHONPATH shell variable is
-   not set. Modules psycopg2, SQLAlchemy, and setuptools will be installed
+   not set. Module psycopg2 will be installed
    or upgraded. For psycopg2, python's datetime module header must available
    in the python installation.
 

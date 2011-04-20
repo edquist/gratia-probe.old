@@ -164,7 +164,6 @@ if __name__ == '__main__':
         # CHRIS: is there a way to automate the version extraction
         #        using the pkg_resource package?
         Gratia.RegisterReporterLibrary( "psycopg2", "2.0.6" )
-        Gratia.RegisterReporterLibrary( "SQLAlchemy", "0.4.1" )
         rev =  Gratia.ExtractCvsRevision("$Revision: 1.13 $")
         tag =  Gratia.ExtractCvsRevision("$Name:  $")
         Gratia.RegisterReporter( "dCacheBillingAggregator.py",

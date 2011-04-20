@@ -9,7 +9,18 @@ if [ -z "$HOME" ]; then
   HOME='/'; export HOME
 fi
 
-PROBE_DIR=/opt/d-cache/gratia-dcache-1.17
+PROBE_DIR=/opt/d-cache/gratia/probe/dCache-transfer
+arch_spec_dir=`echo "${PROBE_DIR}/../lib."*`
+if test -n "$PYTHONPATH" ; then
+  if echo "$PYTHONPATH" | grep -e ':$' >/dev/null 2>&1; then
+    PYTHONPATH="${PYTHONPATH}${PROBE_DIR}/../common:${PYTHONPATH}${PROBE_DIR}/../lib.linux-i686-2.4:${arch_spec_dir}:"
+  else
+    PYTHONPATH="${PYTHONPATH}:${PROBE_DIR}/../common:${PYTHONPATH}${PROBE_DIR}/../lib.linux-i686-2.4:${arch_spec_dir}"
+  fi
+else
+  PYTHONPATH="${PROBE_DIR}/../common:${PYTHONPATH}${PROBE_DIR}/../lib.linux-i686-2.4:${arch_spec_dir}"
+fi
+export PYTHONPATH
 PROBE_CONFIG=$PROBE_DIR/ProbeConfig
 
 # See if the probe is installed.

@@ -40,7 +40,8 @@ import os
 import sys
 import logging
 import time
-import sqlalchemy
+#import sqlalchemy
+import psycopg2
 import Gratia
 import traceback
 import pwd
@@ -109,7 +110,7 @@ def _CalcMaxSelect():
         return int(mem / 4)
     except:
         return 512000
-    
+
 if TestContainer.isTest():
     STARTING_MAX_SELECT = 50
     MAX_SELECT = 100
@@ -175,9 +176,18 @@ class DCacheAggregator:
     def __init__( self, configuration, chkptdir=None ):
         # Pick up the logger
         self._log = logging.getLogger( 'DCacheAggregator' )
-        DBurl = 'postgres://%s:%s@%s:5432/%s' % \
-            (configuration.get_DBLoginName(), configuration.get_DBPassword(),
-             configuration.get_DBHostName(),  configuration.get_DBName())
+	
+	# Neha - 03/17/2011
+	# Using psycopg2 instead of sqlalchemy
+	DBurl = 'dbname=%s user=%s' % (configuration.get_DBName(), configuration.get_DBLoginName())
+	DBurl += ' password=' + configuration.get_DBPassword()
+	DBurl += ' host=' + configuration.get_DBHostName()
+
+	# Neha - 03/17/2011 
+	# Commenting out as not using sqlalchemy anymore
+        #DBurl = get'postgres://%s:%s@%s:5432/%s' % \
+        #    (configuration.get_DBLoginName(), configuration.get_DBPassword(),
+        #     configuration.get_DBHostName(),  configuration.get_DBName())
 
         self._skipIntraSite = configuration.get_OnlySendInterSiteTransfers()
         self._stopFileName = configuration.get_StopFileName()
@@ -206,12 +216,15 @@ class DCacheAggregator:
 
         # Connect to the dCache postgres database.
         # TODO: Using sqlalchemy gives us nothing but a new dependency.  Remove.
-        try:
-            if TestContainer.isTest():
-                self._db = None
-            else:
-                self._db = sqlalchemy.create_engine(DBurl)
-                self._connection = self._db.connect()
+        # Neha: 03/17/2011 - Removing sqlalchemy. Using psycopg2 instead
+	try:
+            #if TestContainer.isTest():
+            #    self._db = None
+            #else:
+                #self._db = sqlalchemy.create_engine(DBurl)
+                #self._connection = self._db.connect()
+		self._connection = psycopg2.connect(DBurl)
+		self._cur = self._connection.cursor()
         except:
             tblist = traceback.format_exception(sys.exc_type,
                                                 sys.exc_value,
@@ -269,7 +282,7 @@ class DCacheAggregator:
         #    % (datestr, datestr_end, maxSelect))
         select_time = -time.time()
         if not TestContainer.isTest():
-            result = self._connection.execute(BILLINGDB_SELECT_CMD % (datestr,
+            result = self._cur.execute(BILLINGDB_SELECT_CMD % (datestr,
                 datestr_end, maxSelect)).fetchall()
         else:
             result = BillingRecSimulator.execute(BILLINGDB_SELECT_CMD % \
@@ -287,7 +300,8 @@ class DCacheAggregator:
         if not result:
             self._log.debug("No results from %s to %s." % (starttime, endtime))
             return endtime, result
-
+	#Neha - 03/17/2011
+	self._connection.close()
         # dCache sometimes returns a negative transfer size; when this happens,
         # it also tosses up a complete garbage duration
         filtered_result = []
