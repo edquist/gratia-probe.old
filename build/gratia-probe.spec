@@ -15,12 +15,10 @@ BuildRequires: python-devel >= 2.3
 %if %{?no_dcache:0}%{!?no_dcache:1}
 BuildRequires: postgresql-devel
 %endif
-BuildRequires: gcc-c++, python-setuptools
+BuildRequires: gcc-c++
 
 # Required for dCache transfer probe.
-%global sqlalchemy_version 0.4.1
 %global psycopg2_version 2.0.6
-%global setuptools_source setuptools-0.6c3-py2.3.egg
 
 # RH5 precompiles the python files and produces .pyc and .pyo files.
 %define _unpackaged_files_terminate_build 0
@@ -85,9 +83,7 @@ Source3: %{name}-pbs-lsf-%{version}.tar.bz2
 Source5: %{name}-sge-%{version}.tar.bz2
 Source6: %{name}-glexec-%{version}.tar.bz2
 Source7: %{name}-metric-%{version}.tar.bz2
-Source8: SQLAlchemy-%{sqlalchemy_version}.tar.gz
 Source9: psycopg2-%{psycopg2_version}.tar.gz
-Source11: %{setuptools_source}
 Source12: %{name}-dCache-transfer-%{version}.tar.bz2
 Source13: %{name}-dCache-storage-%{version}.tar.bz2
 Source14: %{name}-gridftp-transfer-%{version}.tar.bz2
@@ -117,8 +113,6 @@ Prefix: /etc
 %setup -q -D -T -a 5
 %setup -q -D -T -a 6
 %setup -q -D -T -a 7
-%setup -q -D -T -a 8
-%{__cp} ${RPM_SOURCE_DIR}/%{setuptools_source} SQLAlchemy-%{sqlalchemy_version}/
 %setup -q -D -T -a 12
 %setup -q -D -T -a 13
 %{__rm} -rf dCache-storage/test.xml # Not needed by this install.
@@ -140,9 +134,6 @@ cd -
 cd psycopg2-%{psycopg2_version}
 %{pexec} setup.py build
 %endif # dCache
-%else
-cd SQLAlchemy-%{sqlalchemy_version}
-%{pexec} setup.py build
 %endif
 
 %install
@@ -197,10 +188,6 @@ cd SQLAlchemy-%{sqlalchemy_version}
   # YUM repository install
   install -d "${RPM_BUILD_ROOT}/etc/yum.repos.d"
   %{__mv} -v "${RPM_BUILD_ROOT}%{default_prefix}/probe/common/gratia.repo" "${RPM_BUILD_ROOT}/etc/yum.repos.d/"
-
-  # Get already-built SQLAlchemy software
-  %{__cp} -R SQLAlchemy-%{sqlalchemy_version}/build/lib/sqlalchemy \
-  "${RPM_BUILD_ROOT}%{default_prefix}/probe/common/"
 
 %else
 
@@ -418,24 +405,6 @@ Common files and examples for Gratia OSG accounting system probes.
 %{default_prefix}/probe/common/samplemeter_multi.py
 %{default_prefix}/probe/common/test/db-find-job
 %config(noreplace) /etc/yum.repos.d/gratia.repo
-
-%package extra-libs
-Summary: Third-party libraries required by some Gratia probes.
-Group: Application/System
-%if %{?python:0}%{!?python:1}
-Requires: python >= 2.3
-%endif
-License: See SQLAlchemy-LICENSE.
-
-%description extra-libs
-Third-party libraries required by some Gratia probes.
-
-Currently this consists of the SQLAlchemy postgresql interface package;
-see http://www.sqlalchemy.org/ for details.
-
-%files extra-libs
-%defattr(-,root,root,-)
-%{default_prefix}/probe/common/sqlalchemy
 
 %package psacct
 Summary: A ps-accounting probe
@@ -782,7 +751,6 @@ EOF
 Summary: Gratia OSG accounting system probe for dCache billing.
 Group: Application/System
 Requires: %{name}-common >= 1.04.4e
-Requires: %{name}-extra-libs
 Requires: %{name}-extra-libs-arch-spec
 License: See LICENSE.
 Obsoletes: %{name}-dCache
@@ -1621,6 +1589,9 @@ fi
 - Add facility to Gratia.py to extract the CVS revision from another file.
 - Change glexec.py, pbs-lsf.py and condor_meter.pl to get their tag info
 -  from the RPM packaging process rather than CVS' Name attribute.
+
+* Wed Apr 20 2011 Neha Sharma <neha@fnal.gov> - 
+- Removed SQLAlchemy and setup tools
 
 * Mon Dec  8 2008 Christopher Green <greenc@fnal.gov> - 1.00.5c-2
 - gridftp-transfer probe is not a dCache probe.
