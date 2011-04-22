@@ -750,8 +750,9 @@ def RegisterService(name, version):
 
     __handshakeReg__.append(('Service', 'version="' + version + '"', name))
 
-def ResgisterEstimatedServiceBacklog(count):
+def RegisterEstimatedServiceBacklog(count):
     '''Register the estimated amount of data that the probe still have to process. '''
+    '''It should be the number of records/jobs for which Send is still to be called. '''
 
     global __estimatedServiceBacklog__
     __estimatedServiceBacklog__ = count
@@ -1532,23 +1533,21 @@ def QuarantineFile(filename, isempty):
 
 
 def RemoveRecordFile(filename):
-
    # Remove a record file and reduce the oustanding record count
 
-    global __outstandingRecordCount__
-    global __outstandingStagedRecordCount__
+   global __outstandingRecordCount__
+   global __outstandingStagedRecordCount__
 
-    if RemoveFile(filename):
-
+   if RemoveFile(filename):
       # Decrease the count only if the file was really removed
 
-        dirname = os.path.dirname(filename)
-        if os.path.basename(dirname) == 'outbox' and os.path.basename(os.path.dirname(dirname)) == 'staged':
-            DebugPrint(3, 'Remove the staged record: ' + filename)
-            __outstandingStagedRecordCount__ += -1
-        else:
-            __outstandingRecordCount__ += -1
-            DebugPrint(3, 'Remove the record: ' + filename)
+      dirname = os.path.dirname(filename)
+      if os.path.basename(dirname) == 'outbox' and os.path.basename(os.path.dirname(dirname)) == 'staged':
+         DebugPrint(3, 'Remove the staged record: ' + filename)
+         __outstandingStagedRecordCount__ += -1
+      else:
+         __outstandingRecordCount__ += -1
+         DebugPrint(3, 'Remove the record: ' + filename)
 
 
 def RemoveOldFiles(nDays=31, globexp=None, req_maxsize=0):
@@ -1871,6 +1870,7 @@ def AddOutstandingRecord(filename):
 
 def ListOutstandingRecord(dirname, isstaged):
     '''Put in OustandingRecord the name of the file in dir, if any'''
+    '''Return true if reach the maximum number of files'''
 
     global __outstandingStagedRecordCount__
     global __outstandingRecordCount__
@@ -1956,23 +1956,24 @@ def SearchOutstandingRecord():
         # If total number of outstanding files is less than the number of files already in the bundle,
         # Let's decompress one of the tar file (if any)
 
-        needmorefiles = __outstandingStagedRecordCount__ == 0 or __outstandingRecordCount__ \
-            + __outstandingStagedRecordCount__ <= CurrentBundle.nFiles
+        needmorefiles = __outstandingStagedRecordCount__ == 0 or \
+            __outstandingRecordCount__ + __outstandingStagedRecordCount__ <= CurrentBundle.nFiles
         if needmorefiles and len(stagedfiles) > 0:
 
-            # the staged/outbox is empty and we have some staged tar files
+            # the staged/outbox is low on files and we have some staged tar files
 
-            instore = __outstandingStagedRecordCount__ - prevOutstandingStagedRecordCount
-            if instore != 0 and CurrentBundle.nFiles > 0:
+            in_stagedoutbox = __outstandingStagedRecordCount__ - prevOutstandingStagedRecordCount
+            if in_stagedoutbox != 0 and CurrentBundle.nFiles > 0:
+                # This staged outbox is not empty, so let's first empty it.
                 (responseString, response) = ProcessBundle(CurrentBundle)
                 DebugPrint(0, responseString)
                 DebugPrint(0, '***********************************************************')
                 if CurrentBundle.nItems > 0:
-
                     # The upload did not work, there is no need to proceed with the record collection
-
                     break
 
+            # The staged outbox is empty, we can safely untar the file without risking over-writing
+            # a files.
             stagedfile = stagedfiles[0]
             if UncompressOutbox(stagedfile, stagedoutbox):
                 RemoveFile(stagedfile)
@@ -1996,7 +1997,7 @@ def SearchOutstandingRecord():
 
 
 def GenerateFilename(prefix, current_dir):
-    '''Generate a filename of the for gratia/r$UNIQUE.$pid.gratia.xml'''
+    '''Generate a filename of the for current_dir/prefix.$pid.ConfigFragment.gratia.xml__Unique'''
 
     filename = prefix + str(RecordPid) + '.' + Config.getFilenameFragment() + '.' + Config.get_GratiaExtension() \
         + '__XXXXXXXXXX'
@@ -2100,7 +2101,7 @@ def CompressOutbox(probe_dir, outbox, outfiles):
 
 def OpenNewRecordFile(dirIndex):
 
-    # The file name will be rUNIQUE.$pid.gratia.xml
+    # The file name will be r$pid.ConfigFragment.gratia.xml__UNIQUE
 
     global __outstandingRecordCount__
     DebugPrint(3, 'Open request: ', dirIndex)
@@ -2130,9 +2131,15 @@ def OpenNewRecordFile(dirIndex):
                 if CompressOutbox(probe_dir, working_dir, outfiles):
 
                     # then delete the content
-
                     for f in os.listdir(working_dir):
                         RemoveRecordFile(os.path.join(working_dir, f))
+                        
+                    # And reset the Bundle if needed.
+                    if CurrentBundle.nItems > 0:
+                       hasHandshake = CurrentBundle.nHandshakes > 0
+                       CurrentBundle.clear()
+                       if hasHandshake:
+                          Handshake()
                 else:
                     continue
 
@@ -2680,8 +2687,9 @@ def ProcessBundle(bundle):
         DebugPrint(0, "Collector is too old to handle 'bundles', reverting to sending individual records.")
         __bundleSize__ = 0
         bundle.nLastProcessed = 0
+        hasHandshake = bundle.nHandshakes > 0
         bundle.clear()
-        if bundle.nHandshakes > 0:
+        if hasHandshake:
             Handshake()
         else:
             SearchOutstandingRecord()
@@ -2798,7 +2806,9 @@ def ReprocessList():
 
     # Loop through and try to send any outstanding records
 
-    for failedRecord in __outstandingRecord__.keys():
+    filenames = __outstandingRecord__.keys()
+    filenames.sort()
+    for failedRecord in filenames:
         if __connectionError__:
 
             # Fail record without attempting to send.
@@ -3033,6 +3043,7 @@ def Send(record):
     global failedSendCount
     global suppressedCount
     global successfulSendCount
+    global __estimatedServiceBacklog__
 
     try:
         DebugPrint(0, '***********************************************************')
@@ -3043,6 +3054,8 @@ def Send(record):
 
         DebugPrint(4, 'DEBUG: File Count: ' + str(__outstandingRecordCount__))
         toomanyfiles = __outstandingRecordCount__ >= Config.get_MaxPendingFiles()
+
+        if __estimatedServiceBacklog__ > 0 : __estimatedServiceBacklog__ -= 1
 
         # Assemble the record into xml
 
@@ -4017,7 +4030,7 @@ def __encodeData(messageType, xmlData):
                ('xmlfiles', xmlfiles),  ('tarfiles', __outstandingStagedTarCount__),  ('maxpendingfiles', maxpending),  ('backlog', __estimatedServiceBacklog__),
                ('bundlesize', __bundleSize__),
                ])
-#        print  "xmlfiles: "+str(xmlfiles)+" bundle:"+str(CurrentBundle.nItems - CurrentBundle.nHandshakes)
+#        print >> sys.stderr,  "xmlfiles: "+str(xmlfiles)+" bundle:"+str(CurrentBundle.nItems - CurrentBundle.nHandshakes)
         return result
     else:
         return 'command=' + messageType + '&arg1=' + xmlData + '&from=' + probename + \
