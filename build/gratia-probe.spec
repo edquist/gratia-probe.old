@@ -1306,6 +1306,9 @@ fi
 %endif # noarch
 
 %changelog
+* Wed Apr 20 2011 Neha Sharma <neha@fnal.gov> - 
+- Removed SQLAlchemy and setup tools
+
 * Tue Mar 08 2011 Philippe Canal <pcanal@fnal.gov> - 1.07.02b
 - Update the use of ServiceLevel in the sge probe that prevent it from running properly.
 
@@ -1589,9 +1592,6 @@ fi
 - Add facility to Gratia.py to extract the CVS revision from another file.
 - Change glexec.py, pbs-lsf.py and condor_meter.pl to get their tag info
 -  from the RPM packaging process rather than CVS' Name attribute.
-
-* Wed Apr 20 2011 Neha Sharma <neha@fnal.gov> - 
-- Removed SQLAlchemy and setup tools
 
 * Mon Dec  8 2008 Christopher Green <greenc@fnal.gov> - 1.00.5c-2
 - gridftp-transfer probe is not a dCache probe.
