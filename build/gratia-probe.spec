@@ -1,12 +1,12 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.07.02b
+Version: 1.09.01a
 Release: 1
 License: GPL
 Group: Applications/System
 URL: http://sourceforge.net/projects/gratia/
-Packager: Chris Green <greenc@fnal.gov>
+Packager: Neha Sharma <neha@fnal.gov>
 Vendor: The Open Science Grid <http://www.opensciencegrid.org/>
 %if %{?python:0}%{!?python:1}
 BuildRequires: python >= 2.3
@@ -1306,8 +1306,20 @@ fi
 %endif # noarch
 
 %changelog
-* Wed Apr 20 2011 Neha Sharma <neha@fnal.gov> - 
+* Wed May 4 2011 Neha Sharma <neha@fnal.gov> - 1.09.01a-1
+- Noted that latest changes to DCacheAggregator.py and dCacheBillingAggregator.py
+- did not make it into SVN. So, committed them again
+
+* Mon May 2 2011 Neha Sharma <neha@fnal.gov> - 1.08.01a-1
+- Modified gratia-probe.spec file to update Version and Release numbers
+- Modified probe/build/README file to point to latest documentation on how to
+- build probes
+
+* Wed Apr 20 2011 Neha Sharma <neha@fnal.gov> 
 - Removed SQLAlchemy and setup tools
+- Removed obsolete parameter SOAPHost fro ProbeConfig
+- modified the Build scripts, gratia-probe.spec file and README files to 
+- remove dependencies/references on SQLAlchemy and setup tools
 
 * Tue Mar 08 2011 Philippe Canal <pcanal@fnal.gov> - 1.07.02b
 - Update the use of ServiceLevel in the sge probe that prevent it from running properly.
