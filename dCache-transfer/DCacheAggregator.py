@@ -32,7 +32,7 @@ summarizing the partial results as we go.  Finally, once an hour's worth of
 data has been constructed, we send the results to Gratia.
 
 TODO list for this probe:
-   1) Remove sqlalchemy
+   1) Remove sqlalchemy -- DONE
    2) Remove python logging in favor of Gratia logging.
 """
 
@@ -40,8 +40,9 @@ import os
 import sys
 import logging
 import time
-#import sqlalchemy
 import psycopg2
+import psycopg2.extras
+
 import Gratia
 import traceback
 import pwd
@@ -179,16 +180,13 @@ class DCacheAggregator:
 	
 	# Neha - 03/17/2011
 	# Using psycopg2 instead of sqlalchemy
-	DBurl = 'dbname=%s user=%s' % (configuration.get_DBName(), configuration.get_DBLoginName())
-	DBurl += ' password=' + configuration.get_DBPassword()
-	DBurl += ' host=' + configuration.get_DBHostName()
+	DBurl = 'dbname=%s user=%s ' % (configuration.get_DBName(), configuration.get_DBLoginName())
+	DBurl += 'password=%s ' % (configuration.get_DBPassword())
+	DBurl += 'host=%s' % (configuration.get_DBHostName())
 
 	# Neha - 03/17/2011 
 	# Commenting out as not using sqlalchemy anymore
-        #DBurl = get'postgres://%s:%s@%s:5432/%s' % \
-        #    (configuration.get_DBLoginName(), configuration.get_DBPassword(),
-        #     configuration.get_DBHostName(),  configuration.get_DBName())
-
+        #DBurl = 'postgres://%s:%s@%s:5432/%s' % \ (configuration.get_DBLoginName(), configuration.get_DBPassword(), configuration.get_DBHostName(), configuration.get_DBName())
         self._skipIntraSite = configuration.get_OnlySendInterSiteTransfers()
         self._stopFileName = configuration.get_StopFileName()
         self._dCacheSvrHost = configuration.get_DCacheServerHost()
@@ -215,16 +213,16 @@ class DCacheAggregator:
         self._summarize = configuration.get_Summarize()
 
         # Connect to the dCache postgres database.
-        # TODO: Using sqlalchemy gives us nothing but a new dependency.  Remove.
+        # TODO: Using sqlalchemy gives us nothing but a new dependency.  Remove - Done
         # Neha: 03/17/2011 - Removing sqlalchemy. Using psycopg2 instead
 	try:
-            #if TestContainer.isTest():
-            #    self._db = None
-            #else:
+            if TestContainer.isTest():
+                self._db = None
+            else:
                 #self._db = sqlalchemy.create_engine(DBurl)
                 #self._connection = self._db.connect()
 		self._connection = psycopg2.connect(DBurl)
-		self._cur = self._connection.cursor()
+		self._cur = self._connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
         except:
             tblist = traceback.format_exception(sys.exc_type,
                                                 sys.exc_value,
@@ -278,16 +276,16 @@ class DCacheAggregator:
        
         # Query the database.  If it takes more than MAX_QUERY_TIME_SECS, then
         # have the probe self-destruct.
-        #self._log.debug('_sendToGratia: will execute ' + BILLINGDB_SELECT_CMD \
-        #    % (datestr, datestr_end, maxSelect))
+        self._log.debug('_sendToGratia: will execute ' + BILLINGDB_SELECT_CMD \
+            % (datestr, datestr_end, maxSelect))
         select_time = -time.time()
         if not TestContainer.isTest():
-            result = self._cur.execute(BILLINGDB_SELECT_CMD % (datestr,
-                datestr_end, maxSelect)).fetchall()
-        else:
+	    #print BILLINGDB_SELECT_CMD % (datestr,datestr_end, maxSelect)
+            self._cur.execute(BILLINGDB_SELECT_CMD % (datestr,datestr_end, maxSelect))
+	    result = self._cur.fetchall()
+	else:
             result = BillingRecSimulator.execute(BILLINGDB_SELECT_CMD % \
                 (datestr, datestr_end, maxSelect))
-
         select_time += time.time()
         if select_time > MAX_QUERY_TIME_SECS:
             raise Exception("Postgres query took %i seconds, more than " \
@@ -300,20 +298,19 @@ class DCacheAggregator:
         if not result:
             self._log.debug("No results from %s to %s." % (starttime, endtime))
             return endtime, result
-	#Neha - 03/17/2011
-	self._connection.close()
         # dCache sometimes returns a negative transfer size; when this happens,
         # it also tosses up a complete garbage duration
         filtered_result = []
         for row in result:
             row = dict(row)
-            if row['transfersize'] < 0:
+      	    #print row  	
+	    if row['transfersize'] < 0:
                 row['transfersize'] = 0
                 row['connectiontime'] = 0
             filtered_result.append(row)
         result = filtered_result
-
-        # If we hit our limit, there's no telling how many identical records
+        
+	# If we hit our limit, there's no telling how many identical records
         # there are on the final millisecond; we must re-query with a smaller
         # interval or a higher limit on the select.
         if len(result) == maxSelect:
@@ -580,9 +577,9 @@ class DCacheAggregator:
                 'starting at %s.' % starttime)
             # We are guaranteed that starttime will move forward to the value of
             # endtime every time we call execute.
-            next_starttime, rows = self._execute(starttime, endtime,
-                self._maxSelect)
-            results += rows
+            next_starttime, rows = self._execute(starttime, endtime, self._maxSelect)
+
+	    results += rows
             totalRecords += len(rows)
             if self._summarize:
                 # Summarize the partial results
@@ -627,7 +624,11 @@ class DCacheAggregator:
 
             # Check to see if the stop file has been created.  If so, break
             if os.path.exists(self._stopFileName):
-                break
+		#Neha - 03/17/2011
+	        #Don't need to commit anything since we are only doing select and no inserts or updates
+            	self._cur.close()
+            	self._connection.close()
+	        break
 
 
     def _determineNextEndtime(self, starttime, summary=False):
