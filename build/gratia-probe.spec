@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.09.01a
+Version: 1.07.02d
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1306,6 +1306,10 @@ fi
 %endif # noarch
 
 %changelog
+* Thu May 5 2011 Neha Sharma <neha@fnal.gov> - 1.07.02d-1
+- The version number 1.09.01a is incorrect. There was some confusion.
+- Fixing the version number now
+
 * Wed May 4 2011 Neha Sharma <neha@fnal.gov> - 1.09.01a-1
 - Noted that latest changes to DCacheAggregator.py and dCacheBillingAggregator.py
 - did not make it into SVN. So, committed them again
