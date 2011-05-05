@@ -1306,6 +1306,9 @@ fi
 %endif # noarch
 
 %changelog
+* Thu May 5 2011 Neha Sharma <neha@fnal.gov> - 1.07.02d-2
+- Updating release number as it wont generate the rpms correct otherwise
+
 * Thu May 5 2011 Neha Sharma <neha@fnal.gov> - 1.07.02d-1
 - The version number 1.09.01a is incorrect. There was some confusion.
 - Fixing the version number now
