@@ -415,7 +415,7 @@ sub processLrmsLogFile {
    # decide whether to decompress using 'less':
    if ($filename =~ /(\.gz)?$/o) {
       # decompress and pipe into tac:
-      $cmd = "$less_cmd $lrmsLogDir/$filename | ".$cmd;
+      $cmd = "$less_cmd -f $lrmsLogDir/$filename | ".$cmd;
    } else {
       # just use tac:
       $cmd = $cmd." $lrmsLogDir/$filename";
