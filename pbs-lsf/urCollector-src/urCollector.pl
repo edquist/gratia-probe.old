@@ -1306,7 +1306,7 @@ sub parseUR_pbs {
    }
    $urAcctlogInfo{lrmsId}=$tmpArray[2];
    $_ = $tmpArray[2];
-   if (/^(\d*)\.(.*)$/o) {
+   if (/^([\d|\-]*)\.(.*)$/o) {
       $urAcctlogInfo{server}=$2;
    }
    foreach my $record_field ( @$lrmsRecordFields ) {
