@@ -1306,6 +1306,9 @@ fi
 %endif # noarch
 
 %changelog
+* Sometimes soon Philippe Canal <pcanal@fnal.gov> - 1.07.02e
+- Add support in the PBS probe for 'array jobs'
+
 * Thu May 5 2011 Neha Sharma <neha@fnal.gov> - 1.07.02d-2
 - Updating release number as it wont generate the rpms correct otherwise
 
@@ -1327,6 +1330,15 @@ fi
 - Removed obsolete parameter SOAPHost fro ProbeConfig
 - modified the Build scripts, gratia-probe.spec file and README files to 
 - remove dependencies/references on SQLAlchemy and setup tools
+- Add upload of information about the amount of data still needing to be processed
+  or uploaded to the Collector.
+- Add new GratiaCore interface 'ResgisterEstimatedServiceBacklog' to let the probe 
+  tell the system how much work is left to do.
+- Avoid premature termination of the reprocessing (i.e. it will now reprocess all 
+  the data before moving on)
+- When compressing the xml data file into a tar file, make sure that the
+  files are also removed from the current bundle ; thus avoiding a spurrious
+  duplicate record when reprocessing.
 
 * Tue Mar 08 2011 Philippe Canal <pcanal@fnal.gov> - 1.07.02b
 - Update the use of ServiceLevel in the sge probe that prevent it from running properly.
