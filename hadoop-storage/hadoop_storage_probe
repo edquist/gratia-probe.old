@@ -14,10 +14,15 @@ import xml.sax.saxutils
 # configurations in the case where our environment wasn't really configured
 # correctly.
 sys.path.append('.')
+base_path = '/opt/vdt'
 gratia_path = os.path.expandvars('/opt/vdt/gratia/probe/common')
 if gratia_path not in sys.path and os.path.exists(gratia_path):
     sys.path.append(gratia_path)
-if 'VDT_LOCATION' in os.environ:
+gratia_path = os.path.expandvars('/opt/vdt/gratia/probe/services')
+if gratia_path not in sys.path and os.path.exists(gratia_path):
+    sys.path.append(gratia_path)
+if 'VDT_LOCATION' in os.environ and os.path.exists(os.environ['VDT_LOCATION']):
+    base_path = os.environ['VDT_LOCATION']
     gratia_path = os.path.expandvars('$VDT_LOCATION/gratia/probe/common')
     if gratia_path not in sys.path and os.path.exists(gratia_path):
         sys.path.append(gratia_path)
@@ -40,7 +45,7 @@ except:
 if 'JAVA_HOME' not in os.environ:
     os.environ['JAVA_HOME'] = '/usr/java/default'
 if 'HADOOP_CONF_DIR' not in os.environ:
-    os.environ['HADOOP_CONF_DIR'] = '/etc/hadoop'
+    os.environ['HADOOP_CONF_DIR'] = '/etc/hadoop-0.20/conf'
 
 # Prevent us from sending in overly-large objects:
 MAX_DATA_LEN = 50*1024
@@ -394,7 +399,7 @@ def collect_data(cmd, name, cp):
     ur.AdditionalInfo("CustomInfo", "CommandOutput")
     ur.GenericAddToList("CommandOutput", output)
     ur.Status(str(result))
-    ur.WallDuration(time_end - time_start)
+    ur.WallDuration(time_end - time_start, "Was entered in seconds")
     ur.EndTime(time_end)
     ur.JobName(name, description=cmd)
     se = get_se(cp)
@@ -423,7 +428,7 @@ def collect_custom_info_internal(cp, section):
 def configure():
     parser = optparse.OptionParser()
     parser.add_option("-c", "--config", dest="config", help="Config file to " \
-        "use.", default="/etc/hadoop_chronicle.cfg")
+        "use.", default=os.path.join(base_path, "gratia/probe/hadoop-storage/storage.cfg"))
     options, args = parser.parse_args()
     config = options.config
     if not os.path.exists(config):
