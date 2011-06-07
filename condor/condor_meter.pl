@@ -781,6 +781,10 @@ sub Feed_Gratia {
                          'GridMonitor':
                            'Batch';
   
+  if ( defined ($hash{'MATCH_EXP_JOBGLIDEIN_ResourceName'})) {
+    $resource_type = 'BatchPilot';
+  }  
+
   print $py "r = Gratia.UsageRecord(\"$resource_type\")\n";
 
   # 2.1 RecordIdentity must be set by Philippe's module?
@@ -963,7 +967,11 @@ sub Feed_Gratia {
       $fqdn_last_rem_host = $hash{'LastRemoteHost'};
     }
 
-    print $py qq/r.Host(\"/ . $fqdn_last_rem_host . qq/\",True)\n/;
+    if ( defined ($hash{'MATCH_EXP_JOBGLIDEIN_ResourceName'})) {
+      print $py qq/r.Host(\"/ . $fqdn_last_rem_host . qq/\",True,\"/ . $hash{'MATCH_EXP_JOBGLIDEIN_ResourceName'} . qq/\")\n/;
+    } else {
+      print $py qq/r.Host(\"/ . $fqdn_last_rem_host . qq/\",True)\n/;
+    }
   }
 
   # 2.17 - Queue - string, name of the queue from which job executed
