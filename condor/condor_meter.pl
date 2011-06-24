@@ -437,6 +437,7 @@ foreach $logfile (@logfiles) {
               if (not checkSeenLocalJobId($clusterId, $procId)) {
                 ++$count_xml_004;
                 if (%condor_data_hash = Query_Condor_History($clusterId, $procId)) {
+                  $condor_data_hash{'logfile'} = $logfile;
                   if (!Check_Constraint(%condor_data_hash)) {
                     $logfile_constrained = 1;
                   } elsif (!Feed_Gratia(%condor_data_hash)) {
@@ -463,6 +464,7 @@ foreach $logfile (@logfiles) {
                 # JobTerminatedEvent: has Std and several others
                 ++$count_xml_005;
                 if (%condor_data_hash = Query_Condor_History($clusterId, $procId)) {
+                  $condor_data_hash{'logfile'} = $logfile;
                   if (!Check_Constraint(%condor_data_hash)) {
                     $logfile_constrained = 1;
                   } elsif (!Feed_Gratia(%condor_data_hash)) {
@@ -525,6 +527,7 @@ foreach $logfile (@logfiles) {
             print "Identified event type 4 in $logfile\n" if $verbose;
             ++$count_orig_004;
             if (%condor_data_hash = Process_004($logfile, @event_records)) {
+              $condor_data_hash{'logfile'} = $logfile;
               if ($verbose) {
                 print "Process_004 returned Cluster_id of $condor_data_hash{'ClusterId'}\n";
               }
@@ -558,6 +561,7 @@ foreach $logfile (@logfiles) {
             print "Identified event type 5 in $logfile\n" if $verbose;
             ++$count_orig_005;
             if (%condor_data_hash = Process_005($logfile, @event_records)) {
+              $condor_data_hash{'logfile'} = $logfile;
               if ($verbose) {
                 print "Process_005 returned Cluster_id of $condor_data_hash{'ClusterId'}\n";
               }
