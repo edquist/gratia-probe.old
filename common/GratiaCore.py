@@ -2189,16 +2189,18 @@ class Record(object):
 
     '''Base class for the Gratia Record'''
 
-    XmlData = []
-    RecordData = []
-    TransientInputFiles = []
+    # List the damember for documentation purpose only,
+    # We do not want 'class-wide' variables
+    # XmlData = []
+    # RecordData = []
+    # TransientInputFiles = []
 
-    __ProbeName = r''
-    __ProbeNameDescription = r''
-    __SiteName = r''
-    __SiteNameDescription = r''
-    __Grid = r''
-    __GridDescription = r''
+    # __ProbeName = r''
+    # __ProbeNameDescription = r''
+    # __SiteName = r''
+    # __SiteNameDescription = r''
+    # __Grid = r''
+    # __GridDescription = r''
 
     def __init__(self):
 
@@ -2208,9 +2210,13 @@ class Record(object):
         DebugPrint(2, 'Creating a Record ' + TimeToString())
         self.XmlData = []
         self.__ProbeName = Config.get_ProbeName()
+        self.__ProbeNameDescription = r''
         self.__SiteName = Config.get_SiteName()
+        self.__SiteNameDescription = r''
         self.__Grid = Config.get_Grid()
+        self.__GridDescription = r''
         self.RecordData = []
+        self.TransientInputFiles = []
 
     def Print(self):
         DebugPrint(3, 'Usage Record: ', self)
@@ -2326,7 +2332,8 @@ class Record(object):
         
     def AddTransientInputFile(self, filename):
         ''' Register a file that should be deleted if the record has been properly processed '''
-        
+       
+        DebugPrint(1, 'Registering transient input file: '+filename)
         self.TransientInputFiles.append(filename)
         
     def QuarantineTransientInputFiles(self):
@@ -2335,6 +2342,7 @@ class Record(object):
         quarantinedir = os.path.join(Config.get_DataFolder(),"quarantine")
         Mkdir(quarantinedir)
         for filename in self.TransientInputFiles:
+            DebugPrint(1, 'Moving transient input file: '+filename+' to quarantine in '+quarantinedir)
             shutil.copy2(filename,quarantinedir)
             RemoveFile(filename)
         self.TransientInputFiles = []
@@ -2343,6 +2351,7 @@ class Record(object):
         ''' Delete all the transient input files. '''
 
         for filename in self.TransientInputFiles:
+            DebugPrint(1, 'Deleting transient input file: '+filename)
             RemoveFile(filename)
         self.TransientInputFiles = []
 
@@ -3094,6 +3103,7 @@ def Send(record):
 
         if not xmlDoc:
             responseString = 'Internal Error: cannot parse internally generated XML record'
+            # We intentionally do not delete the input files.
             DebugPrint(0, responseString)
             DebugPrint(0, '***********************************************************')
             return responseString
