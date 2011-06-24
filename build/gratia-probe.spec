@@ -1307,6 +1307,13 @@ fi
 
 %changelog
 * Sometimes soon Philippe Canal <pcanal@fnal.gov> - 1.07.02e
+- Add new functionality to allow delegation of the lifetime of transient input file to Gratia 
+  so that there are deleted only in case the record is properly saved and backed-up.  Make the 
+  lack of 'unsuppressed' records only a warning (i.e. it is OK).  Add:
+    record.AddTransientInputFile(filename)
+- Use this AddTransientInputFile to delegate input file lifetime management to Gratia.
+- Merges the GlideInWMS probe with the Condor probe.
+- Fix the HADOOP_CONF detection and default location of config file.
 - Add support in the PBS probe for 'array jobs'
 
 * Thu May 5 2011 Neha Sharma <neha@fnal.gov> - 1.07.02d-2
