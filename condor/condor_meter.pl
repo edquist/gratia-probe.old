@@ -276,6 +276,7 @@ foreach $logfile (@logfiles) {
 
   $logfile_errors = 0;
   $logfile_constrained = 0;
+  $logfile_delegated = 0;
 
   my $basename = basename($logfile);
 
@@ -287,6 +288,7 @@ foreach $logfile (@logfiles) {
     print "Processing condor history file $logfile for $clusterId.$procId\n" if ($verbose);
     # get the class ad from the file
     %condor_data_hash = Read_ClassAd($logfile);
+    $condor_data_hash{'logfile'} = $logfile;
     # check to see we got something
     if (! %condor_data_hash) {
       ++$logfile_errors;
@@ -301,8 +303,11 @@ foreach $logfile (@logfiles) {
         $logfile_constrained = 1;
       } elsif (!Feed_Gratia(%condor_data_hash)) {
         ++$logfile_errors;
+      } else {
+         # deletion of the file has been delegated to Gratia
+         ++$logfile_delegated;
       }
-      # Make sure we don't reprocess any duplicate information in other
+       # Make sure we don't reprocess any duplicate information in other
       # forms (globus stub, etc)
       setSeenLocalJobId($clusterId, $condor_data_hash{ProcId});
     }
@@ -329,9 +334,12 @@ foreach $logfile (@logfiles) {
       }
       # check constraint then hand off data to gratia
       if (!Check_Constraint(%condor_data_hash)) {
-        $logfile_constrained = 1;
+         $logfile_constrained = 1;
       } elsif (!Feed_Gratia(%condor_data_hash)) {
-        ++$logfile_errors;
+         ++$logfile_errors;
+      } else {
+         # deletion of the file has been delegated to Gratia
+         ++$logfile_delegated;
       }
       # Make sure we don't reprocess any duplicate information in other
       # forms (globus stub, etc)
@@ -349,6 +357,7 @@ foreach $logfile (@logfiles) {
 
     # Clear the variables for each new event processed
     %condor_data_hash = ();
+    $condor_data_hash{'logfile'} = $logfile;
     #%logfile_hash = ();  @logfile_clusterids = ();
 
     if ($record_in =~ /\<c\>/) {
@@ -433,6 +442,9 @@ foreach $logfile (@logfiles) {
                   } elsif (!Feed_Gratia(%condor_data_hash)) {
                     warn "Failed to feed XML 004 event to Gratia\n";
                     ++$logfile_errors; # An error means we won't delete this log file
+                  } else {
+                     # deletion of the file has been delegated to Gratia
+                     ++$logfile_delegated;
                   }
                   # Make sure we don't reprocess any duplicate information
                   # in other forms (globus stub, etc)
@@ -456,6 +468,9 @@ foreach $logfile (@logfiles) {
                   } elsif (!Feed_Gratia(%condor_data_hash)) {
                     warn "Failed to feed XML 005 event to Gratia\n";
                     ++$logfile_errors; # An error means we won't delete this log file
+                  } else {
+                     # deletion of the file has been delegated to Gratia
+                     ++$logfile_delegated;
                   }
                   # Make sure we don't reprocess any duplicate information
                   # in other forms (globus stub, etc
@@ -516,9 +531,12 @@ foreach $logfile (@logfiles) {
               if (!checkSeenLocalJobId($condor_data_hash{'ClusterId'},
                                        $condor_data_hash{'ProcId'})) {
                 if (!Check_Constraint(%condor_data_hash)) {
-                  $logfile_constrained = 1;
+                   $logfile_constrained = 1;
                 } elsif (!Feed_Gratia(%condor_data_hash)) {
-                  ++$logfile_errors;
+                   ++$logfile_errors;
+                } else {
+                   # deletion of the file has been delegated to Gratia
+                   ++$logfile_delegated;
                 }
                 # Make sure we don't reprocess any duplicate information
                 # in other forms (globus stub, etc)
@@ -549,6 +567,9 @@ foreach $logfile (@logfiles) {
                   $logfile_constrained = 1;
                 } elsif (!Feed_Gratia(%condor_data_hash)) {
                   ++$logfile_errors;
+                } else {
+                   # deletion of the file has been delegated to Gratia
+                   ++$logfile_delegated;
                 }
                 # Make sure we don't reprocess any duplicate information
                 # in other forms (globus stub, etc)
@@ -580,12 +601,14 @@ foreach $logfile (@logfiles) {
 
   if ($delete_flag) {
     if ($logfile_errors != 0) {
-      warn "Logfile ($logfile) was not removed due to errors ($logfile_errors)\n";
+       warn "Logfile ($logfile) was not removed due to errors ($logfile_errors)\n";
     } elsif ($logfile_constrained) {
-      warn "Logfile ($logfile) was not removed due to unprocessed data (from -c)\n";
+       warn "Logfile ($logfile) was not removed due to unprocessed data (from -c)\n";
+    } elsif ($logfile_delegated) {
+       print "Delegating deletion of ($logfile) to Gratia\n";
     } else {
-      print "Scheduling $logfile for removal\n" if $verbose;
-      push @processed_logfiles, $logfile;
+       print "Scheduling $logfile for removal\n" if $verbose;
+       push @processed_logfiles, $logfile;
     }
   }
 }                               # End of the 'foreach $logfile' loop.
@@ -1053,6 +1076,8 @@ sub Feed_Gratia {
   #print $py qq/r.AdditionalInfo(\"\", \"/ . $hash{''} . qq/\")\n/;
   # Sample:
 
+  print $py qq/r.AddTransientInputFile(\"/,
+            $hash{'logfile'}, qq/\")\n/;
   print $py "response = Gratia.Send(r)\n";
   print $py "if response[:2] != 'OK':\n";
   print $py "   print response\n";
@@ -1629,13 +1654,15 @@ sub close_py_and_cleanup {
       warn "No logfile was removed due to errors in the Gratia python script\n";
     } else {
       foreach $plog (@processed_logfiles) {
-        if (unlink ($plog)) {
-          if ($verbose) {
-            print "Removed logfile ($plog)\n";
-          }
-        } else {
-          warn "Unable to remove logfile ($plog)\n"
-        }
+         if ( -e $plog ) {
+            if (unlink ($plog)) {
+               if ($verbose) {
+                  print "Removed logfile ($plog)\n";
+               }
+            } else {
+               warn "Unable to remove logfile ($plog)\n"
+            }
+         }
       }
     }
   }
