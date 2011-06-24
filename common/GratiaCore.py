@@ -1465,7 +1465,7 @@ def LogToSyslog(level, message):
 
 def RemoveFile(filename):
 
-   # Remove the file, ignore error if the file is already gone.
+    # Remove the file, ignore error if the file is already gone.
 
     result = True
     try:
@@ -1528,7 +1528,7 @@ def QuarantineFile(filename, isempty):
                 sys.exc_info()[1],
                 )
     else:
-        shutil.copy(filename, os.path.join(quarantine, os.path.basename(filename)))
+        shutil.copy2(filename, os.path.join(quarantine, os.path.basename(filename)))
     RemoveRecordFile(filename)
 
 
@@ -1692,6 +1692,7 @@ def RemoveOldQuarantine(nDays=31, maxSize=200):
     global __backupDirList__
     global Config
 
+    RemoveOldFiles(nDays, os.path.join(os.path.join(Config.get_DataFolder(),"quarantine"),"*"))
     fragment = Config.getFilenameFragment()
     for current_dir in __backupDirList__:
         gratiapath = os.path.join(current_dir, 'gratiafiles')
@@ -2190,6 +2191,7 @@ class Record(object):
 
     XmlData = []
     RecordData = []
+    TransientInputFiles = []
 
     __ProbeName = r''
     __ProbeNameDescription = r''
@@ -2321,7 +2323,28 @@ class Record(object):
 
         self.__Grid = value
         self.__GridDescription = description
+        
+    def AddTransientInputFile(self, filename):
+        ''' Register a file that should be deleted if the record has been properly processed '''
+        
+        self.TransientInputFiles.append(filename)
+        
+    def QuarantineTransientInputFiles(self):
+        ''' Copy to a quarantine directories any of the input files '''
+        
+        quarantinedir = os.path.join(Config.get_DataFolder(),"quarantine")
+        Mkdir(quarantinedir)
+        for filename in self.TransientInputFiles:
+            shutil.copy2(filename,quarantinedir)
+            RemoveFile(filename)
+        self.TransientInputFiles = []
+        
+    def RemoveTransientInputFiles(self):
+        ''' Delete all the transient input files. '''
 
+        for filename in self.TransientInputFiles:
+            RemoveFile(filename)
+        self.TransientInputFiles = []
 
 class ProbeDetails(Record):
 
@@ -3079,7 +3102,8 @@ def Send(record):
         if not CheckXmlDoc(xmlDoc, False):
             DebugPrint(4, 'DEBUG: Checking XML content: BAD')
             xmlDoc.unlink()
-            responseString = 'No unsuppressed usage records in this packet: not sending'
+            responseString = 'OK: No unsuppressed usage records in this packet: not sending'
+            record.QuarantineTransientInputFiles()
             suppressedCount += 1
             DebugPrint(0, responseString)
             DebugPrint(0, '***********************************************************')
@@ -3122,6 +3146,7 @@ def Send(record):
                         if f.name != '<stdout>':
                             RemoveRecordFile(f.name)
                     f.close()
+                    record.RemoveTransientInputFiles()
                 except:
                     DebugPrint(
                         0,
@@ -3172,6 +3197,7 @@ def Send(record):
                     DebugPrint(1, 'Response indicates success, ' + f.name + ' will be deleted')
                     RemoveRecordFile(f.name)
                 else:
+                    record.RemoveTransientInputFiles()
                     DebugPrint(1, 'Response indicates success')
                 successfulSendCount += 1
             else:
