@@ -1,7 +1,7 @@
 Name: gratia-probe
 Summary: Gratia OSG accounting system probes
 Group: Applications/System
-Version: 1.07.02e
+Version: 1.08.00a
 Release: 1
 License: GPL
 Group: Applications/System
@@ -1306,6 +1306,9 @@ fi
 %endif # noarch
 
 %changelog
+* Thu Aug 4 2011 Philippe Canal <pcanal@fnal.gov> - 1.08.00a-1
+- No news feature.  Re-release as part of production release.
+
 * Fri Jun 24 2011 Philippe Canal <pcanal@fnal.gov> - 1.07.02e
 - Add new functionality to allow delegation of the lifetime of transient input file to Gratia 
   so that there are deleted only in case the record is properly saved and backed-up.  Make the 
