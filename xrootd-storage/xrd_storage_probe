@@ -707,6 +707,9 @@ def main():
 	    except Exception, e:
 	        gratia_log_traceback(lvl=1)
 
+            if opts.print_only:
+                continue
+
 	    try:
 	        DebugPrint(1, "Creating a new Xrootd Gratia report.")
 	        gratia_handler.summary()
