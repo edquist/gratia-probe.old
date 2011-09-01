@@ -1,7 +1,7 @@
 Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
-Version:            1.08
+Version:            1.09
 Release:            0.1.pre
 License:            GPL
 Group:              Applications/System
