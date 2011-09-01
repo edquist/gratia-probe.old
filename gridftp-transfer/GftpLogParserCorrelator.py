@@ -81,8 +81,8 @@ class Context:
 class GftpLogParserCorrelator:
 
     def __init__(self,gftpTransferFile,gftpAuthFile):
-        self.authParser = netlogger.parsers.modules.gridftp_auth.Parser(gftpAuthFile,True, True )
-        self.transferParser  = netlogger.parsers.modules.gridftp.Parser(gftpTransferFile,True, True )
+        self.authParser = netlogger.parsers.modules.gridftp_auth.Parser(gftpAuthFile,True)
+        self.transferParser  = netlogger.parsers.modules.gridftp.Parser(gftpTransferFile,True)
         self.buffer = []
         self.i = 0
 
@@ -149,7 +149,7 @@ class GftpLogParserCorrelator:
                     break 
                 else:
                     binId = self.binInt(l['ts'])
-                    authEventPlaceHolder = self.findAndCreateTimeBin(binId,correlationBins,l['id'])
+                    authEventPlaceHolder = self.findAndCreateTimeBin(binId,correlationBins,l['PID'])
                     if ( authEventPlaceHolder != None):
                         authEventPlaceHolder.append(l)
 

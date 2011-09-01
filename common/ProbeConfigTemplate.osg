@@ -2,9 +2,9 @@
 
     Title1="Collector Information"
 
-    CollectorHost="gratia-osg-itb.opensciencegrid.org:80"
-    SSLHost="gratia-osg-itb.opensciencegrid.org:443" 
-    SSLRegistrationHost="gratia-osg-itb.opensciencegrid.org:80"
+    CollectorHost="@COLLECTOR_ENDPOINT@"
+    SSLHost="@SSL_ENDPOINT@"
+    SSLRegistrationHost="@SSL_REGISTRATION_ENDPOINT@"
 
     CollectorService="/gratia-servlets/rmi" 
     SSLCollectorService="/gratia-servlets/rmi"
@@ -12,9 +12,8 @@
 
     Title2="Probe information and functional configuration"
 
-    ProbeName="generic" 
-       Comments20="ProbeName used to be spelled 'MeterName'"
-    SiteName="Generic Site"
+    ProbeName="@PROBE_NAME@:@PROBE_HOST@" 
+    SiteName="Generic site"
     Grid="OSG"
     SuppressUnknownVORecords="0"
     SuppressNoDNRecords="0"
@@ -24,13 +23,10 @@
     Title3="Tuning parameter"
 
     BundleSize="100"
-       Comments28="Number of records to be sent per envelope. Consider setting higher (up to 200)."
     MaxPendingFiles="100000"
     MaxStagedArchives="400"
-       Comments30="The maximum of backload files is MaxPendingFiles * MaxStagedArchives per probe"
     UseSyslog="0"
     ConnectionTimeout="900"
-       Comments31="Number of second GratiaCore will wait before timing out an attempt to connect or post to the Collector"
 
     LogLevel="2"
        Comments32="Controls debug messages printed to log file."
@@ -50,18 +46,19 @@
     KeyFile="/etc/grid-security/hostkey.pem"
     UseGratiaCertificates="0"
        Comments40="If no directory is specified the gratia certificate file will be created in 'WorkingFolder'/certs."
-    GratiaCertificateFile="gratia.probecert.pem"
-    GratiaKeyFile="gratia.probekey.pem"
+    GratiaCertificateFile="/var/lib/gratia/data/certs/gratia.probecert.pem"
+    GratiaKeyFile="/var/lib/gratia/data/certs/gratia.probekey.pem"
     
     Title5="File and directory location"
 
-    VDTSetupFile="MAGIC_VDT_LOCATION/setup.sh"
-    UserVOMapFile="MAGIC_VDT_LOCATION/monitoring/grid3-user-vo-map.txt"
-    CertInfoLogPattern="MAGIC_VDT_LOCATION/var/log/accounting/blahp.log-*"
+    UserVOMapFile="/var/lib/osg/grid3-user-vo-map.txt"
+    CertInfoLogPattern="/var/log/accounting/blahp.log-*"
         Comments51="Location and wildcard pattern of log files that contains certificate information about the jobs in the format followed by the 'blah demons'."
 
     DataFolder="/var/lib/gratia/data/"
     WorkingFolder="/var/lib/gratia/tmp"
     LogFolder="/var/log/gratia"
+
+    @PROBE_SPECIFIC_DATA@
 
 />

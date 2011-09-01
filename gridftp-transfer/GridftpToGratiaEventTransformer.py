@@ -1,4 +1,4 @@
-
+import netlogger
 import time
 import Gratia
 import Logger
@@ -81,7 +81,7 @@ class GridftpToGratiaEventTransformer:
         # Gratia will make a best effort to map this to the VO name.
 
         r.LocalUserId( localUserName )
-        r.LocalJobId( ftpEvent['guid'] )
+        r.LocalJobId(netlogger.parsers.base.getGuid(repr(ftpEvent["ts"]),ftpEvent["end"],localUserName,dstHost))
 
         return r
 

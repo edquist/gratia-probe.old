@@ -27,8 +27,8 @@ if 'VDT_LOCATION' in os.environ:
         sys.path.append(gratia_path)
 
 import Gratia
-import StorageElement
-import StorageElementRecord
+import gratia.services.StorageElement
+import gratia.services.StorageElementRecord
 
 log = logging.basicConfig(level=logging.INFO)
 

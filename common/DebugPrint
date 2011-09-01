@@ -10,7 +10,7 @@ DebugPrint.py
 """
 
 import sys
-import GratiaCore
+from gratia.common import GratiaCore
 import getopt
 import string
 

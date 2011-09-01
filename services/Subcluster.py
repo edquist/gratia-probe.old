@@ -4,8 +4,8 @@
 
 import types
 
-import GratiaCore
-from GratiaCore import *
+import gratia.common.GratiaCore
+from gratia.common.GratiaCore import *
 
 class Subcluster(GratiaCore.Record):
     "Base class for the Gratia Subcluster"

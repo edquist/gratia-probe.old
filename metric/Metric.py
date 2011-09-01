@@ -3,8 +3,7 @@
 ## Updated by Arvind Gopu, Indiana University (http://peart.ucs.indiana.edu)
 ## More Updates by Arvind Gopu 2007-10-19
 
-import GratiaCore
-from GratiaCore import *
+from gratia.common.GratiaCore import *
 
 class MetricRecord(GratiaCore.Record):
     """

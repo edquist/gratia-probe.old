@@ -1858,7 +1858,6 @@ def InitDirList():
     DirListAdd(os.getenv('TEMP', r''))
     DirListAdd(os.getenv('TEMPDIR', r''))
     DirListAdd(os.getenv('TEMP_DIR', r''))
-    DirListAdd(os.environ['HOME'])
     DebugPrint(1, 'List of backup directories: ', __backupDirList__)
 
 

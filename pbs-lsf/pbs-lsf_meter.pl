@@ -20,7 +20,7 @@ use urCollector::Common qw(:DEFAULT);
 use urCollector::Configuration;
 
 sub local_error {
-  system("$URCOLLECTOR_LOC/../common/DebugPrint.py", "-l", "-1", @_);
+  system("$URCOLLECTOR_LOC/../common/DebugPrint", "-l", "-1", @_);
 }
 
 ####################################
@@ -68,12 +68,12 @@ if ($lrms eq "PBS") {
 
 my $status;
 if ($lrms_version) {
-  $status = system("$URCOLLECTOR_LOC/pbs-lsf.py",
+  $status = system("$URCOLLECTOR_LOC/pbs-lsf",
                    "$configValues{URBox}",
                    $lrms,
                    $lrms_version);
 } else {
-  $status = system("$URCOLLECTOR_LOC/pbs-lsf.py",
+  $status = system("$URCOLLECTOR_LOC/pbs-lsf",
                    "$configValues{URBox}", $lrms);
 }
 

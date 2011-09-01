@@ -10,16 +10,7 @@ PGM=$(basename $0)
 Logger="/usr/bin/logger -s -t $PGM"
 
 Meter_BinDir=$(dirname $0)
-
-eval `grep VDTSetupFile ${Meter_BinDir}/ProbeConfig`
-for Setupsh in ${VDTSetupFile} '/opt/vdt/setup.sh' '/opt/osg-ce/setup.sh'
-do
-  if [[ -f ${Setupsh} && -r ${Setupsh} ]]; then
-    # Should the output of this be directed to /dev/null?
-    . ${Setupsh} >/dev/null
-    break
-  fi
-done
+probeconfig_loc=/etc/gratia/dCache-storage/ProbeConfig
 
 # Set the working directory, where we expect to find the following
 #    necessary files.
@@ -31,8 +22,8 @@ else
 fi
 
 # Need to be sure there is not one of these running already
-NCMeter=`ps -ef | grep dCache_storage_probe.py | grep -v grep | wc -l`
-eval `grep WorkingFolder ./ProbeConfig`
+NCMeter=`ps -ef | grep dCache_storage_probe | grep -v grep | wc -l`
+eval `grep WorkingFolder $probeconfig_loc`
 if [ ${NCMeter} -ne 0 -a -e ${WorkingFolder}/dCache-storage_meter.cron.pid ]; then
   # We might have a condor_meter.pl running, let's verify that we 
   # started it.
@@ -41,19 +32,19 @@ if [ ${NCMeter} -ne 0 -a -e ${WorkingFolder}/dCache-storage_meter.cron.pid ]; th
   NCCron=`ps -ef | grep ${otherpid} | grep dCache-storage_meter.cron | wc -l`
   if [ ${NCCron} -ne 0 ]; then 
  
-    ${Logger} "There is a dCache_storage_probe.py running already"
+    ${Logger} "There is a dCache_storage_probe running already"
     exit 1
   fi
 fi
 
 # We need to locate the probe script
-if [ ! -r ./dCache_storage_probe.py ]; then
-  ${Logger} "The dCache_storage_probe.py file is not in this directory: $(pwd)"
+if [ ! -r ./dCache_storage_probe ]; then
+  ${Logger} "The dCache_storage_probe file is not in this directory: $(pwd)"
   exit -2
 fi
 
 # We need to locate these files and they must be readable
-for Needed_File in ProbeConfig
+for Needed_File in $probeconfig_loc
 do
   if [ ! -f ${Needed_File} ]; then
     ${Logger} \
@@ -63,30 +54,19 @@ do
 done
 
 pp_dir=$(cd "$Meter_BinDir/.."; pwd)
-arch_spec_dir=`echo "${pp_dir}/lib."*`
-if test -n "$PYTHONPATH" ; then
-  if echo "$PYTHONPATH" | grep -e ':$' >/dev/null 2>&1; then
-    PYTHONPATH="${PYTHONPATH}${pp_dir}/common:${arch_spec_dir}:"
-  else
-    PYTHONPATH="${PYTHONPATH}:${pp_dir}/common:${arch_spec_dir}"
-  fi
-else
-  PYTHONPATH="${pp_dir}/common:${pp_dir}/common:${arch_spec_dir}"
-fi
-export PYTHONPATH
 
-enabled=`${pp_dir}/common/GetProbeConfigAttribute.py EnableProbe`
+enabled=`${pp_dir}/common/GetProbeConfigAttribute -c $probeconfig_loc EnableProbe`
 (( status = $? ))
 if (( $status != 0 )); then
   echo "ERROR checking probe configuration!" 1>&2
   exit $status
 fi
 if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
-  ${pp_dir}/common/DebugPrint.py -l 0 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
+  ${pp_dir}/common/DebugPrint -c $probeconfig_loc -l 0 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
   exit 1
 fi
 
-WorkingFolder=`${pp_dir}/common/GetProbeConfigAttribute.py WorkingFolder`
+WorkingFolder=`${pp_dir}/common/GetProbeConfigAttribute -c $probeconfig_loc WorkingFolder`
 if [ ! -d ${WorkingFolder} ]; then
   if [ "x${WorkingFolder}" != "x" ] ; then 
     mkdir -p ${WorkingFolder}
@@ -104,13 +84,13 @@ if (( $status != 0 )); then
 fi 
 
 #--- run the probes ----
-python ./dCache_storage_probe.py -c storage.cfg
+./dCache_storage_probe -c storage.cfg
 
 ExitCode=$?
 
 # If the probe ended in error, report this in Syslog and exit
 if [ $ExitCode != 0 ]; then
-  ${pp_dir}/common/DebugPrint.py -l -1 "ALERT: $0 exited abnormally with [$ExitCode]"
+  ${pp_dir}/common/DebugPrint -c $probeconfig_loc -l -1 "ALERT: $0 exited abnormally with [$ExitCode]"
   exit $ExitCode
 fi
   

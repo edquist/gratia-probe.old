@@ -13,8 +13,9 @@ import xml.sax.saxutils
 has_gratia = True
 try:
     import Gratia
-    import StorageElement
-    import StorageElementRecord
+    from gratia.services.StorageElement import StorageElement
+    from gratia.services.StorageElementRecord import StorageElementRecord
+
 except:
     has_gratia = False
     Gratia = None

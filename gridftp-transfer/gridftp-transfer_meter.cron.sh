@@ -1,6 +1,5 @@
 #!/bin/bash
-#
-# gridftp-transfer_meter.cron.sh - Shell script used with cron to parse dcache-storage
+# gridftp-transfer_meter.cron.sh - Shell script used with cron to parse gridftp-storage
 #   files for OSG accounting data collection.
 #      By Chris Green <greenc@fnal.gov>  Began 5 Sept 2006
 # $Id: gridftp-transfer_meter.cron.sh,v 1.1 2008/11/19 19:40:17 greenc Exp $
@@ -10,16 +9,7 @@ PGM=$(basename $0)
 Logger="/usr/bin/logger -s -t $PGM"
 
 Meter_BinDir=$(dirname $0)
-
-eval `grep VDTSetupFile ${Meter_BinDir}/ProbeConfig`
-for Setupsh in ${VDTSetupFile} '/opt/vdt/setup.sh' '/opt/osg-ce/setup.sh'
-do
-  if [[ -f ${Setupsh} && -r ${Setupsh} ]]; then
-    # Should the output of this be directed to /dev/null?
-    . ${Setupsh} >/dev/null
-    break
-  fi
-done
+probeconfig_loc=/etc/gratia/gridftp-transfer/ProbeConfig
 
 # Set the working directory, where we expect to find the following
 #    necessary files.
@@ -32,7 +22,7 @@ fi
 
 # Need to be sure there is not one of these running already
 NCMeter=`ps -ef | grep GridftpTransferProbeDriver.py | grep -v grep | wc -l`
-eval `grep WorkingFolder ./ProbeConfig`
+eval `grep WorkingFolder $probeconfig_loc`
 if [ ${NCMeter} -ne 0 -a -e ${WorkingFolder}/gridftp-transfer_meter.cron.pid ]; then
   # We might have a condor_meter.pl running, let's verify that we 
   # started it.
@@ -47,8 +37,8 @@ if [ ${NCMeter} -ne 0 -a -e ${WorkingFolder}/gridftp-transfer_meter.cron.pid ]; 
 fi
 
 # We need to locate the probe script
-if [ ! -r ./GridftpTransferProbeDriver.py ]; then
-  ${Logger} "The GridftpTransferProbeDriver.py file is not in this directory: $(pwd)"
+if [ ! -r ./GridftpTransferProbeDriver ]; then
+  ${Logger} "The GridftpTransferProbeDriver file is not in this directory: $(pwd)"
   exit -2
 fi
 
@@ -75,18 +65,18 @@ else
 fi
 export PYTHONPATH
 
-enabled=`${pp_dir}/common/GetProbeConfigAttribute.py EnableProbe`
+enabled=`${pp_dir}/common/GetProbeConfigAttribute EnableProbe`
 (( status = $? ))
 if (( $status != 0 )); then
   echo "ERROR checking probe configuration!" 1>&2
   exit $status
 fi
 if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
-  ${pp_dir}/common/DebugPrint.py -l 0 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
+  ${pp_dir}/common/DebugPrint -l 0 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
   exit 1
 fi
 
-WorkingFolder=`${pp_dir}/common/GetProbeConfigAttribute.py WorkingFolder`
+WorkingFolder=`${pp_dir}/common/GetProbeConfigAttribute WorkingFolder`
 if [ ! -d ${WorkingFolder} ]; then
   if [ "x${WorkingFolder}" != "x" ] ; then 
     mkdir -p ${WorkingFolder}
@@ -104,23 +94,14 @@ if (( $status != 0 )); then
 fi
 
 #--- run the probe ----
-python ./GridftpTransferProbeDriver.py
+python ./GridftpTransferProbeDriver
 
 ExitCode=$?
 
 # If the probe ended in error, report this in Syslog and exit
 if [ $ExitCode != 0 ]; then
-  ${pp_dir}/common/DebugPrint.py -l -1 "ALERT: $0 exited abnormally with [$ExitCode]"
+  ${pp_dir}/common/DebugPrint -l -1 "ALERT: $0 exited abnormally with [$ExitCode]"
   exit $ExitCode
 fi
   
 exit 0
-
-#==================================================================
-# CVS Log
-# $Log: gridftp-transfer_meter.cron.sh,v $
-# Revision 1.1  2008/11/19 19:40:17  greenc
-# Improve version reporting.
-#
-# cron wrapper script for environment.
-#

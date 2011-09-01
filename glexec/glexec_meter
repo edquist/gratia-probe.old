@@ -6,7 +6,7 @@
 import os,os.path,sys,time,string,pwd
 import socket
 import popen2
-import gratia_glexec_parser
+import gratia.glexec.gratia_glexec_parser as gratia_glexec_parser
 import Gratia
 
 #

@@ -3,7 +3,7 @@
 #@(#)gratia/probe/common:$HeadURL$:$Id$
 
 import getopt,sys
-import GratiaCore
+from gratia.common import GratiaCore
 
 class UsageError(Exception):
     def __init__(self, msg):

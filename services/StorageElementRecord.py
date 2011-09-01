@@ -4,10 +4,9 @@
 
 import types
 
-import GratiaCore
-from GratiaCore import *
+from gratia.common.GratiaCore import *
 
-class StorageElementRecord(GratiaCore.Record):
+class StorageElementRecord(Record):
     "Base class for the Gratia StorageElementRecord"
 
     def __init__(self):

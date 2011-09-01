@@ -145,8 +145,7 @@ def warn_of_signal( signum, frame ):
         terminationAlarm.event()
     os._exit( 1 )
 
-
-if __name__ == '__main__':
+def main():
     # We need the logger variable in the exception handler.
     # So we create it here.
     logger = logging.getLogger( 'DCacheAggregator' )
@@ -283,4 +282,7 @@ if __name__ == '__main__':
         terminationAlarm.event()
 
     sys.exit(1)
+
+if __name__ == '__main__':
+    main()
 

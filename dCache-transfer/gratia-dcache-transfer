@@ -1,121 +1,93 @@
-#!/bin/sh
-#
-# chkconfig: 2345 99 1
-# description: the gratia-dcache-transfer probe collects dCache accounting information.
+#!/usr/bin/python
 
-# To allow python's logging facility to survive in a restricted
-# environment (eg with "service gratia-dcache-transfer start").
-if [ -z "$HOME" ]; then
-  HOME='/'; export HOME
-fi
+import gratia.dCache_transfer.dCacheBillingAggregator
 
-PROBE_DIR=/opt/d-cache/gratia/probe/dCache-transfer
-arch_spec_dir=`echo "${PROBE_DIR}/../lib."*`
-if test -n "$PYTHONPATH" ; then
-  if echo "$PYTHONPATH" | grep -e ':$' >/dev/null 2>&1; then
-    PYTHONPATH="${PYTHONPATH}${PROBE_DIR}/../common:${PYTHONPATH}${PROBE_DIR}/../lib.linux-i686-2.4:${arch_spec_dir}:"
-  else
-    PYTHONPATH="${PYTHONPATH}:${PROBE_DIR}/../common:${PYTHONPATH}${PROBE_DIR}/../lib.linux-i686-2.4:${arch_spec_dir}"
-  fi
-else
-  PYTHONPATH="${PROBE_DIR}/../common:${PYTHONPATH}${PROBE_DIR}/../lib.linux-i686-2.4:${arch_spec_dir}"
-fi
-export PYTHONPATH
-PROBE_CONFIG=$PROBE_DIR/ProbeConfig
+# This code is based on the following recipe:
+# http://code.activestate.com/recipes/278731/ (r6)
+# __author__ = "Chad J. Schroeder"
+# __copyright__ = "Copyright (C) 2005 Chad J. Schroeder"
 
-# See if the probe is installed.
-[ -d $PROBE_DIR ] || exit 0
-# Make sure there is a config file. If not, assume it is inactive.
-[ -e $PROBE_CONFIG ] || exit 1
+# Standard Python modules.
+import os               # Miscellaneous OS interfaces.
+import sys              # System-specific parameters and functions.
 
-# Get the name of the stop file
-STOPLINE=`grep StopFileName $PROBE_CONFIG`
-if [ $? -ne 0 ]
-then
-    echo "gratia-dcache-transfer: can't find stopfile name in $PROBE_CONFIG"
-    exit 1
-fi
-STOPFILE=`echo $STOPLINE | sed -e 's/StopFileName="//' -e 's/".*$//'`
-STOPFILE=$PROBE_DIR/$STOPFILE
+# Default daemon parameters.
+# File mode creation mask of the daemon.
+UMASK = 0
 
-isRunning()
-{
-    ps -ef | grep "python dCacheBillingAggregator" | grep -Evq grep
-}
+# Default working directory for the daemon.
+WORKDIR = "/usr/share/gratia/dCache-transfer"
 
+# Default maximum for the number of available file descriptors.
+MAXFD = 1024
 
-start()
-{
-    echo -n "gratia-dcache-transfer: "
-    if [ -e $STOPFILE ]
-    then
-    	echo "The stopfile is present. Please remove it (from $STOPFILE) before trying to start"
-	exit 1
-    fi
-    if isRunning
-    then
-        echo "is already running."
-    else
-	cd $PROBE_DIR
-	nohup python dCacheBillingAggregator.py &
-	echo "success"
-    fi
-}
+# The standard I/O file descriptors are redirected to /dev/null by default.
+if (hasattr(os, "devnull")):
+   REDIRECT_TO = os.devnull
+else:
+   REDIRECT_TO = "/dev/null"
 
+def createDaemon(fd):
+   """Detach a process from the controlling terminal and run it in the
+   background as a daemon.
+   """
 
-stop()
-{
-    echo -n "gratia-dcache-transfer: "
-    if isRunning
-    then
-	cd $PROBE_DIR # redundant, but it makes sure it exists/is mounted.
-	> $STOPFILE
-	echo -n "is stopping"
-	while isRunning
-	do
-	    sleep 5
-	    echo -n "."
-	done
-	echo
-	rm $STOPFILE
-    else
-	echo "doesn't appear to be running"
-    fi
+   try:
+      pid = os.fork()
+   except OSError, e:
+      raise Exception, "%s [%d]" % (e.strerror, e.errno)
 
-}
+   if (pid == 0):	# The first child.
+      os.setsid()
 
+      # import signal           # Set handlers for asynchronous events.
+      # signal.signal(signal.SIGHUP, signal.SIG_IGN)
 
-dostatus()
-{
-    echo -n "gratia-dcache-transfer: "
-    if isRunning
-    then
-	if [ -e $STOPFILE ]
-	then
-	    echo "is stopping"
-	else
-	    echo "appears to be running"
-	fi
-    else
-    	echo "doesn't appear to be running"
-    fi
-}
+      try:
+         pid = os.fork()	# Fork a second child.
+      except OSError, e:
+         raise Exception, "%s [%d]" % (e.strerror, e.errno)
 
+      if (pid == 0):	# The second child.
+         os.chdir(WORKDIR)
+         os.umask(UMASK)
+      else:
+         # exit() or _exit()?  See below.
+         os._exit(0)	# Exit parent (the first child) of the second child.
+   else:
+      os._exit(0)	# Exit parent of the first child.
 
-# See how we were called.
-case "$1" in
-  start)
-        start
-        ;;
-  stop)
-        stop
-        ;;
-  status)
-        dostatus
-        ;;
-  *)
-        echo $"Usage: $0 {start|stop|status}"
-        exit 1
-esac
+   fd.write(str(pid))
 
-exit 0
+   import resource		# Resource usage information.
+   maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
+   if (maxfd == resource.RLIM_INFINITY):
+      maxfd = MAXFD
+  
+   # Iterate through and close all file descriptors.
+   for fd in range(0, maxfd):
+      try:
+         os.close(fd)
+      except OSError:	# ERROR, fd wasn't open to begin with (ignored)
+         pass
+
+   # This call to open is guaranteed to return the lowest file descriptor,
+   # which will be 0 (stdin), since it was closed above.
+   os.open(REDIRECT_TO, os.O_RDWR)	# standard input (0)
+
+   # Duplicate standard input to standard output and standard error.
+   os.dup2(0, 1)			# standard output (1)
+   os.dup2(0, 2)			# standard error (2)
+
+   return(0)
+
+def main():
+    fd = open("/var/run/gratia-dcache-transfer.pid", "w")
+    createDaemon(fd)
+
+    # Now, call the main method
+    gratia.dCache_transfer.dCacheBillingAggregator.main()
+
+if __name__ == '__main__':
+    main()
+

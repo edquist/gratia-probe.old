@@ -8,9 +8,9 @@ import socket
 import datetime
 import optparse
 import ConfigParser
-import GratiaConnector
+import gratia.dCache_storage.GratiaConnector as GratiaConnector
 import Gratia
-import XmlBuilder
+import gratia.dCache_storage.XmlBuilder as XmlBuilder
 
 # Bootstrap hadoop
 if 'JAVA_HOME' not in os.environ:
@@ -27,24 +27,8 @@ class Config(Gratia.ProbeConfiguration):
 def configure():
     cp = Config()
 
-    gratia_path = None
+    os.environ['CLASSPATH'] = '/usr/share/java/xalan.jar:/usr/share/java/serializer.jar'
 
-    for pathElement in sys.path:
-       if ( pathElement.find("probe/common") != -1 ):
-           gratia_path = pathElement+"/../../"
-           break
-
-    if ( gratia_path == None ):
-      raise Exception("gratia_path can not be determined from python path")
-
-    if not os.path.exists(gratia_path):
-       raise Exception("GratiaLocation attribute in ProbeConfig file must point to the corrent gratie probe directory")
-
-    cp.GratiaLocation = gratia_path
-
-    os.environ['CLASSPATH'] = gratia_path+"/probe/common/jlib/xalan.jar:"+gratia_path+"/probe/common/jlib/serializer.jar"
-
-    sys.path.append(gratia_path+"/probe/services")
     return cp
 
 def _get_se(cp):
@@ -88,10 +72,9 @@ def main():
     if ( poolsUsage != None and ynMap.has_key(poolsUsage.lower())):
        noPoolsArg = "-PARAM nopools 1"
 
-    import time
     timeNow = int(time.time())
 
-    cmd = "java  org.apache.xalan.xslt.Process %s -PARAM now %d -PARAM SE %s -XSL %s/probe/dCache-storage/create_se_record.xsl -IN %s " % ( noPoolsArg, timeNow, get_se(cp) ,cp.GratiaLocation, dCacheUrl )
+    cmd = "java  org.apache.xalan.xslt.Process %s -PARAM now %d -PARAM SE %s -XSL /usr/share/gratia/dCache-storage/create_se_record.xsl -IN %s " % ( noPoolsArg, timeNow, get_se(cp), dCacheUrl )
 
     fd = os.popen(cmd)
 
