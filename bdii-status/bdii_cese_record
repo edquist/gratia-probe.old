@@ -217,6 +217,10 @@ def main():
     global log
     log = bdii_common.log
 
+    if GratiaCore.Config.getConfigAttribute("EnableProbe") == "0":
+        log.info("Probe is not enabled; exiting")
+        return 0
+
     # Use the CLI option, ProbeConfig val, then default (in that order)
     bdii = GratiaCore.Config.getConfigAttribute("BDII")
     if opts.bdii:

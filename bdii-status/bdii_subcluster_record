@@ -183,6 +183,10 @@ def main():
     global Subcluster
     Subcluster = bdii_common.Subcluster
 
+    if GratiaCore.Config.getConfigAttribute("EnableProbe") == "0":
+        print "Probe is not enabled; exiting"
+        return 0
+
     # Use the CLI option, ProbeConfig val, then default (in that order)
     bdii = GratiaCore.Config.getConfigAttribute("BDII")
     if opts.bdii:
@@ -298,6 +302,7 @@ def sendToGratia_child(cluster, sc_list):
     except Exception, e:
         print e
         return
+
     GratiaCore.Config.setSiteName(site)
     GratiaCore.Config.setMeterName('bdii_subcluster:%s' % cluster)
 

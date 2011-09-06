@@ -190,12 +190,12 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
   rm $RPM_BUILD_ROOT%{_datadir}/gratia/dCache-transfer/gratia-dcache-transfer.init
 
   # Xrootd-storage init script
-  install -m 755 "${RPM_BUILD_ROOT}%{_datadir}/gratia/xrootd-storage/gratia-xrootd-storage" "$RPM_BUILD_ROOT%{_initrddir}/gratia-xrootd-storage"
-  rm $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-storage/gratia-xrootd-storage
+  install -m 755 $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-storage/gratia-xrootd-storage.init $RPM_BUILD_ROOT%{_initrddir}/gratia-xrootd-storage
+  rm $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-storage/gratia-xrootd-storage.init
 
   # Xrootd-transfer init script
-  install -m 755 "${RPM_BUILD_ROOT}%{_datadir}/gratia/xrootd-transfer/gratia-xrootd-transfer" "$RPM_BUILD_ROOT%{_initrddir}/gratia-xrootd-transfer"
-  rm $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-transfer/gratia-xrootd-transfer
+  install -m 755 $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-transfer/gratia-xrootd-transfer.init $RPM_BUILD_ROOT%{_initrddir}/gratia-xrootd-transfer
+  rm $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-transfer/gratia-xrootd-transfer.init
 
   # psacct init script
   install -m 755 $RPM_BUILD_ROOT%{_datadir}/gratia/psacct/gratia-psacct $RPM_BUILD_ROOT%{_initrddir}/gratia-psacct
