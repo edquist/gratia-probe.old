@@ -655,7 +655,7 @@ Contributed by University of Nebraska Lincoln.
 %files xrootd-transfer
 %defattr(-,root,root,-)
 %{_initrddir}/gratia-xrootd-transfer
-%{default_prefix}/gratia/xrootd-transfer/xrd_transfer_probe
+%{default_prefix}/gratia/xrootd-transfer/gratia-xrootd-transfer
 %{default_prefix}/gratia/xrootd-transfer/ProbeConfig
 %dir %{default_prefix}/gratia/xrootd-transfer
 %config(noreplace) %{_sysconfdir}/gratia/xrootd-transfer/ProbeConfig
@@ -678,7 +678,7 @@ Contributed as effort from OSG-Storage.
 %files xrootd-storage
 %defattr(-,root,root,-)
 %{_initrddir}/gratia-xrootd-storage
-%{default_prefix}/gratia/xrootd-storage/xrd_storage_probe
+%{default_prefix}/gratia/xrootd-storage/gratia-xrootd-storage
 %{default_prefix}/gratia/xrootd-storage/ProbeConfig
 %dir %{default_prefix}/gratia/xrootd-storage
 %config(noreplace) %{_sysconfdir}/gratia/xrootd-storage/ProbeConfig
