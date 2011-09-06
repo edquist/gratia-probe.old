@@ -5,48 +5,34 @@
 # chkconfig: 345 85 15
 # description: Gratia storage accounting for an Xrootd SE
 # processname: xrd_transfer_probe
-# pidfile: /opt/vdt/gratia/var/tmp/xrd_transfer_probe.pid
+# pidfile: /var/run/xrd_transfer_probe.pid
 
 # Source function library.
 . /etc/rc.d/init.d/functions
 
-# Some Gratia-specific additions
-# The below line is properly set for a Pacman/VDT install.
-VDT_LOCATION=MAGIC_VDT_LOCATION
-# Fallback to default VDT location if this was an RPM-based install
-[ -d $VDT_LOCATION ] || VDT_LOCATION=/opt/vdt
-
-release_major=`lsb_release -r | tr '.' ' ' | awk '{print $2;}'`
-if [ "x$release_major" = "x4" ]; then
-  source $VDT_LOCATION/gratia/probe/xrootd-transfer/SL4_init_script_patches
-fi
-
 # The following adds the xrootd storage probe to the PATH.
-PATH=$PATH:$VDT_LOCATION/gratia/probe/xrootd-transfer
-export VDT_LOCATION=$VDT_LOCATION
-
-export HOME=/
+PATH=$PATH:/usr/share/gratia/xrootd-transfer
 
 RETVAL=0
 
 case "$1" in
   start)
         echo -n "Starting xrd_transfer_probe: "
-        daemon --pidfile $VDT_LOCATION/gratia/var/tmp/xrd_transfer_probe.pid xrd_transfer_probe -d -r 10
+        daemon xrd_transfer_probe -d -r 10
         RETVAL=$?
         echo
         [ $RETVAL -eq 0 ] && touch /var/lock/subsys/xrd_transfer_probe
         ;;
   stop)
         echo -n "Shutting down xrd_transfer_probe: "
-        killproc -p $VDT_LOCATION/gratia/var/tmp/xrd_transfer_probe.pid xrd_transfer_probe -INT
+        killproc xrd_transfer_probe -INT
         RETVAL=$?
         sleep 1
         echo
         [ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/xrd_transfer_probe
         ;;
   status)
-        status -p $VDT_LOCATION/gratia/var/tmp/xrd_transfer_probe.pid xrd_transfer_probe
+        status xrd_transfer_probe
         RETVAL=$?
         ;;
   restart)

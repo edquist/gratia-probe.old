@@ -5,48 +5,34 @@
 # chkconfig: 345 85 15
 # description: Gratia storage accounting for an Xrootd SE
 # processname: xrd_storage_probe
-# pidfile: /opt/vdt/gratia/var/tmp/xrd_storage_probe.pid
+# pidfile: /var/run/xrd_storage_probe.pid
 
 # Source function library.
 . /etc/rc.d/init.d/functions
 
-# Some Gratia-specific additions
-# The below line is properly set for a Pacman/VDT install.
-VDT_LOCATION=MAGIC_VDT_LOCATION
-# Fallback to default VDT location if this was an RPM-based install
-[ -d $VDT_LOCATION ] || VDT_LOCATION=/opt/vdt
-
-release_major=`lsb_release -r | tr '.' ' ' | awk '{print $2;}'`
-if [ "x$release_major" = "x4" ]; then
-  source $VDT_LOCATION/gratia/probe/xrootd-storage/SL4_init_script_patches
-fi
-
 # The following adds the xrootd storage probe to the PATH.
-PATH=$PATH:$VDT_LOCATION/gratia/probe/xrootd-storage
-export VDT_LOCATION=$VDT_LOCATION
-
-export HOME=/
+PATH=$PATH:/usr/share/gratia/probe/xrootd-storage
 
 RETVAL=0
 
 case "$1" in
   start)
         echo -n "Starting  xrd_storage_probe: "
-        daemon --pidfile $VDT_LOCATION/gratia/var/tmp/xrd_storage_probe.pid xrd_storage_probe -d
+        daemon xrd_storage_probe -d
         RETVAL=$?
         echo
         [ $RETVAL -eq 0 ] && touch /var/lock/subsys/xrd_storage_probe
         ;;
   stop)
         echo -n "Shutting down xrd_storage_probe: "
-        killproc -p $VDT_LOCATION/gratia/var/tmp/xrd_storage_probe.pid xrd_storage_probe -INT
+        killproc xrd_storage_probe -INT
         RETVAL=$?
         sleep 1
         echo
         [ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/xrd_storage_probe
         ;;
   status)
-        status -p $VDT_LOCATION/gratia/var/tmp/xrd_storage_probe.pid xrd_storage_probe
+        status xrd_storage_probe
         RETVAL=$?
         ;;
   restart)

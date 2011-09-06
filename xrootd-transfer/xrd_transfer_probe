@@ -14,8 +14,8 @@ import threading
 import traceback
 import logging.handlers
 
-Gratia = None
-DebugPrint = None
+import gratia.common.Gratia as Gratia
+from gratia.common.Gratia import DebugPrint
 
 log = None
 timestamp = time.time()
@@ -391,25 +391,14 @@ def get_se():
         raise Exception("SiteName attribute not found in ProbeConfig")
     return config_se
 
-def get_vdt_version():
-    vdt_setup_file = Gratia.Config.getConfigAttribute("VDTSetupFile")
-    if vdt_setup_file:
-        prefix = "source %s; " % vdt_setup_file
-    else:
-        prefix = ""
-        if 'VDT_LOCATION' not in os.environ:
-            raise Exception("Unable to determine the %s version from VDT." \
-                % XRD_NAME)
-    fd = os.popen(prefix + "vdt-version")
+def get_rpm_version():
+    cmd = "rpm -q gratia-probe-xrootd-storage --queryformat '%{VERSION}-%{RELEASE}'"
+    fd = os.popen(cmd)
     output = fd.read()
     if fd.close():
-        raise Exception("Unable to successfully query vdt-version for %s "
+        raise Exception("Unable to successfully query rpm for %s "
             "version information." % XRD_NAME)
-    xrd_re = re.compile("(%s\s.*?)\s" % XRD_NAME)
-    for line in output.splitlines():
-        m = xrd_re.match(line)
-        if m:
-            return m.groups()[0]
+    return output
 
 version_cache = None
 def get_version():
@@ -418,7 +407,7 @@ def get_version():
         return version_cache
     config_version = Gratia.Config.getConfigAttribute("%sVersion" % XRD_NAME)
     if not config_version:
-        config_version = get_vdt_version()
+        config_version = get_rpm_version()
         #raise Exception("XrootdVersion attribute not found in ProbeConfig")
     version_cache = config_version
     return version_cache
@@ -655,11 +644,8 @@ def parse_opts():
     parser.add_option("-p", "--port", help="UDP Port to listen on for " \
         "messages.  Overridden by Gratia ProbeConfig.", type="int",
         default=3334, dest="port")
-    parser.add_option("--gratia_home", help="Location of the top-level " \
-        "Gratia directory; defaults to $VDT_LOCATION/gratia",
-        dest="gratia_home")
     parser.add_option("--gratia_config", help="Location of the Gratia config;" \
-        " defaults to $GRATIA_HOME/xrootd-transfer/ProbeConfig",
+        " defaults to /etc/gratia/xrootd-transfer/ProbeConfig",
         dest="gratia_config")
     parser.add_option("-b", "--bind", help="Listen for messages on a " \
         "specific address; defaults to 0.0.0.0.  Overridden by Gratia " \
@@ -674,8 +660,6 @@ def parse_opts():
     opts, args = parser.parse_args()
 
     # Expand our input paths:
-    if opts.gratia_home:
-        opts.gratia_home = os.path.expanduser(opts.gratia_home)
     if opts.input:
         opts.input = os.path.expanduser(opts.input)
     if opts.logfile:
@@ -688,21 +672,8 @@ def parse_opts():
         global SLEEP_TIME
         SLEEP_TIME = opts.report_period*60
 
-    # Bootstrap Gratia home
-    gratia_home = None
-    if opts.gratia_home and os.path.exists(opts.gratia_home):
-        gratia_home = opts.gratia_home
-    vdt_location = os.environ.get("VDT_LOCATION", "/opt/vdt")
-    if not gratia_home and vdt_location:
-        gratia_home = os.path.join(vdt_location, "gratia")
-    if not gratia_home:
-        raise Exception("Gratia home is not specified and $VDT_LOCATION is " \
-            "not set.")
-    # Set gratia_home to the location we decided on.
-    opts.gratia_home = gratia_home
-
     # Initialize logging
-    logfile = os.path.join(gratia_home, "var", "logs", "xrootd-transfer.log")
+    logfile = "/var/log/gratia/xrootd-transfer.log"
     if opts.logfile:
         logfile = opts.logfile
     path, _ = os.path.split(logfile)
@@ -728,32 +699,12 @@ def parse_opts():
         handler.setFormatter(formatter)
         log.addHandler(handler)
 
-    # Bootstrap Gratia environment
-    log.debug("Gratia home: %s" % gratia_home)
-    probe_home = os.path.join(gratia_home, "probe", "xrootd-transfer")
-    if os.path.exists(probe_home) and probe_home not in sys.path:
-        sys.path.insert(0, probe_home)
-        log.debug("Gratia Probe home: %s" % probe_home)
-    common_home = os.path.join(gratia_home, "probe", "common")
-    if os.path.exists(common_home) and common_home not in sys.path:
-        sys.path.insert(0, common_home)
-        log.debug("Gratia Common home: %s" % common_home)
-    services_home = os.path.join(gratia_home, "probe", "services")
-    if os.path.exists(services_home) and services_home not in sys.path:
-        sys.path.insert(0, services_home)
-        log.debug("Gratia Services home: %s" % services_home)
-    log.debug("Probe python search path: %s" % ", ".join(sys.path))
-    global Gratia    
-    Gratia = __import__("Gratia")
-    global DebugPrint
-    DebugPrint = Gratia.DebugPrint
-
     # Initialize Gratia
     gratia_config = None
     if opts.gratia_config and os.path.exists(opts.gratia_config):
         gratia_config = opts.gratia_config
-    elif probe_home:
-        tmp = os.path.join(probe_home, "ProbeConfig")
+    else:
+        tmp = "/etc/gratia/xrootd-transfer/ProbeConfig"
         if os.path.exists(tmp):
             gratia_config = tmp
     if not gratia_config:
@@ -781,8 +732,7 @@ def main():
             # to alert the user of potential errors.
             test_udp_socket(port=opts.port, bind=opts.bind)
             # Test to see if the pidfile is writable.
-            pidfile = os.path.join(opts.gratia_home, "var", "tmp",
-                "xrd_transfer_probe.pid")
+            pidfile = "/var/run/xrd_transfer_probe.pid"
             open(pidfile, 'w').close()
             daemonize(pidfile)
             # Must re-initialize here because we changed processes and lost

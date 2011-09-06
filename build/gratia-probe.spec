@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.09
-Release:            0.1.pre
+Release:            0.2.pre
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -37,23 +37,22 @@ BuildRequires: gcc-c++
 
 ########################################################################
 # Source and patch specifications
-Source0: %{name}-common-%{version}.tar.bz2
-Source1: %{name}-condor-%{version}.tar.bz2
-Source2: %{name}-psacct-%{version}.tar.bz2
-Source3: %{name}-pbs-lsf-%{version}.tar.bz2
-Source5: %{name}-sge-%{version}.tar.bz2
-Source6: %{name}-glexec-%{version}.tar.bz2
-Source7: %{name}-metric-%{version}.tar.bz2
-
-Source12: %{name}-dCache-transfer-%{version}.tar.bz2
-Source13: %{name}-dCache-storage-%{version}.tar.bz2
-Source14: %{name}-gridftp-transfer-%{version}.tar.bz2
-Source15: %{name}-services-%{version}.tar.bz2
-Source16: %{name}-hadoop-storage-%{version}.tar.bz2
-Source17: %{name}-condor-events-%{version}.tar.bz2
-Source18: %{name}-xrootd-transfer-%{version}.tar.bz2
-Source19: %{name}-xrootd-storage-%{version}.tar.bz2
-Source20: %{name}-bdii-status-%{version}.tar.bz2
+Source0:  %{name}-common-%{version}.tar.bz2
+Source1:  %{name}-condor-%{version}.tar.bz2
+Source2:  %{name}-psacct-%{version}.tar.bz2
+Source3:  %{name}-pbs-lsf-%{version}.tar.bz2
+Source5:  %{name}-sge-%{version}.tar.bz2
+Source6:  %{name}-glexec-%{version}.tar.bz2
+Source7:  %{name}-metric-%{version}.tar.bz2
+Source8:  %{name}-dCache-transfer-%{version}.tar.bz2
+Source9:  %{name}-dCache-storage-%{version}.tar.bz2
+Source10: %{name}-gridftp-transfer-%{version}.tar.bz2
+Source11: %{name}-services-%{version}.tar.bz2
+Source12: %{name}-hadoop-storage-%{version}.tar.bz2
+Source13: %{name}-condor-events-%{version}.tar.bz2
+Source14: %{name}-xrootd-transfer-%{version}.tar.bz2
+Source15: %{name}-xrootd-storage-%{version}.tar.bz2
+Source16: %{name}-bdii-status-%{version}.tar.bz2
 
 ########################################################################
 
@@ -74,15 +73,15 @@ Prefix: /etc
 %setup -q -D -T -a 5
 %setup -q -D -T -a 6
 %setup -q -D -T -a 7
+%setup -q -D -T -a 8
+%setup -q -D -T -a 9
+%setup -q -D -T -a 10
+%setup -q -D -T -a 11
 %setup -q -D -T -a 12
 %setup -q -D -T -a 13
 %setup -q -D -T -a 14
 %setup -q -D -T -a 15
 %setup -q -D -T -a 16
-%setup -q -D -T -a 17
-%setup -q -D -T -a 18
-%setup -q -D -T -a 19
-%setup -q -D -T -a 20
 
 %build
 %ifnarch noarch
@@ -192,17 +191,50 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
 
   # Xrootd-storage init script
   install -m 755 "${RPM_BUILD_ROOT}%{_datadir}/gratia/xrootd-storage/gratia-xrootd-storage" "$RPM_BUILD_ROOT%{_initrddir}/gratia-xrootd-storage"
-  rm -f "${RPM_BUILD_ROOT}%{_datadir}/gratia/xrootd-storage/gratia-xrootd-storage"
+  rm $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-storage/gratia-xrootd-storage
 
   # Xrootd-transfer init script
   install -m 755 "${RPM_BUILD_ROOT}%{_datadir}/gratia/xrootd-transfer/gratia-xrootd-transfer" "$RPM_BUILD_ROOT%{_initrddir}/gratia-xrootd-transfer"
-  rm -f "${RPM_BUILD_ROOT}%{_datadir}/gratia/xrootd-transfer/gratia-xrootd-transfer"
+  rm $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-transfer/gratia-xrootd-transfer
+
+  # psacct init script
+  install -m 755 $RPM_BUILD_ROOT%{_datadir}/gratia/psacct/gratia-psacct $RPM_BUILD_ROOT%{_initrddir}/gratia-psacct
+  rm $RPM_BUILD_ROOT%{_datadir}/gratia/psacct/gratia-psacct
 
   # gridftp-transfer unneeded file.
   rm -f "${RPM_BUILD_ROOT}%{_datadir}/gratia/gridftp-transfer/GridftpTransferProbe.sh"
 
   mv $RPM_BUILD_ROOT%{_datadir}/gratia/hadoop-storage/storage.cfg \
      $RPM_BUILD_ROOT%{_sysconfdir}/gratia/hadoop-storage/storage.cfg
+
+  install -d $RPM_BUILD_ROOT%{perl_vendorlib}/Globus/GRAM
+  install -m 644 $RPM_BUILD_ROOT%{_datadir}/gratia/common/GRAM/JobManagerGratia.pm $RPM_BUILD_ROOT%{perl_vendorlib}/Globus/GRAM/JobManagerGratia.pm
+
+  # Install condor configuration snippet
+  install -d $RPM_BUILD_ROOT/%{_sysconfdir}/condor/config.d
+  install -m 644 condor/99_gratia.conf $RPM_BUILD_ROOT/%{_sysconfdir}/condor/config.d/99_gratia.conf
+  rm $RPM_BUILD_ROOT%{_datadir}/gratia/condor/99_gratia.conf
+
+  # Remove the test stuff
+  rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/condor/test
+  rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/sge/test
+  rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/common/test
+  rm     $RPM_BUILD_ROOT%{_datadir}/gratia/dCache-storage/test.xml
+
+  # Remove remaining cruft
+  rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/gratia.repo
+  rm -rf $RPM_BUILD_ROOT%{_sysconfdir}/gratia/common
+  rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/condor/gram_mods
+  rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/common/GRAM
+  rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/ProbeConfigTemplate.osg
+  rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/samplemeter.py
+  rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/samplemeter_multi.py
+  rm     $RPM_BUILD_ROOT%{_datadir}/gratia/metric/samplemetric.py
+
+  # Set up var area
+  install -d $RPM_BUILD_ROOT%{_localstatedir}/lib/gratia/
+  install -d $RPM_BUILD_ROOT%{_localstatedir}/lib/gratia/{tmp,data,logs}
+  chmod 1777  $RPM_BUILD_ROOT%{_localstatedir}/lib/gratia/data
 
 %else
 
@@ -250,6 +282,12 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
   install -d $RPM_BUILD_ROOT%{_sysconfdir}/cron.d/
   install -m 644 pbs-lsf/gratia-probe-pbs-lsf.cron $RPM_BUILD_ROOT%{_sysconfdir}/cron.d/
   rm $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/*.cron
+
+  install -d $RPM_BUILD_ROOT%{_localstatedir}/lib/gratia/pbs-lsf/{lock,tmp/urCollector}
+
+  # Remove test cruft
+  rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/test
+
 %endif
 
 # Burn in the RPM version into the python files.
@@ -257,51 +295,6 @@ grep -rIle '%%%%%%RPMVERSION%%%%%%' $RPM_BUILD_ROOT%{_datadir}/gratia $RPM_BUILD
   perl -wpi.orig -e 's&%%%%%%RPMVERSION%%%%%%&%{version}-%{release}&g' "$file" && \
     rm -fv "$file.orig"
 done
-
-%ifarch noarch
-  # Set up var area
-  install -d $RPM_BUILD_ROOT%{_localstatedir}/lib/gratia/
-  install -d $RPM_BUILD_ROOT%{_localstatedir}/lib/gratia/{tmp,data,logs}
-  chmod 1777  $RPM_BUILD_ROOT%{_localstatedir}/lib/gratia/data
-
-  # install psacct startup script.
-  install -d "${RPM_BUILD_ROOT}%{_initrddir}"
-  install -m 755 "${RPM_BUILD_ROOT}%{_datadir}/gratia/psacct/gratia-psacct" \
-  "${RPM_BUILD_ROOT}%{_initrddir}"
-%else
-  install -d $RPM_BUILD_ROOT%{_localstatedir}/lib/gratia/pbs-lsf/{lock,tmp/urCollector}
-
-  # Remove test cruft
-  rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/test
-%endif
-
-%ifarch noarch
-install -d $RPM_BUILD_ROOT%{perl_vendorlib}/Globus/GRAM
-install -m 644 $RPM_BUILD_ROOT%{_datadir}/gratia/common/GRAM/JobManagerGratia.pm $RPM_BUILD_ROOT%{perl_vendorlib}/Globus/GRAM/JobManagerGratia.pm
-
-# Install condor configuration snippet
-install -d $RPM_BUILD_ROOT/%{_sysconfdir}/condor/config.d
-install -m 644 condor/99_gratia.conf $RPM_BUILD_ROOT/%{_sysconfdir}/condor/config.d/99_gratia.conf
-rm $RPM_BUILD_ROOT%{_datadir}/gratia/condor/99_gratia.conf
-
-# Remove the test stuff
-rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/condor/test
-rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/sge/test
-rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/common/test
-rm     $RPM_BUILD_ROOT%{_datadir}/gratia/dCache-storage/test.xml
-
-# Remove remaining cruft
-rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/gratia.repo
-rm -rf $RPM_BUILD_ROOT%{_sysconfdir}/gratia/common
-rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/condor/gram_mods
-rm     $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-storage/SL4_init_script_patches
-rm     $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-transfer/SL4_init_script_patches
-rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/common/GRAM
-rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/ProbeConfigTemplate.osg
-rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/samplemeter.py
-rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/samplemeter_multi.py
-rm     $RPM_BUILD_ROOT%{_datadir}/gratia/metric/samplemetric.py
-%endif
 
 install -d $RPM_BUILD_ROOT/%{_localstatedir}/log/gratia
 
@@ -390,7 +383,6 @@ The psacct probe for the Gratia OSG accounting system.
 %config %{default_prefix}/gratia/psacct/facct-catchup
 %config %{default_prefix}/gratia/psacct/facct-turnoff.sh
 %config %{default_prefix}/gratia/psacct/psacct_probe.cron.sh
-%config %{default_prefix}/gratia/psacct/gratia-psacct
 %{default_prefix}/gratia/psacct/PSACCTProbe
 %{python_sitelib}/gratia/psacct
 %config(noreplace) %{_sysconfdir}/gratia/psacct/ProbeConfig
@@ -722,6 +714,9 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
+* Tue Sep 06 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.09-0.2.pre
+- Create python modules in subversion.  Simplify install code.
+
 * Wed Aug 31 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.08-0.1.pre
 - Reset changelog for pre-release of new packaging
 
