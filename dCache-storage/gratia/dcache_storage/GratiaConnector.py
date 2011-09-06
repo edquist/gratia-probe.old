@@ -12,7 +12,7 @@ import xml.sax.saxutils
 
 has_gratia = True
 try:
-    import Gratia
+    import gratia.common.Gratia as Gratia
     from gratia.services.StorageElement import StorageElement
     from gratia.services.StorageElementRecord import StorageElementRecord
 

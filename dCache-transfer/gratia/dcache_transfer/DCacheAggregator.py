@@ -43,13 +43,13 @@ import time
 import psycopg2
 import psycopg2.extras
 
-import Gratia
 import traceback
 import pwd
 import locale
 import datetime
 import re
 
+import gratia.common.Gratia as Gratia
 from Checkpoint import Checkpoint
 from Alarm import Alarm
 

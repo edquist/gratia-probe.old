@@ -32,7 +32,7 @@ if 'VDT_LOCATION' in os.environ and os.path.exists(os.environ['VDT_LOCATION']):
 
 has_gratia = True
 try:
-    import Gratia
+    import gratia.common.Gratia as Gratia
     import gratia.services.StorageElement
     import gratia.services.StorageElementRecord
 except:

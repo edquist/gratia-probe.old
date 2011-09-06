@@ -26,7 +26,7 @@ if 'VDT_LOCATION' in os.environ:
     if gratia_path not in sys.path and os.path.exists(gratia_path):
         sys.path.append(gratia_path)
 
-import Gratia
+import gratia.common.Gratia as Gratia
 import gratia.services.StorageElement
 import gratia.services.StorageElementRecord
 

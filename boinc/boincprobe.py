@@ -4,8 +4,9 @@
 # Gratia probe
 
 import os
-import Gratia
 import shutil
+
+import gratia.common.Gratia as Gratia
 
 # Note: meant for use on the Clemson network with
 # condor jobs running BOINC processes. Any other use

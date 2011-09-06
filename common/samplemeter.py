@@ -3,7 +3,7 @@
 """
 An example on how to create and upload Gratia record.
 """
-import Gratia
+import gratia.common.Gratia as Gratia
 
 def GetRecord(jobid=0):
     """ 

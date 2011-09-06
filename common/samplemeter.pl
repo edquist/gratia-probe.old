@@ -4,7 +4,7 @@ use FileHandle;
 
 $py = new FileHandle;
 $py->open("| python");
-print $py "import Gratia\n";
+print $py "import gratia.common.Gratia as Gratia\n";
 print $py "Gratia.Initialize()\n";
 print $py "r = Gratia.UsageRecord()\n";
 print $py "r.DN(\"CN=john ainsworth, L=MC, OU=Manchester, O=eScience, C=UK\")\n";

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import gratia.dCache_transfer.dCacheBillingAggregator
+import gratia.dcache_transfer.dCacheBillingAggregator
 
 # This code is based on the following recipe:
 # http://code.activestate.com/recipes/278731/ (r6)
@@ -86,7 +86,7 @@ def main():
     createDaemon(fd)
 
     # Now, call the main method
-    gratia.dCache_transfer.dCacheBillingAggregator.main()
+    gratia.dcache_transfer.dCacheBillingAggregator.main()
 
 if __name__ == '__main__':
     main()

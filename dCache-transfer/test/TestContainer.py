@@ -8,10 +8,11 @@ aggregated.
 import re
 import time
 import random
-import BillingRecSimulator
-import Collapse
 import datetime
-import TimeBinRange
+
+import gratia.dcache_transfer.TimeBinRange as TimeBinRange
+import gratia.dcache_transfer.Collapse as Collapse
+import BillingRecSimulator
 
 class SimInterrupt:
     pass

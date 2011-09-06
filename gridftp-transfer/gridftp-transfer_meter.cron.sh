@@ -21,7 +21,7 @@ else
 fi
 
 # Need to be sure there is not one of these running already
-NCMeter=`ps -ef | grep GridftpTransferProbeDriver.py | grep -v grep | wc -l`
+NCMeter=`ps -ef | grep GridftpTransferProbeDriver | grep -v grep | wc -l`
 eval `grep WorkingFolder $probeconfig_loc`
 if [ ${NCMeter} -ne 0 -a -e ${WorkingFolder}/gridftp-transfer_meter.cron.pid ]; then
   # We might have a condor_meter.pl running, let's verify that we 
@@ -31,7 +31,7 @@ if [ ${NCMeter} -ne 0 -a -e ${WorkingFolder}/gridftp-transfer_meter.cron.pid ]; 
   NCCron=`ps -ef | grep ${otherpid} | grep gridftp-transfer_meter.cron | wc -l`
   if [ ${NCCron} -ne 0 ]; then 
  
-    ${Logger} "There is a GridftpTransferProbeDriver.py running already"
+    ${Logger} "There is a GridftpTransferProbeDriver running already"
     exit 1
   fi
 fi
@@ -94,7 +94,7 @@ if (( $status != 0 )); then
 fi
 
 #--- run the probe ----
-python ./GridftpTransferProbeDriver
+./GridftpTransferProbeDriver
 
 ExitCode=$?
 

@@ -21,7 +21,7 @@ import hotshot.stats
 from logging.handlers import RotatingFileHandler
 
 # The gratia probe code
-import Gratia
+import gratia.common.Gratia as Gratia
 # Local modules
 import TestContainer
 from Alarm import Alarm

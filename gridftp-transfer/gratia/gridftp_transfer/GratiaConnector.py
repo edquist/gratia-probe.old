@@ -1,5 +1,5 @@
 
-import Gratia
+import gratia.common.Gratia as Gratia
 import Logger
 
 class PermanentFailure(Exception):

@@ -1,8 +1,11 @@
-import netlogger
 import time
-import Gratia
-import Logger
+import socket
 import math
+
+import netlogger
+
+import Logger
+import gratia.common.Gratia as Gratia
 
 class GridftpToGratiaEventTransformer:
 
@@ -12,7 +15,6 @@ class GridftpToGratiaEventTransformer:
    def resolveNs(self,addr):
         try:
 
-           import socket
            return socket.gethostbyaddr(addr)[0]
 
         except:

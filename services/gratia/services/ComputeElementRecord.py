@@ -4,10 +4,9 @@
 
 import types
 
-import gratia.common.GratiaCore
 from gratia.common.GratiaCore import *
 
-class ComputeElementRecord(GratiaCore.Record):
+class ComputeElementRecord(Record):
     "Base class for the Gratia ComputeElementRecord"
 
     def __init__(self):

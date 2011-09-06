@@ -12,7 +12,7 @@
 
 # The location of the accounting file
 # This is not the default location to avoid race condition with logrotate
-eval `grep PSACCTFileRepository "/opt/vdt/gratia/probe/psacct/ProbeConfig"`
+eval `grep PSACCTFileRepository "/etc/gratia/psacct/ProbeConfig"`
 mkdir -p ${PSACCTFileRepository}
 ACCTFILE=${PSACCTFileRepository}/pacct
 

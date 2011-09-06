@@ -1,6 +1,6 @@
-import Gratia
-import Metric
 
+import gratia.common.Gratia as Gratia
+import gratia.metric.Metric as Metric
 
 if __name__ == '__main__':
         Gratia.Initialize()

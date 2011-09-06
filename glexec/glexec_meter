@@ -6,8 +6,9 @@
 import os,os.path,sys,time,string,pwd
 import socket
 import popen2
+
 import gratia.glexec.gratia_glexec_parser as gratia_glexec_parser
-import Gratia
+import gratia.common.Gratia as Gratia
 
 #
 # Handle lock

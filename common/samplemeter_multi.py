@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-import Gratia
+
+import gratia.common.Gratia as Gratia
 
 
 class Simple:

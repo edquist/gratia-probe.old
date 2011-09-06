@@ -76,7 +76,6 @@ Prefix: /etc
 %setup -q -D -T -a 7
 %setup -q -D -T -a 12
 %setup -q -D -T -a 13
-rm -f dCache-storage/test.xml
 %setup -q -D -T -a 14
 %setup -q -D -T -a 15
 %setup -q -D -T -a 16
@@ -107,12 +106,22 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
   cp -pR %{noarch_packs}  $RPM_BUILD_ROOT%{_datadir}/gratia
 
   install -d $RPM_BUILD_ROOT%{_sysconfdir}/cron.d
+  install -d $RPM_BUILD_ROOT%{python_sitelib}
+  mv common/gratia $RPM_BUILD_ROOT%{python_sitelib}
+  rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/common/gratia
+
   for probe in %{noarch_packs}
   do
     # Install the cronjob
-    if [ -e $probe/gratia-probe-$probe.cron -o $probe == "bdii-status" -o $probe == "dCache-storage" ]; then
+    if [ -e $probe/gratia-probe-$probe.cron -o $probe == "dCache-storage" ]; then
       install -m 644 $probe/*.cron $RPM_BUILD_ROOT%{_sysconfdir}/cron.d/
       rm $RPM_BUILD_ROOT%{_datadir}/gratia/$probe/*.cron
+    fi
+
+    # Install the python modules
+    if [ -e $probe/gratia ]; then
+      mv $probe/gratia/* $RPM_BUILD_ROOT%{python_sitelib}/gratia
+      rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/$probe/gratia
     fi
 
     # Customize template for each probe
@@ -216,8 +225,6 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
   mkdir -p $RPM_BUILD_ROOT/%{_datadir}/gratia/pbs-lsf/
   ln -s %{_sysconfdir}/gratia/pbs-lsf/ProbeConfig $RPM_BUILD_ROOT/%{_datadir}/gratia/pbs-lsf/ProbeConfig
 
-  mv $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/pbs-lsf.py \
-     $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/pbs-lsf
   chmod +x $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/pbs-lsf
 
   cd $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf
@@ -268,32 +275,7 @@ done
   rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/test
 %endif
 
-# Ok, now the real packaging
-
-# Find python files, and put in site-packages/gratia/<package>/...
-install -d $RPM_BUILD_ROOT%{python_sitelib}/gratia
-
-# For each project in /usr/share/gratia/...
-for dir in `ls $RPM_BUILD_ROOT%{_datadir}/gratia`; do
-    project_initial=$RPM_BUILD_ROOT%{_datadir}/gratia/$dir
-    python_dir=`echo $dir | tr '-' '_'`
-    project_sitelib=$RPM_BUILD_ROOT%{python_sitelib}/gratia/$python_dir
-
-    # Put the python files in site-packages/gratia
-    install -d $project_sitelib
-    touch $project_sitelib/__init__.py
-    for file in `find $project_initial -name "*.py"`; do
-        install -m 644 $file $project_sitelib
-        rm -f $file
-    done
-done
-
-# Some of the probes dont have python packages
-rm -rf $RPM_BUILD_ROOT%{python_sitelib}/gratia/{hadoop_storage,xrootd_transfer,xrootd_storage,condor,condor_events,pbs_lsf,sge}
-
 %ifarch noarch
-touch $RPM_BUILD_ROOT%{python_sitelib}/gratia/__init__.py
-cp $RPM_BUILD_ROOT%{python_sitelib}/gratia/common/Gratia.py $RPM_BUILD_ROOT%{python_sitelib}/Gratia.py
 install -d $RPM_BUILD_ROOT%{perl_vendorlib}/Globus/GRAM
 install -m 644 $RPM_BUILD_ROOT%{_datadir}/gratia/common/GRAM/JobManagerGratia.pm $RPM_BUILD_ROOT%{perl_vendorlib}/Globus/GRAM/JobManagerGratia.pm
 
@@ -306,6 +288,8 @@ rm $RPM_BUILD_ROOT%{_datadir}/gratia/condor/99_gratia.conf
 rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/condor/test
 rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/sge/test
 rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/common/test
+rm     $RPM_BUILD_ROOT%{_datadir}/gratia/dCache-storage/test.xml
+rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/dCache-transfer/test
 
 # Remove remaining cruft
 rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/gratia.repo
@@ -315,8 +299,9 @@ rm     $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-storage/SL4_init_script_patches
 rm     $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-transfer/SL4_init_script_patches
 rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/common/GRAM
 rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/ProbeConfigTemplate.osg
-rm     $RPM_BUILD_ROOT%{python_sitelib}/gratia/common/samplemeter.py
-rm     $RPM_BUILD_ROOT%{python_sitelib}/gratia/common/samplemeter_multi.py
+rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/samplemeter.py
+rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/samplemeter_multi.py
+rm     $RPM_BUILD_ROOT%{_datadir}/gratia/metric/samplemetric.py
 %endif
 
 install -d $RPM_BUILD_ROOT/%{_localstatedir}/log/gratia
@@ -379,8 +364,8 @@ Common files and examples for Gratia OSG accounting system probes.
 %{_localstatedir}/log/gratia/
 %{python_sitelib}/gratia/__init__.py*
 %{python_sitelib}/gratia/common
-%{python_sitelib}/Gratia.py*
 %dir %{default_prefix}/gratia/common
+%{default_prefix}/gratia/common/GratiaPing
 %{default_prefix}/gratia/common/DebugPrint
 %{default_prefix}/gratia/common/GetProbeConfigAttribute
 %{default_prefix}/gratia/common/ProbeConfigTemplate
@@ -407,6 +392,7 @@ The psacct probe for the Gratia OSG accounting system.
 %config %{default_prefix}/gratia/psacct/facct-turnoff.sh
 %config %{default_prefix}/gratia/psacct/psacct_probe.cron.sh
 %config %{default_prefix}/gratia/psacct/gratia-psacct
+%{default_prefix}/gratia/psacct/PSACCTProbe
 %{python_sitelib}/gratia/psacct
 %config(noreplace) %{_sysconfdir}/gratia/psacct/ProbeConfig
 %config(noreplace) %{_sysconfdir}/cron.d/gratia-probe-psacct.cron
@@ -540,7 +526,7 @@ Contributed by Greg Sharp and the dCache project.
 %doc %{default_prefix}/gratia/dCache-transfer/README
 %{default_prefix}/gratia/dCache-transfer/ProbeConfig
 %{default_prefix}/gratia/dCache-transfer/gratia-dcache-transfer
-%{python_sitelib}/gratia/dCache_transfer
+%{python_sitelib}/gratia/dcache_transfer
 %dir %{default_prefix}/gratia/dCache-transfer
 %config(noreplace) %{_sysconfdir}/gratia/dCache-transfer/ProbeConfig
 
@@ -566,7 +552,7 @@ Contributed by Andrei Baranovksi of the OSG Storage team.
 %files dcache-storage
 %defattr(-,root,root,-)
 %doc %{default_prefix}/gratia/dCache-storage/README.txt
-%{python_sitelib}/gratia/dCache_storage
+%{python_sitelib}/gratia/dcache_storage
 %dir %{default_prefix}/gratia/dCache-storage
 %{default_prefix}/gratia/dCache-storage/ProbeConfig
 %{default_prefix}/gratia/dCache-storage/create_se_record.xsl
@@ -729,8 +715,7 @@ Contributed by University of Nebraska Lincoln.
 %dir %{default_prefix}/gratia/bdii-status
 %{python_sitelib}/gratia/bdii_status
 %config(noreplace) %{_sysconfdir}/gratia/bdii-status/ProbeConfig
-%config(noreplace) %{_sysconfdir}/cron.d/gratia-probe-bdii-cese.cron
-%config(noreplace) %{_sysconfdir}/cron.d/gratia-probe-bdii-subcluster.cron
+%config(noreplace) %{_sysconfdir}/cron.d/gratia-probe-bdii-status.cron
 
 %post bdii-status
 %customize_probeconfig -d bdii-status

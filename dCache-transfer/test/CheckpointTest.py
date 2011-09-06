@@ -8,8 +8,9 @@
 import os
 import sys
 import stat
-from Checkpoint import Checkpoint
 from datetime import datetime
+
+from gratia.dcache_transfer.Checkpoint import Checkpoint
 
 TestFileName = "chkpt_test"
 stmp4 = datetime( 2006, 1, 1, 1, 0, 0, 2, None )

@@ -8,9 +8,10 @@ import socket
 import datetime
 import optparse
 import ConfigParser
-import gratia.dCache_storage.GratiaConnector as GratiaConnector
-import Gratia
-import gratia.dCache_storage.XmlBuilder as XmlBuilder
+
+import gratia.common.Gratia as Gratia
+import gratia.dcache_storage.GratiaConnector as GratiaConnector
+import gratia.dcache_storage.XmlBuilder as XmlBuilder
 
 # Bootstrap hadoop
 if 'JAVA_HOME' not in os.environ:

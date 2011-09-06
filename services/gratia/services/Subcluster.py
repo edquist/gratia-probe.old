@@ -4,10 +4,9 @@
 
 import types
 
-import gratia.common.GratiaCore
 from gratia.common.GratiaCore import *
 
-class Subcluster(GratiaCore.Record):
+class Subcluster(Record):
     "Base class for the Gratia Subcluster"
 
     def __init__(self):

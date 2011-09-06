@@ -1,10 +1,11 @@
-import Collapse
 import datetime
-import TimeBinRange
 import time
 import re
 import random
+
 import TestContainer
+import gratia.dcache_transfer.Collapse as Collapse
+import gratia.dcache_transfer.TimeBinRange as TimeBinRange
 
 def generateTableContent():
 

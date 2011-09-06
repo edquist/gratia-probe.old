@@ -1683,7 +1683,7 @@ sub open_new_py {
                                   dirname($gram_log_state_file)):">/dev/null 2>&1";
   $py->open("|${tmp_py} python -u ${py_out}");
   autoflush $py 1;
-  print $py "import Gratia\nimport sys\n";
+  print $py "import gratia.common.Gratia as Gratia\nimport sys\n";
   print $py "Gratia.RegisterReporter(\"condor_meter.pl\", \"",
     $prog_revision, " (tag ", $prog_version, ")\")\n";
   if ($condor_version) {

@@ -35,7 +35,7 @@ possible_probeconf = [
 ]
 
 try:
-    import Gratia
+    import gratia.common.Gratia as Gratia
     gratia_here = True
 except:
     gratia_here = False

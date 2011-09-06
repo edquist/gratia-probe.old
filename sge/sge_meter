@@ -21,7 +21,7 @@
 
 
 
-import Gratia
+import gratia.common.Gratia as Gratia
 import os, copy, pwd, time, sys, string
 
 if not Gratia.pythonVersionRequire(2,3):

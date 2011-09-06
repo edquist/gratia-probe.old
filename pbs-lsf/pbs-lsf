@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-import Gratia, sys
+import sys
+
+import gratia.common.Gratia as Gratia
 
 if __name__ == '__main__':
         rev = Gratia.ExtractSvnRevision("$Revision$");
