@@ -25,7 +25,11 @@ Logger='/usr/bin/logger -s -t condor_meter'
 
 #Meter_BinDir='/home/kschu/src/osg'
 Meter_BinDir=$(dirname $0)
-probeconfig_loc=/etc/gratia/condor/ProbeConfig
+if [ "x$1" != "x" ] ; then
+   probeconfig_loc=$1
+else
+   probeconfig_loc=/etc/gratia/condor/ProbeConfig
+fi
 
 # Set the working directory, where we expect to find the following
 #    necessary files.
@@ -87,7 +91,7 @@ if (( $status != 0 )); then
   exit $status
 fi
 if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
-  ${pp_dir}/DebugPrint -l -1 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
+  ${pp_dir}/DebugPrint -l -1 "Probe is not enabled: check $probeconfig_loc."
   exit 1
 fi
 

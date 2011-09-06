@@ -48,6 +48,11 @@ PGM=$(basename $0)
 Logger="/usr/bin/logger -s -t $PGM"
 
 Meter_BinDir=$(dirname $0)
+if [ "x$1" != "x" ] ; then
+   probeconfig_loc=$1
+else
+   probeconfig_loc=/etc/gratia/pbs-lsf/ProbeConfig
+fi
 
 # Set the working directory, where we expect to find the following
 #    necessary files.
@@ -65,7 +70,7 @@ if [ ! -x urCollector.pl ]; then
 fi
 
 # We need to locate these files and they must be readable
-for Needed_File in ProbeConfig
+for Needed_File in ${probeconfig_loc}
 do
   if [ ! -f ${Needed_File} ]; then
     ${Logger} \
@@ -85,14 +90,14 @@ if [ $rtn -eq 1 ];then
   exit 0
 fi
 
-enabled=`${pp_dir}/GetProbeConfigAttribute EnableProbe`
+enabled=`${pp_dir}/GetProbeConfigAttribute -c $probeconfig_loc EnableProbe`
 (( status = $? ))
 if (( $status != 0 )); then
   echo "ERROR checking probe configuration!" 1>&2
   exit $status
 fi
 if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
-  ${pp_dir}/DebugPrint -l -1 "Probe is not enabled: check $Meter_BinDir/ProbeConfig."
+  ${pp_dir}/DebugPrint -l -1 "Probe is not enabled: check probeconfig_loc."
   exit 1
 fi
 

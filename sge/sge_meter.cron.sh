@@ -24,7 +24,11 @@ Logger='/usr/bin/logger -s -t sge_meter'
 #sgeLog_Dir='/usr/local/vdt-1.3.9/globus/tmp/gram_job_state'  # on fermigrid1
 
 Meter_BinDir=$(dirname $0)
-probeconfig_loc=/etc/gratia/sge/ProbeConfig
+if [ "x$1" != "x" ] ; then
+   probeconfig_loc=$1
+else
+   probeconfig_loc=/etc/gratia/sge/ProbeConfig
+fi
 
 [[ -n "$1" ]] && sge_log_file="$1"
 

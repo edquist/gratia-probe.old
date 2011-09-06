@@ -9,7 +9,11 @@ PGM=$(basename $0)
 Logger="/usr/bin/logger -s -t $PGM"
 
 Meter_BinDir=$(dirname $0)
-probeconfig_loc=/etc/gratia/gridftp-transfer/ProbeConfig
+if [ "x$1" != "x" ] ; then
+   probeconfig_loc=$1
+else
+   probeconfig_loc=/etc/gratia/gridftp-transfer/ProbeConfig
+fi
 
 # Set the working directory, where we expect to find the following
 #    necessary files.
