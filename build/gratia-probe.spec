@@ -289,7 +289,6 @@ rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/condor/test
 rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/sge/test
 rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/common/test
 rm     $RPM_BUILD_ROOT%{_datadir}/gratia/dCache-storage/test.xml
-rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/dCache-transfer/test
 
 # Remove remaining cruft
 rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/gratia.repo

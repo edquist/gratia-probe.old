@@ -10,8 +10,8 @@ import time
 import random
 import datetime
 
-import gratia.dcache_transfer.TimeBinRange as TimeBinRange
-import gratia.dcache_transfer.Collapse as Collapse
+import TimeBinRange
+import Collapse
 import BillingRecSimulator
 
 class SimInterrupt:
