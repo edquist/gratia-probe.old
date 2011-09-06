@@ -165,7 +165,7 @@ class GftpLogParserCorrelator:
 
     def matchAuthEvent(self,ts,filePath,host,authEvent):
 
-        event = self.findEvent(authEvent,"gridftp.auth")
+        event = self.findEvent(authEvent,"gridftp_auth.conn.auth.dn")
 
         if ( event == None ):
             return None
@@ -173,16 +173,16 @@ class GftpLogParserCorrelator:
         if ( abs(ts-int(event['ts'])) > 7 ):
            return None
 
-        if ( not event.has_key('dn') ):
+        if ( not event.has_key('DN') ):
            return None
 
-        dn = event['dn']
+        dn = event['DN']
 
-        event = self.findEvent(authEvent,"gridftp.auth.transfer.start")
+        event = self.findEvent(authEvent,"gridftp_auth.conn.transfer.start")
         if ( event == None ):
             return None
 
-        if ( event['file'] != filePath ):
+        if ( event['filename'] != filePath ):
             return None
 
         return dn
@@ -222,7 +222,7 @@ class GftpLogParserCorrelator:
             for transferEvent in value[0]:
                   dn = self.findDn(int(transferEvent['ts']),transferEvent['file'],transferEvent['dest'], affinity )
                   if ( dn != None ):
-                    transferEvent['dn'] = dn
+                    transferEvent['DN'] = dn
                   results.append(transferEvent)
 
         return results

@@ -49,8 +49,8 @@ class GridftpToGratiaEventTransformer:
         transfersize = ftpEvent['nbytes']
         connectionTimeStr = 'PT' + str(int(math.ceil(float(ftpEvent['dur'])))) + 'S'
 
-        if ( ftpEvent.has_key('dn') ):
-           dn = ftpEvent['dn']
+        if ( ftpEvent.has_key('DN') ):
+           dn = ftpEvent['DN']
         else:
            dn = None
 
