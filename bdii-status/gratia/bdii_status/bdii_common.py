@@ -8,14 +8,12 @@ import logging.handlers
 
 default_bdii = 'ldap://is.grid.iu.edu:2170'
 
-# We delay the initialization of these libraries as the user can specify
-# their own $GRATIA_HOME
-GratiaCore = None
-Subcluster = None
-StorageElement = None
-StorageElementRecord = None
-ComputeElement = None
-ComputeElementRecord = None
+import gratia.common.GratiaCore as GratiaCore
+import gratia.services.Subcluster as Subcluster
+import gratia.services.StorageElement as StorageElement
+import gratia.services.StorageElementRecord as StorageElementRecord
+import gratia.services.ComputeElement as ComputeElement
+import gratia.services.ComputeElementRecord as ComputeElementRecord
 
 log = None
 
@@ -276,11 +274,8 @@ def parse_opts():
     parser = optparse.OptionParser()
     parser.add_option("-l", "--logfile", help="Log file location.  Defaults " \
         "to the Gratia logging infrastructure.", dest="logfile")
-    parser.add_option("--gratia_home", help="Location of the top-level " \
-        "Gratia directory; defaults to $VDT_LOCATION/gratia",
-        dest="gratia_home")
     parser.add_option("-c", "--gratia_config", help="Location of the Gratia " \
-        "config; defaults to $GRATIA_HOME/bdii-status/ProbeConfig",
+        "config; defaults to /etc/gratia/bdii-status/ProbeConfig",
         dest="gratia_config")
     parser.add_option("--bdii", help="BDII to query; defaults to %s" % \
         default_bdii, dest="bdii")
@@ -290,28 +285,13 @@ def parse_opts():
     opts, args = parser.parse_args()
 
     # Expand our input paths:
-    if opts.gratia_home:
-        opts.gratia_home = os.path.expanduser(opts.gratia_home)
     if opts.logfile:
         opts.logfile = os.path.expanduser(opts.logfile)
     if opts.gratia_config:
         opts.gratia_config = os.path.expanduser(opts.gratia_config)
 
-    # Bootstrap Gratia home
-    gratia_home = None
-    if opts.gratia_home and os.path.exists(opts.gratia_home):
-        gratia_home = opts.gratia_home
-    vdt_location = os.environ.get("VDT_LOCATION", "/opt/vdt")
-    if not gratia_home and vdt_location:
-        gratia_home = os.path.join(vdt_location, "gratia")
-    if not gratia_home:
-        raise Exception("Gratia home is not specified and $VDT_LOCATION is " \
-            "not set.")
-    # Set gratia_home to the location we decided on.
-    opts.gratia_home = gratia_home
-
     # Initialize logging
-    logfile = os.path.join(gratia_home, "var", "logs", "bdii-status.log")
+    logfile = "/var/log/gratia/bdii-status.log"
     if opts.logfile:
         logfile = opts.logfile
     path, _ = os.path.split(logfile)
@@ -344,42 +324,12 @@ def parse_opts():
         handler.setFormatter(formatter)
         log.addHandler(handler)
 
-    # Bootstrap Gratia environment
-    log.debug("Gratia home: %s" % gratia_home)
-    probe_home = os.path.join(gratia_home, "probe", "bdii-status")
-    if os.path.exists(probe_home) and probe_home not in sys.path:
-        sys.path.insert(0, probe_home)
-        log.debug("Gratia Probe home: %s" % probe_home)
-    common_home = os.path.join(gratia_home, "probe", "common")
-    if os.path.exists(common_home) and common_home not in sys.path:
-        sys.path.insert(0, common_home)
-        log.debug("Gratia Common home: %s" % common_home)
-    services_home = os.path.join(gratia_home, "probe", "services")
-    if os.path.exists(services_home) and services_home not in sys.path:
-        sys.path.insert(0, services_home)
-        log.debug("Gratia Services home: %s" % services_home)
-    log.debug("Probe python search path: %s" % ", ".join(sys.path))
-    global GratiaCore
-    GratiaCore = __import__("GratiaCore")
-    global DebugPrint
-    DebugPrint = GratiaCore.DebugPrint
-    global Subcluster
-    Subcluster = __import__("Subcluster")
-    global ComputeElement
-    ComputeElement = __import__("ComputeElement")
-    global ComputeElementRecord
-    ComputeElementRecord = __import__("ComputeElementRecord")
-    global StorageElement
-    StorageElement = __import__("StorageElement")
-    global StorageElementRecord
-    StorageElementRecord = __import__("StorageElementRecord")
-
     # Initialize Gratia
     gratia_config = None
     if opts.gratia_config and os.path.exists(opts.gratia_config):
         gratia_config = opts.gratia_config
-    elif probe_home:
-        tmp = os.path.join(probe_home, "ProbeConfig")
+    else:
+        tmp = "/etc/gratia/bdii-status/ProbeConfig"
         if os.path.exists(tmp):
             gratia_config = tmp
     if not gratia_config:

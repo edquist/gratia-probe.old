@@ -51,7 +51,7 @@
     
     Title5="File and directory location"
 
-    UserVOMapFile="/var/lib/osg/grid3-user-vo-map.txt"
+    UserVOMapFile="/var/lib/osg/user-vo-map"
     CertInfoLogPattern="/var/log/accounting/blahp.log-*"
         Comments51="Location and wildcard pattern of log files that contains certificate information about the jobs in the format followed by the 'blah demons'."
 

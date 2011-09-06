@@ -28,6 +28,7 @@ for dir in possible_dirs:
         sys.path.append(dir)
 
 possible_probeconf = [
+  "/etc/gratia/condor-events/ProbeConfig",
   "/opt/vdt/gratia/probe/condor-events/ProbeConfig",
   "$VDT_LOCATION/gratia/probe/condor-events/ProbeConfig",
   "MAGIC_VDT_LOCATION/gratia/probe/condor-events/ProbeConfig",

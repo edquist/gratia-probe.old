@@ -16,14 +16,7 @@ import xml.dom.minidom
 hostname = socket.gethostname()
 ProbeConfig = None
 
-# We assume that if bdii_common isn't in sys.path, it's in the same
-# directory as this script.
-# Oh the woes of poor package management.
-dir = os.path.abspath(os.path.split(sys.argv[0])[0])
-if dir and dir not in sys.path:
-    sys.path.append(dir)
-
-import bdii_common
+import gratia.bdii_status.bdii_common as bdii_common
 bdii_common.bootstrap()
 
 GratiaCore = None
