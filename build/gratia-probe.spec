@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.09
-Release:            0.2.pre
+Release:            0.4.pre
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -11,8 +11,6 @@ Vendor:             The Open Science Grid <http://www.opensciencegrid.org/>
 BuildRequires:      python-devel
 
 BuildRequires: gcc-c++
-
-%global ProbeConfig_template_marker <!-- This probe has not yet been configured -->
 
 %define default_prefix /usr/share
 
@@ -127,10 +125,7 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
     PROBE_DIR=$RPM_BUILD_ROOT/%{_sysconfdir}/gratia/$probe
     install -d $PROBE_DIR
     install -m 644 common/ProbeConfigTemplate.osg $PROBE_DIR/ProbeConfig
-    echo "%{ProbeConfig_template_marker}" >> $PROBE_DIR/ProbeConfig
-    mkdir -p $RPM_BUILD_ROOT/%{_datadir}/gratia/$probe/
     ln -s %{_sysconfdir}/gratia/$probe/ProbeConfig $RPM_BUILD_ROOT/%{_datadir}/gratia/$probe/ProbeConfig
-    sed -i -e "s#@PROBE_NAME@#$probe#" $PROBE_DIR/ProbeConfig
 
     if [ $probe == *-transfer -o $probe == *-storage ]; then
       endpoint=%{osg_transfer_collector}:%{default_collector_port}
@@ -139,7 +134,8 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
     else 
       endpoint=%{osg_collector}:%{default_collector_port}
     fi
-    sed -i -e "s#@COLLECTOR_ENDPOINT@#$endpoint#" \
+    sed -i -e "s#@PROBE_NAME@#$probe#" \
+           -e "s#@COLLECTOR_ENDPOINT@#$endpoint#" \
            -e "s#@SSL_ENDPOINT@#%{osg_collector}:%{ssl_port}#" \
            -e "s#@SSL_REGISTRATION_ENDPOINT@#$endpoint#" \
         $PROBE_DIR/ProbeConfig
@@ -181,8 +177,6 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
     fi
 
   done
-  rm $RPM_BUILD_ROOT%{_sysconfdir}/gratia/common/ProbeConfig
-  rm $RPM_BUILD_ROOT%{_datadir}/gratia/common/ProbeConfig
 
   # dCache-transfer init script
   install -d $RPM_BUILD_ROOT/%{_initrddir}
@@ -200,9 +194,6 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
   # psacct init script
   install -m 755 $RPM_BUILD_ROOT%{_datadir}/gratia/psacct/gratia-psacct $RPM_BUILD_ROOT%{_initrddir}/gratia-psacct
   rm $RPM_BUILD_ROOT%{_datadir}/gratia/psacct/gratia-psacct
-
-  # gridftp-transfer unneeded file.
-  rm -f "${RPM_BUILD_ROOT}%{_datadir}/gratia/gridftp-transfer/GridftpTransferProbe.sh"
 
   mv $RPM_BUILD_ROOT%{_datadir}/gratia/hadoop-storage/storage.cfg \
      $RPM_BUILD_ROOT%{_sysconfdir}/gratia/hadoop-storage/storage.cfg
@@ -228,7 +219,9 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
   rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/common/GRAM
   rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/ProbeConfigTemplate.osg
   rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/samplemeter.py
+  rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/samplemeter.pl
   rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/samplemeter_multi.py
+  rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/ProbeConfig
   rm     $RPM_BUILD_ROOT%{_datadir}/gratia/metric/samplemetric.py
 
   # Set up var area
@@ -238,52 +231,35 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
 
 %else
 
-  # PBS / LSF probe install
-  cp -pR pbs-lsf $RPM_BUILD_ROOT%{_datadir}/gratia/
-  rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/urCollector-src
-  PROBE_DIR=$RPM_BUILD_ROOT%{_sysconfdir}/gratia/pbs-lsf
-  install -d $PROBE_DIR
-  cp -p common/ProbeConfigTemplate.osg $PROBE_DIR/ProbeConfig
-  echo "%{ProbeConfig_template_marker}" >> $PROBE_DIR/ProbeConfig
+  # PBS / LSF probe
+  PROBE_DIR=$RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf
+  PROBE_ETC_DIR=$RPM_BUILD_ROOT%{_sysconfdir}/gratia/pbs-lsf
+  install -d -m 0755 $PROBE_DIR/urCollector
+  install -d -m 0755 $PROBE_ETC_DIR
+  install -d $RPM_BUILD_ROOT%{_localstatedir}/lib/gratia/pbs-lsf/{lock,tmp/urCollector}
+  install -d $RPM_BUILD_ROOT%{_sysconfdir}/cron.d/
 
-  sed -i -e "s#@PROBE_NAME@#$probe#" $PROBE_DIR/ProbeConfig
+  # Install Gratia executables and urCollector software
+  install -m 0644 pbs-lsf/README $PROBE_DIR/README
+  install -m 0755 pbs-lsf/{pbs-lsf,pbs-lsf_meter.cron.sh,pbs-lsf_meter.pl} $PROBE_DIR/
+  pushd pbs-lsf/urCollector-src
+    install -m 0755 urCreator urCollector.pl $PROBE_DIR
+    install -m 0644 LICENSE $PROBE_DIR
+    install -m 0644 urCollector.conf-template $PROBE_DIR/urCollector.conf
+    install -m 0644 urCollector/{Common,Configuration}.pm $PROBE_DIR/urCollector
+  popd
 
+  # ProbeConfig customization
+  install -m 0644 common/ProbeConfigTemplate.osg $PROBE_ETC_DIR/ProbeConfig
   endpoint=%{osg_collector}:%{default_collector_port}
   sed -i -e "s#@COLLECTOR_ENDPOINT@#$endpoint#" \
          -e "s#@SSL_ENDPOINT@#%{osg_collector}:%{ssl_port}#" \
          -e "s#@SSL_REGISTRATION_ENDPOINT@#$endpoint#" \
-        $PROBE_DIR/ProbeConfig
-
-  mkdir -p $RPM_BUILD_ROOT/%{_datadir}/gratia/pbs-lsf/
-  ln -s %{_sysconfdir}/gratia/pbs-lsf/ProbeConfig $RPM_BUILD_ROOT/%{_datadir}/gratia/pbs-lsf/ProbeConfig
-
-  chmod +x $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/pbs-lsf
-
-  cd $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf
-  cd - >/dev/null
-
-  # Install urCollector softwarepbs-lsf/pbs-lsf
-  cd pbs-lsf/urCollector-src
-  cp -p urCreator urCollector.pl \
-  "$RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf"
-  install -m 0644 LICENSE \
-  "$RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf"
-  cp -p urCollector.conf-template \
-  "$RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/urCollector.conf"
-  cp -p urCollector.conf-template \
-  "$RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/urCollector.conf-template"
-  mkdir -p "$RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/urCollector"
-  cp -p urCollector/Common.pm \
-  "$RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/urCollector"
-  cp -p urCollector/Configuration.pm \
-  "$RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/urCollector"
-  cd - >/dev/null
-
-  install -d $RPM_BUILD_ROOT%{_sysconfdir}/cron.d/
+         -e 's#@PROBE_SPECIFIC_DATA@##' \
+         -e "s#@PROBE_NAME@#pbs-lsf#" \
+        $PROBE_ETC_DIR/ProbeConfig
   install -m 644 pbs-lsf/gratia-probe-pbs-lsf.cron $RPM_BUILD_ROOT%{_sysconfdir}/cron.d/
-  rm $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/*.cron
-
-  install -d $RPM_BUILD_ROOT%{_localstatedir}/lib/gratia/pbs-lsf/{lock,tmp/urCollector}
+  ln -s %{_sysconfdir}/gratia/pbs-lsf/ProbeConfig $PROBE_DIR/ProbeConfig
 
   # Remove test cruft
   rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/test
@@ -318,11 +294,13 @@ Gratia OSG accounting system probe for PBS and LSF batch systems.
 This product includes software developed by The EU EGEE Project
 (http://cern.ch/eu-egee/).
 
+%post pbs-lsf
+%customize_probeconfig -d pbs-lsf
+
 %files pbs-lsf
 %defattr(-,root,root,-)
 %dir %{_localstatedir}/lib/gratia/pbs-lsf/lock
 %doc %{_datadir}/gratia/pbs-lsf/LICENSE
-%doc %{_datadir}/gratia/pbs-lsf/urCollector.conf-template
 %doc %{_datadir}/gratia/pbs-lsf/README
 %dir %{_datadir}/gratia/pbs-lsf
 %{_datadir}/gratia/pbs-lsf/ProbeConfig
@@ -351,7 +329,6 @@ Common files and examples for Gratia OSG accounting system probes.
 %files common
 %defattr(-,root,root,-)
 %doc %{default_prefix}/gratia/common/README
-%doc %{default_prefix}/gratia/common/samplemeter.pl
 %{_localstatedir}/lib/gratia/
 %{_localstatedir}/log/gratia/
 %{python_sitelib}/gratia/__init__.py*
@@ -372,8 +349,6 @@ Requires: %{name}-common >= 0.12f
 %description psacct
 The psacct probe for the Gratia OSG accounting system.
 
-# Anything marked "config" is something that is going to be changed in
-# post or by the end user.
 %files psacct
 %defattr(-,root,root,-)
 %doc psacct/README
@@ -404,7 +379,6 @@ if grep -e 'fiscal/monacct\.log' >/dev/null 2>&1; then
   echo "Shutting down facct service" 1>&2
   /sbin/chkconfig --del facct
 fi
-
 rm -f "$tmpfile"
 
 %customize_probeconfig -d psacct
@@ -714,6 +688,9 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
+* Fri Sep 09 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.09-0.4.pre
+Updates to pbs-lsf and gridftp-transfer probe.
+
 * Tue Sep 06 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.09-0.2.pre
 - Create python modules in subversion.  Simplify install code.
 

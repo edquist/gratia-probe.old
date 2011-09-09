@@ -97,14 +97,14 @@ if (( $status != 0 )); then
   exit $status
 fi
 if [[ -n "$enabled" ]] && [[ "$enabled" == "0" ]]; then
-  ${pp_dir}/DebugPrint -l -1 "Probe is not enabled: check probeconfig_loc."
+  ${pp_dir}/DebugPrint -c $probeconfig_loc -l -1 "Probe is not enabled: check probeconfig_loc."
   exit 1
 fi
 
 log_file="`date +'%Y-%m-%d'`.log"
 
 #--- run the probes ----
-./urCollector.pl --nodaemon 2>&1 | ${pp_dir}/DebugPrint -l 1
+./urCollector.pl --nodaemon 2>&1 | ${pp_dir}/DebugPrint -c $probeconfig_loc -l 1
 # Now invoked by urCollector.pl
 #./pbs-lsf_meter.pl 2>&1
 
@@ -112,7 +112,7 @@ ExitCode=$?
 
 # If the probe ended in error, report this in Syslog and exit
 if [ $ExitCode != 0 ]; then
-  ${pp_dir}/DebugPrint -l -1 "ALERT: $0 exited abnormally with [$ExitCode]"
+  ${pp_dir}/DebugPrint -c $probeconfig_loc -l -1 "ALERT: $0 exited abnormally with [$ExitCode]"
   exit $ExitCode
 fi
   
