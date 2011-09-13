@@ -5,7 +5,7 @@
 
 from gratia.common.GratiaCore import *
 
-class MetricRecord(GratiaCore.Record):
+class MetricRecord(Record):
     """
     Base class for the Gratia Metric Record
     See https://twiki.cern.ch/twiki/bin/view/LCG/GridMonitoringProbeSpecification for information of the information content
