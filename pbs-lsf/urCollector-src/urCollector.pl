@@ -918,13 +918,14 @@ sub writeGGFURFile {
    if (exists($urGridInfo{GRID_JOBID})) {
       $gridJobId = $urGridInfo{GRID_JOBID};
    } elsif (exists($urAcctlogInfo{server}) && $urAcctlogInfo{server} ne ""
-   && exists($urAcctlogInfo{lrmsId}) && $urAcctlogInfo{lrmsId} ne ""
-   && exists($urAcctlogInfo{start}) && $urAcctlogInfo{start} ne "") {
+            && exists($urAcctlogInfo{lrmsId}) && $urAcctlogInfo{lrmsId} ne ""
+            && exists($urAcctlogInfo{start}) && $urAcctlogInfo{start} ne "") 
+   {
       $gridJobId = $urAcctlogInfo{server}.":".$urAcctlogInfo{lrmsId}."_".$urAcctlogInfo{start};
    }
    
    if ($gridJobId eq "") {
-      print "ERROR: Canot determine or construct a unique job ID ... skipping!\n";
+      print "ERROR: Cannot determine or construct a unique job ID ... skipping!\n";
       return 3;
    } else {
       print "Using grid job ID '$gridJobId' also as RecordIdentity!\n";
@@ -1306,7 +1307,7 @@ sub parseUR_pbs {
    }
    $urAcctlogInfo{lrmsId}=$tmpArray[2];
    $_ = $tmpArray[2];
-   if (/^([\d|\-]*)\.(.*)$/o) {
+   if (/^([\d|\-|\[|\]|\<|\>]*)\.(.*)$/o) {
       $urAcctlogInfo{server}=$2;
    }
    foreach my $record_field ( @$lrmsRecordFields ) {
