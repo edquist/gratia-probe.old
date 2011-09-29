@@ -223,6 +223,7 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
   rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/samplemeter_multi.py
   rm     $RPM_BUILD_ROOT%{_datadir}/gratia/common/ProbeConfig
   rm     $RPM_BUILD_ROOT%{_datadir}/gratia/metric/samplemetric.py
+  rm     $RPM_BUILD_ROOT%{_datadir}/gratia/xrootd-transfer/gratia-xrootd-transfer-alt
 
   # Set up var area
   install -d $RPM_BUILD_ROOT%{_localstatedir}/lib/gratia/
@@ -688,7 +689,10 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
-* Fri Sep 09 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.09-0.4.pre
+* Thu Sep 29 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.09-0.4.pre
+- Metrics fixes from Scot K.
+
+* Fri Sep 09 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.09-0.3.pre
 Updates to pbs-lsf and gridftp-transfer probe.
 
 * Tue Sep 06 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.09-0.2.pre
