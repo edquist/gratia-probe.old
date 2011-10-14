@@ -7,6 +7,7 @@ import sets
 import time
 import socket
 import struct
+import signal
 import logging
 import optparse
 import cStringIO
@@ -15,6 +16,7 @@ import traceback
 import logging.handlers
 
 import gratia.common.Gratia as Gratia
+import gratia.common.GratiaCore as GratiaCore
 from gratia.common.Gratia import DebugPrint
 
 log = None
@@ -27,6 +29,8 @@ XRD_EXPIRE_TIME = 3600 # Records are assumed to have lost the "close" packet if
                        # no activity has happened in this amount of time.
 XRD_AUTH_EXPIRE_TIME = 4*3600 # Time for authentication session to expire
 
+
+ProbeConfig = None
 
 # Author: Chad J. Schroeder
 # Copyright: Copyright (C) 2005 Chad J. Schroeder
@@ -87,13 +91,14 @@ def file_handler(data_handler, input_file):
     cur_record = []
     in_record = False
     for line in input_file:
+        line = line.strip()
         cur_record.append(line)
         if line == "#begin":
             in_record = True
         if line == "#end" and in_record:
             in_record = False
             try:
-                data_handler.handle("\n".join(cur_record), None)
+                data_handler("\n".join(cur_record), ("example.com", 0))
             except:
                 gratia_log_traceback()
             cur_record = []
@@ -173,15 +178,15 @@ required_attrs = [
 
 class GratiaHandler(object):
 
-    def __init__(self):
+    def __init__(self, siteMapper):
         self.cur_host = None
         self.stop = False
         self.stop_exception = None
         self.lock = threading.Lock()
-        self.events = []
+        self.events = {}
         self.handle = self.make_sync(self.handle)
         self.summary = self.make_sync(self.summary)
-        self.exit_summary = self.make_sync(self.exit_summary)
+        self.siteMapper = siteMapper
 
     def make_sync(self, fcn):
         def lock_fcn(*args, **kw):
@@ -193,7 +198,7 @@ class GratiaHandler(object):
         return lock_fcn
 
     def handle(self, packet, addr):
-        DebugPrint(4, "GratiaHandler processed message: %s" %  xrdMon)
+        DebugPrint(4, "GratiaHandler processed message: %s" %  packet)
         if self.stop:
             raise self.stop_exception
         found_begin = False
@@ -223,15 +228,21 @@ class GratiaHandler(object):
             if attr not in new_evt:
                 missing_attributes = True
                 break
+        new_evt["unique_id"] = str(new_evt["unique_id"])
         if new_evt and not missing_attributes:
             self.events[new_evt["unique_id"]] = new_evt
                 
 
     def send_gratia_record(self, evt):
 
+        if evt['read_bytes_at_close'] > evt['read_bytes']:
+            evt['read_bytes'] = evt['read_bytes_at_close']
+        if evt['write_bytes_at_close'] > evt['write_bytes']:
+            evt['write_bytes'] = evt['write_bytes_at_close']
+
         # We sometimes get idle records ... ignore these
         if evt['read_bytes']+evt['write_bytes'] == 0:
-            return
+            return None, None, None
 
         remote_fqdn = "%s.%s" % (evt['client_host'], evt['client_domain'])
         server_fqdn = "%s.%s" % (evt['server_host'], evt['server_domain'])
@@ -256,33 +267,121 @@ class GratiaHandler(object):
         duration = evt["end_time"] - evt["start_time"]
         r.Network(evt["read_bytes"]+evt["write_bytes"], 'b', duration, "transfer")
         r.WallDuration(duration)
+        if not evt["server_username"]:
+            evt["server_username"] = "Unknown"
         r.LocalUserId(evt["server_username"])
         r.SubmitHost(remote_fqdn)
         r.Status(0)
-        if "user_dn" in evt:
+        if "user_dn" in evt and evt["user_dn"]:
             r.DN(evt["user_dn"])
         else:
             r.DN("/OU=UnixUser/CN=%s" % evt["server_username"])
-        if "user_vo" in evt:
+        if "user_vo" in evt and evt["user_vo"]:
             r.ReportableVOName(evt["user_vo"])
             r.VOName(evt["user_vo"])
-        Gratia.Send(r)
+        else:
+            r.VOName("unknown")
+
+        site_name = self.siteMapper(evt['server_domain'])
+        if site_name:
+            probename = 'xrootd-transfer:%s' % evt['server_domain']
+        else:
+            site_name = GratiaCore.Config.getSiteName()
+            probename = GratiaCore.Config.getMeterName()
+ 
+        return site_name, probename, r
 
     def summary(self):
         global timestamp
         timestamp = time.time()
-        DebugPrint(2, "Sending %i records to Gratia." % len(self.events)) 
+        DebugPrint(2, "Sending %i records to Gratia." % len(self.events))
+        gratia_info = {}
         for evt in self.events.values():
-            self.send_gratia_record(evt)
-        self.events = {}
+            site_name, probename, r = self.send_gratia_record(evt)
+            records = gratia_info.setdefault((probename, site_name), [])
+            records.append(r)
+        sendToGratia(gratia_info)
 
     def exit_summary(self):
-        global timestamp
-        timestamp = time.time()
-       
-        DebugPrint(2, "Sending %i records prior to exit." % len(self.events)) 
-        for evt in self.events.values():
-            self.send_gratia_record(evt)
+        self.summary()
+
+def sendToGratia(gratia_info):
+    for info, records in gratia_info.items():
+        pid = os.fork()
+        if pid == 0: # I am the child
+            try:
+                signal.alarm(5*60)
+                sendToGratia_child(info, records)
+            except Exception, e:
+                log.exception(e)
+                os._exit(0)
+            os._exit(0)
+        else: # I am parent
+            try:
+                os.waitpid(pid, 0)
+            except:
+                raise
+        
+def sendToGratia_child(info, record_list):
+    probeName, site = info
+            
+    try:
+        GratiaCore.Initialize(ProbeConfig)
+    except Exception, e:
+        log.exception(e)
+        raise
+    GratiaCore.Config.setSiteName(site)
+    GratiaCore.Config.setMeterName(probeName)
+    GratiaCore.Handshake()
+    try:
+        GratiaCore.SearchOutstandingRecord()
+    except Exception, e:
+        log.exception(e)
+        raise
+    GratiaCore.Reprocess()
+
+    log.info("Gratia collector to use: %s" % GratiaCore.Config.get_SOAPHost())
+
+    for record in record_list:
+        record.ProbeName(probeName)
+        record.SiteName(site)
+        log.info("Sending record for probe %s in site %s to Gratia: %s."% \
+            (probeName, site, GratiaCore.Send(record)))
+
+    os._exit(0)
+
+line_re = re.compile('^([\w.-]+?)\s+(\S+)')
+split_re = re.compile('\s*,?\s*')
+class SiteMapper(object):
+
+    def __init__(self, filename):
+        self.regexps = []
+        self.host_to_site_cache = {}
+        self.parse_mapfile(filename)
+
+    def parse_mapfile(self, filename):
+        fd = open(filename, 'r')
+        for line in fd.readlines():
+            m = line_re.match(line.strip())
+            if not m:
+                continue
+            site, host_info = m.groups()
+            for host_re_string in split_re.split(host_info):
+                try:
+                    host_re = re.compile(host_re_string)
+                except re.error, rerror:
+                    DebugPrint(2, "Invalid host regexp in %s: %s (%s)" % (filename, line, str(rerror)))
+                    continue
+                self.regexps.append((host_re, site))
+
+    def __call__(self, hostname):
+        if hostname in self.host_to_site_cache:
+            return self.host_to_site_cache[hostname]
+        for regexp, site in self.regexps:
+            if regexp.search(hostname):
+                self.host_to_site_cache[hostname] = site
+                return site
+        return None
 
 def parse_opts():
     parser = optparse.OptionParser()
@@ -362,46 +461,51 @@ def parse_opts():
     if not gratia_config:
         raise Exception("Unable to find a suitable ProbeConfig to use!")
     Gratia.Initialize(gratia_config)
+    global ProbeConfig
+    ProbeConfig = gratia_config
+
+    site_mapper_filename = Gratia.Config.getConfigAttribute("SiteMapper")
+    if not site_mapper_filename:
+        raise Exception("SiteMapper filename isn't specified in ProbeConfig; please add it")
+    siteMapper = SiteMapper(site_mapper_filename)
 
     if opts.verbose:
         Gratia.Config.__DebugLevel = 5
 
-    return opts
+    return opts, siteMapper
 
 def main():
-    opts = parse_opts()
+    opts, siteMapper = parse_opts()
 
     if opts.print_only:
         my_handler = print_handler
     else:
-        gratia_handler = GratiaHandler()
+        gratia_handler = GratiaHandler(siteMapper)
         my_handler = gratia_handler.handle
 
     # Do all the daemon-specific tests.
-    if not opts.input:
-        if opts.daemon:
-            # Test the socket first before we daemonize and lose the ability
-            # to alert the user of potential errors.
-            test_udp_socket(port=opts.port, bind=opts.bind)
-            # Test to see if the pidfile is writable.
-            pidfile = "/var/run/gratia-probe-xrootd-transfer.pid"
-            open(pidfile, 'w').close()
-            daemonize(pidfile)
-            # Must re-initialize here because we changed processes and lost
-            # the previous thread
-            if not opts.print_only:
-                gratia_handler = GratiaHandler()
-                my_handler = gratia_handler.handle
+    if not opts.input and opts.daemon:
+        # Test the socket first before we daemonize and lose the ability
+        # to alert the user of potential errors.
+        test_udp_socket(port=opts.port, bind=opts.bind)
+        # Test to see if the pidfile is writable.
+        pidfile = "/var/run/gratia-probe-xrootd-transfer.pid"
+        open(pidfile, 'w').close()
+        daemonize(pidfile)
+        # Must re-initialize here because we changed processes and lost
+        # the previous thread
+        if not opts.print_only:
+            gratia_handler = GratiaHandler(siteMapper)
+            my_handler = gratia_handler.handle
 
 
     se = get_se()
     version = get_version()
     DebugPrint(1, "Running %s transfer version %s for SE %s." % (XRD_NAME, version, se))
 
-    handler = XrdMonHandler(my_handler)
     if not opts.input:
         try:
-	    udpserverthread = threading.Thread(target=udp_server,args=(handler, opts.port, opts.bind))
+	    udpserverthread = threading.Thread(target=udp_server,args=(gratia_handler, opts.port, opts.bind))
 	    udpserverthread.setDaemon(True)
 	    udpserverthread.setName("Gratia udp_server Thread")
 	    udpserverthread.start()
@@ -416,10 +520,12 @@ def main():
             raise Exception("Could not open input file, %s, for read due to " \
                 "exception %s." % (input, str(e)))
         try:
-            file_handler(my_handler, opts.input)
+            file_handler(my_handler, fp)
         finally:
             if not opts.print_only:
                 gratia_handler.exit_summary()
+            return
+
     try:
 	while 1 == 1:
 	    try:
@@ -429,6 +535,8 @@ def main():
 	        raise
 	    except Exception, e:
 	        gratia_log_traceback(lvl=1)
+            except GratiaTimeout, gt:
+                gratia_log_traceback(lvl=1)
 	    try:
 	        DebugPrint(1, "Creating a new Xrootd Gratia report.")
 	        gratia_handler.summary()
