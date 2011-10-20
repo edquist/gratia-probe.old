@@ -176,6 +176,18 @@ required_attrs = [
     "file_lfn",
 ]
 
+not_float = [
+    "user_dn",
+    "user_vo",
+    "user_role",
+    "user_fqan",
+    "client_domain",
+    "client_host",
+    "server_username",
+    "server_domain",
+    "server_host",
+]
+
 class GratiaHandler(object):
 
     def __init__(self, siteMapper):
@@ -198,7 +210,8 @@ class GratiaHandler(object):
         return lock_fcn
 
     def handle(self, packet, addr):
-        DebugPrint(4, "GratiaHandler processed message: %s" %  packet)
+        #DebugPrint(4, "GratiaHandler processed message: %s" %  packet)
+        print packet
         if self.stop:
             raise self.stop_exception
         found_begin = False
@@ -216,10 +229,11 @@ class GratiaHandler(object):
                 if line == '#end':
                     found_end = True
                 continue
-            try:
-                info[1] = float(info[1])
-            except:
-                pass
+            if info[0] not in not_float:
+                try:
+                    info[1] = float(info[1])
+                except:
+                    pass
             new_evt[info[0]] = info[1]
         if not found_begin or not found_end:
             return
@@ -286,8 +300,8 @@ class GratiaHandler(object):
         if site_name:
             probename = 'xrootd-transfer:%s' % evt['server_domain']
         else:
-            site_name = GratiaCore.Config.getSiteName()
-            probename = GratiaCore.Config.getMeterName()
+            site_name = GratiaCore.Config.get_SiteName()
+            probename = GratiaCore.Config.get_MeterName()
  
         return site_name, probename, r
 
@@ -300,6 +314,7 @@ class GratiaHandler(object):
             site_name, probename, r = self.send_gratia_record(evt)
             records = gratia_info.setdefault((probename, site_name), [])
             records.append(r)
+        self.events = {}
         sendToGratia(gratia_info)
 
     def exit_summary(self):
