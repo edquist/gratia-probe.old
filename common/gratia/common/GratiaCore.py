@@ -128,6 +128,9 @@ class ProbeConfiguration:
     def __init__(self, customConfig='ProbeConfig'):
         if os.path.exists(customConfig):
             self.__configname = customConfig
+	else:
+		DebugPrint(0,"Error: configuration file %s doesn't exist" % (customConfig,))
+		raise InternalError("Error: configuration file %s doesn't exist" % (customConfig,))
 
     def __loadConfiguration__(self):
         self.__doc = xml.dom.minidom.parse(self.__configname)
@@ -2205,6 +2208,9 @@ class Record(object):
 
         # See the function ResourceType for details on the
         # parameter
+	if not Config:
+		DebugPrint(0,"Error: Configuration is not initialized")
+		raise InternalError("Configuration is not initialized") 
 
         DebugPrint(2, 'Creating a Record ' + TimeToString())
         self.XmlData = []
