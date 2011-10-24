@@ -3766,6 +3766,11 @@ def CheckAndExtendUserIdentity(
     # VOName
 
     VONameNodes = userIdentityNode.getElementsByTagNameNS(namespace, 'VOName')
+    if VONameNodes and  VONameNodes.length ==1 :
+    	if VONameNodes[0].hasChildNodes() and not VONameNodes[0].firstChild.data:
+    		[jobIdType, jobId] = FindBestJobId(userIdentityNode.parentNode, namespace)
+       		DebugPrint(0, 'Warning: UserIdentity block has VOName node, but value is set to None  in ' + jobIdType + ' ' + jobId)
+     	VONameNodes=[]
     if not VONameNodes:
         DebugPrint(4, 'DEBUG: Creating VONameNodes elements')
         VONameNodes.append(xmlDoc.createElementNS(namespace, prefix + 'VOName'))
