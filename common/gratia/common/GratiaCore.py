@@ -1512,7 +1512,7 @@ def QuarantineFile(filename, isempty):
     quarantine = os.path.join(toppath, 'quarantine')
     Mkdir(quarantine)
     DebugPrint(0, 'Putting a quarantine file in: ' + quarantine)
-    DebugPrint(3, 'Putting a file in quarantine: ' + os.path.basename(file))
+    DebugPrint(3, 'Putting a file in quarantine: ' + os.path.basename(filename))
     if isempty:
         try:
             emptyfiles = open(os.path.join(quarantine, 'emptyfile'), 'a')
