@@ -1,5 +1,6 @@
 // copyright 2004-2006, EGEE project, see LICENSE file
 
+#include <stdlib.h>
 #include <time.h>
 #include <sstream>
 #include "urwg.h"

@@ -1,5 +1,7 @@
 // copyright 2004-2006 EGEE project, see LICENSE file
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <string>
 #include <iostream>
 #include <sstream>

@@ -1,5 +1,6 @@
 // copyright 2004-2006 EGEE project (see LICENSE file)
 
+#include <stdlib.h>
 #include "xmlUtil.h"
 #include "int2string.h"
 #include <iostream>
