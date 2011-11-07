@@ -1850,17 +1850,6 @@ def InitDirList():
     Mkdir(Config.get_WorkingFolder())
 
     DirListAdd(Config.get_WorkingFolder())
-    DirListAdd(os.getenv('DATA_DIR', r''))
-    DirListAdd('/var/tmp')
-    DirListAdd('/tmp')
-    DirListAdd(os.getenv('TMP_DIR', r''))
-    DirListAdd(os.getenv('TMP_WN_DIR ', r''))
-    DirListAdd(os.getenv('TMP', r''))
-    DirListAdd(os.getenv('TMPDIR', r''))
-    DirListAdd(os.getenv('TMP_DIR', r''))
-    DirListAdd(os.getenv('TEMP', r''))
-    DirListAdd(os.getenv('TEMPDIR', r''))
-    DirListAdd(os.getenv('TEMP_DIR', r''))
     DebugPrint(1, 'List of backup directories: ', __backupDirList__)
 
 
