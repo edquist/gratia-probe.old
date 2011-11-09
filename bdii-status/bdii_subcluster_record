@@ -17,7 +17,6 @@ hostname = socket.gethostname()
 ProbeConfig = None
 
 import gratia.bdii_status.bdii_common as bdii_common
-bdii_common.bootstrap()
 
 GratiaCore = None
 Subcluster = None

@@ -17,19 +17,6 @@ import gratia.services.ComputeElementRecord as ComputeElementRecord
 
 log = None
 
-def bootstrap():
-    # Bootstrap our python configuration.  This should allow us to discover the
-    # configurations in the case where our environment wasn't really configured
-    # correctly.
-    paths = ['/opt/vdt/gratia/probe/common', '/opt/vdt/gratia/probe/services',
-        '/opt/vdt/gratia/probe/bdii-status', '$VDT_LOCATION/gratia/probe/common',
-        '$VDT_LOCATION/gratia/probe/services',
-        '$VDT_LOCATION/gratia/probe/bdii-status']
-    for path in paths:
-        gratia_path = os.path.expandvars(path)
-        if gratia_path not in sys.path and os.path.exists(gratia_path):
-            sys.path.append(gratia_path)
-
 class _hdict(dict): #pylint: disable-msg=C0103
     """
     Hashable dictionary; used to make LdapData objects hashable.

@@ -8,24 +8,6 @@ import logging
 import logging
 import optparse
 
-# Bootstrap our python configuration.  This should allow us to discover the
-# configurations in the case where our environment wasn't really configured
-# correctly.
-sys.path.append('.')
-gratia_path = os.path.expandvars('/opt/vdt/gratia/probe/common')
-if gratia_path not in sys.path and os.path.exists(gratia_path):
-    sys.path.append(gratia_path)
-gratia_path = os.path.expandvars('/opt/vdt/gratia/probe/services')
-if gratia_path not in sys.path and os.path.exists(gratia_path):
-    sys.path.append(gratia_path)
-if 'VDT_LOCATION' in os.environ:
-    gratia_path = os.path.expandvars('$VDT_LOCATION/gratia/probe/common')
-    if gratia_path not in sys.path and os.path.exists(gratia_path):
-        sys.path.append(gratia_path)
-    gratia_path = os.path.expandvars('$VDT_LOCATION/gratia/probe/services')
-    if gratia_path not in sys.path and os.path.exists(gratia_path):
-        sys.path.append(gratia_path)
-
 import gratia.common.Gratia as Gratia
 import gratia.services.StorageElement
 import gratia.services.StorageElementRecord
@@ -206,13 +188,7 @@ def requireOpts(opt):
 def validateOpts(opt):
     requireOpts(opt)
     if not os.path.exists(opt.ProbeConfig):
-        if 'VDT_LOCATION' in os.environ:
-            path = os.path.expandvars('$VDT_LOCATION/gratia/' \
-                                      'probe/glue/ProbeConfig')
-            if os.path.exists(path):
-                opt.ProbeConfig = path
-    if not os.path.exists(opt.ProbeConfig):
-        path = "/etc/osg-storage-report/ProbeConfig"
+        path = "/etc/gratia/storage-report/ProbeConfig"
         if os.path.exists(path):
             opt.ProbeConfig = path
     if not os.path.exists(opt.ProbeConfig):

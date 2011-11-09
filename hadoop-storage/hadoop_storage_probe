@@ -10,36 +10,9 @@ import optparse
 import ConfigParser
 import xml.sax.saxutils
 
-# Bootstrap our python configuration.  This should allow us to discover the
-# configurations in the case where our environment wasn't really configured
-# correctly.
-sys.path.append('.')
-base_path = '/opt/vdt'
-gratia_path = os.path.expandvars('/opt/vdt/gratia/probe/common')
-if gratia_path not in sys.path and os.path.exists(gratia_path):
-    sys.path.append(gratia_path)
-gratia_path = os.path.expandvars('/opt/vdt/gratia/probe/services')
-if gratia_path not in sys.path and os.path.exists(gratia_path):
-    sys.path.append(gratia_path)
-if 'VDT_LOCATION' in os.environ and os.path.exists(os.environ['VDT_LOCATION']):
-    base_path = os.environ['VDT_LOCATION']
-    gratia_path = os.path.expandvars('$VDT_LOCATION/gratia/probe/common')
-    if gratia_path not in sys.path and os.path.exists(gratia_path):
-        sys.path.append(gratia_path)
-    gratia_path = os.path.expandvars('$VDT_LOCATION/gratia/probe/services')
-    if gratia_path not in sys.path and os.path.exists(gratia_path):
-        sys.path.append(gratia_path)
-
-has_gratia = True
-try:
-    import gratia.common.Gratia as Gratia
-    import gratia.services.StorageElement as StorageElement
-    import gratia.services.StorageElementRecord as StorageElementRecord
-except:
-    has_gratia = False
-    Gratia = None
-    StorageElement = None
-    StorageElementRecord = None
+import gratia.common.Gratia as Gratia
+import gratia.services.StorageElement as StorageElement
+import gratia.services.StorageElementRecord as StorageElementRecord
 
 # Bootstrap hadoop
 if 'JAVA_HOME' not in os.environ:
@@ -58,28 +31,13 @@ class Area(object):
         self.prefix = prefix.split()
 
 def configure_gratia(cp):
-    global has_gratia
     global Gratia
     global StorageElement
     global StorageElementRecord
-    if not has_gratia:
-        try:
-            gratia_loc = cp.get("Gratia", "gratia_location")
-            sys.path.append(os.path.join(gratia_loc, "probe", "common"))
-            sys.path.append(os.path.join(gratia_loc, "probe", "services"))
-            Gratia = __import__("Gratia")
-            StorageElement = __import__("StorageElement")
-            StorageElementRecord = __import__("StorageElementRecord")
-            has_gratia = True
-        except:
-            raise
-    if not has_gratia:
-        print "Unable to import Gratia and Storage modules!"
-        sys.exit(1)
     try:
         probe_config = cp.get("Gratia", "ProbeConfig")
     except:
-        probe_config = '/usr/share/hadoop_chronicle/ProbeConfig'
+        probe_config = '/etc/gratia/hadoop-storage/ProbeConfig'
     if not os.path.exists(probe_config):
         raise Exception("ProbeConfig, %s, does not exist." % probe_config)
     Gratia.Initialize(probe_config)
@@ -428,7 +386,7 @@ def collect_custom_info_internal(cp, section):
 def configure():
     parser = optparse.OptionParser()
     parser.add_option("-c", "--config", dest="config", help="Config file to " \
-        "use.", default=os.path.join(base_path, "gratia/probe/hadoop-storage/storage.cfg"))
+        "use.", default="/etc/gratia/hadoop-storage/storage.cfg")
     options, args = parser.parse_args()
     config = options.config
     if not os.path.exists(config):

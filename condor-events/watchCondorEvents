@@ -17,30 +17,11 @@ from xml.sax.handler import ContentHandler, feature_external_ges
 # minutes; kill after 10 minutes to prevent pile-up.
 signal.alarm(10*60)
 
-possible_dirs = [ \
-  "/opt/vdt/gratia/probe/common",
-  "$VDT_LOCATION/gratia/probe/common",
-  "MAGIC_VDT_LOCATION/gratia/probe/common",
-]
-for dir in possible_dirs:
-    dir = os.path.expandvars(dir)
-    if os.path.exists(dir) and dir not in sys.path:
-        sys.path.append(dir)
-
 possible_probeconf = [
   "/etc/gratia/condor-events/ProbeConfig",
-  "/opt/vdt/gratia/probe/condor-events/ProbeConfig",
-  "$VDT_LOCATION/gratia/probe/condor-events/ProbeConfig",
-  "MAGIC_VDT_LOCATION/gratia/probe/condor-events/ProbeConfig",
-  "ProbeConfig"
 ]
 
-try:
-    import gratia.common.Gratia as Gratia
-    gratia_here = True
-except:
-    gratia_here = False
-    Gratia = None
+import gratia.common.Gratia as Gratia
 
 def checkEnviron():
     """
@@ -324,10 +305,6 @@ def initializeEnvironment():
         os.environ['CONDOR_CONFIG'] = condor_config
 
 def main():
-
-    if not gratia_here:
-        print "Unable to load the Gratia python libraries"
-        sys.exit(1)
 
     print "Initializing environment..."
     initializeEnvironment()

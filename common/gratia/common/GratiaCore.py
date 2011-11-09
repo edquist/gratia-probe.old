@@ -152,21 +152,6 @@ class ProbeConfiguration:
 
         return self.__doc.getElementsByTagName('ProbeConfiguration')[0].getAttribute(attributeName)
 
-    def __findVDTTop(self):
-        """
-        Internal routine returning the top level directory of the VDT installation.
-        """
-        mvt = self.__getConfigAttribute('VDTSetupFile')
-        if mvt and os.path.isfile(mvt):
-            return os.path.dirname(mvt)
-        else:
-            mvt = os.getenv('OSG_GRID') or os.getenv('OSG_LOCATION') or os.getenv('VDT_LOCATION') \
-                or os.getenv('GRID3_LOCATIION')
-        if mvt != None and os.path.isdir(mvt):
-            return mvt
-        else:
-            return None
-
     # Public interface
 
 
@@ -487,43 +472,12 @@ class ProbeConfiguration:
             return self.__UserVOMapFile
         val = self.__getConfigAttribute('UserVOMapFile')
 
-        # The vestigial escape here is to prevent substitution during a
-        # VDT install.
-
-        if val and re.search("MAGIC\_VDT_LOCATION", val):
-            vdttop = self.__findVDTTop()
-            if vdttop != None:
-                val = re.sub("MAGIC\_VDT_LOCATION", vdttop, val)
-                if os.path.isfile(val):
-                    self.__UserVOMapFile = val
-        elif val and os.path.isfile(val):
+        if val and os.path.isfile(val):
             self.__UserVOMapFile = val
         else:
-
-              # Invalid or missing config entry
-            # Locate mapfile from osg-attributes.conf
-
-            if val and os.path.isfile(val + '/monitoring/osg-attributes.conf'):
-                try:
-                    filehandle = open(val + '/monitoring/osg-attributes.conf')
-                    mapMatch = re.search(r'^(?:OSG|GRID3)_USER_VO_MAP="(.*)"\s*(?:#.*)$', filehandle.read(),
-                                         re.DOTALL)
-                    filehandle.close()
-                    if mapMatch:
-                        self.__UserVOMapFile = mapMatch.group(1)
-                except IOError:
-                    pass
-            else:
-
-                  # Last ditch guess
-
-                vdttop = self.__findVDTTop()
-                if vdttop != None:
-                    self.__UserVOMapFile = self.__findVDTTop() + '/monitoring/osg-user-vo-map.txt'
-                    if not os.path.isfile(self.__UserVOMapFile):
-                        self.__UserVOMapFile = self.__findVDTTop() + '/monitoring/grid3-user-vo-map.txt'
-                        if not os.path.isfile(self.__UserVOMapFile):
-                            self.__UserVOMapFile = None
+             self.__UserVOMapFile = '/var/lib/osg/user-vo-map'
+             if not os.path.isfile(self.__UserVOMapFile):
+                 self.__UserVOMapFile = None
 
         return self.__UserVOMapFile
 
