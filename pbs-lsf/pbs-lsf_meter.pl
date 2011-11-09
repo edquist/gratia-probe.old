@@ -20,15 +20,12 @@ use urCollector::Common qw(:DEFAULT);
 use urCollector::Configuration;
 
 sub local_error {
-  system("$URCOLLECTOR_LOC/../common/DebugPrint", "-l", "-1", @_);
+  system("/usr/share/gratia/common/DebugPrint", "-l", "-1", @_);
 }
 
 ####################################
 # BEGIN clause
 ####################################
-BEGIN {
-  push @INC, $::ENV{URCOLLECTOR_LOCATION} || "/opt/urCollector";
-};
 
 ####################################
 # Initialization / executable code
@@ -68,12 +65,12 @@ if ($lrms eq "PBS") {
 
 my $status;
 if ($lrms_version) {
-  $status = system("$URCOLLECTOR_LOC/pbs-lsf",
+  $status = system("/usr/share/gratia/pbs-lsf/pbs-lsf",
                    "$configValues{URBox}",
                    $lrms,
                    $lrms_version);
 } else {
-  $status = system("$URCOLLECTOR_LOC/pbs-lsf",
+  $status = system("/usr/share/gratia/pbs-lsf/pbs-lsf",
                    "$configValues{URBox}", $lrms);
 }
 

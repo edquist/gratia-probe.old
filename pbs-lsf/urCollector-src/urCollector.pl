@@ -32,7 +32,7 @@ POSIX::SigAction->new("sigINT_handler",$sigset,&POSIX::SA_NODEFER);
 POSIX::sigaction(&POSIX::SIGHUP, $actionHUP);
 POSIX::sigaction(&POSIX::SIGINT, $actionInt);
 POSIX::sigaction(&POSIX::SIGTERM, $actionInt);
-my $urCreatorExecutable = "$URCOLLECTOR_LOC/urCreator";
+my $urCreatorExecutable = "/usr/share/gratia/pbs-lsf/urCreator";
 
 my $onlyOneIteration = 0; # default is run as daemon!
 my $useCElog = 1;   # default is use the CE's map: grid job <-> local job
@@ -377,7 +377,7 @@ sub processLrmsLogs {
          $_[0], $_[1], $_[2], $_[3]);
          $newestFile = 0;
          # Call Gratia processing internally now to avoid leaving huge numbers of files unprocessed
-         system("./pbs-lsf_meter.pl 2>&1");
+         system("/usr/share/gratia/pbs-lsf/pbs-lsf_meter.pl 2>&1");
          # Note we can't update the state buffer becuse of the crazy way we
          # read backwards. That means if we get interrupted and have to
          # start again, Gratia will get a bunch of duplicates.
