@@ -86,7 +86,7 @@ def __disconnect_at_exit__():
     DebugPrint(1, 'End-of-execution disconnect ...')
 
 
-class GratiaTimeout:
+class GratiaTimeout(Exception):
     """
     Exception class to mark a connection timeout caught via the signal.alarm.
     """ 
