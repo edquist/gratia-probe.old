@@ -24,7 +24,7 @@ use vars qw(@EXPORT @ISA @EXPORT_OK
 ####################################
 # Initialization / executable code
 ####################################
-$configFilePath = "$URCOLLECTOR_LOC/urCollector.conf";
+$configFilePath = "/usr/share/gratia/pbs-lsf/urCollector.conf";
 
 %configValues =
 (
@@ -39,10 +39,10 @@ $configFilePath = "$URCOLLECTOR_LOC/urCollector.conf";
  glueLdifFile          => "",
  siteName              => "",	### read from glueLdifFile instead???
 
- URBox    =>  "$URCOLLECTOR_LOC/var/URbox",
+ URBox    =>  "/var/lib/gratia/tmp/urCollector",
 
- collectorLockFileName => "$URCOLLECTOR_LOC/var/urCollector.lock",
- collectorBufferFileName => "$URCOLLECTOR_LOC/var/urCollectorBuffer",
+ collectorLockFileName => "/var/lock/urCollector.lock",
+ collectorBufferFileName => "/var/lib/gratia/tmp/urCollectorBuffer",
  mainPollInterval  => "5",
  timeInterval      =>"5",
  jobPerTimeInterval =>"10",

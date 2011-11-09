@@ -9,10 +9,6 @@
 use strict;
 use POSIX;
 
-BEGIN {
-   push @INC, $::ENV{URCOLLECTOR_LOCATION} || "/opt/urCollector";
-};
-
 use Time::Local;
 use File::Basename;
 use urCollector::Common qw(:DEFAULT :Locking);

@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.09
-Release:            0.4.pre
+Release:            0.5.pre
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -247,7 +247,8 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
     install -m 0755 urCreator urCollector.pl $PROBE_DIR
     install -m 0644 LICENSE $PROBE_DIR
     install -m 0644 urCollector.conf-template $PROBE_DIR/urCollector.conf
-    install -m 0644 urCollector/{Common,Configuration}.pm $PROBE_DIR/urCollector
+    install -d -m 0755 $RPM_BUILD_ROOT%{perl_vendorlib}/urCollector/
+    install -m 0644 urCollector/{Common,Configuration}.pm $RPM_BUILD_ROOT%{perl_vendorlib}/urCollector/
   popd
 
   # ProbeConfig customization
@@ -310,8 +311,8 @@ This product includes software developed by The EU EGEE Project
 %{_datadir}/gratia/pbs-lsf/pbs-lsf
 %{_datadir}/gratia/pbs-lsf/urCreator
 %{_datadir}/gratia/pbs-lsf/urCollector.pl
-%{_datadir}/gratia/pbs-lsf/urCollector/Common.pm
-%{_datadir}/gratia/pbs-lsf/urCollector/Configuration.pm
+%{perl_vendorlib}/urCollector/Common.pm
+%{perl_vendorlib}/urCollector/Configuration.pm
 %config(noreplace) %{_datadir}/gratia/pbs-lsf/urCollector.conf
 %config(noreplace) %{_sysconfdir}/gratia/pbs-lsf/ProbeConfig
 %config(noreplace) %{_sysconfdir}/cron.d/gratia-probe-pbs-lsf.cron
@@ -689,6 +690,11 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
+* Tue Nov 08 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.09-0.5.pre
+- Make pbs-lsf probe not write into /opt (GRATIA-24).
+- Fix FHS locations in hadoop-storage probe (GRATIA-22).
+- Fix path to gridftp-transfer probe (GRATIA-19).
+
 * Thu Sep 29 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.09-0.4.pre
 - Metrics fixes from Scot K.
 

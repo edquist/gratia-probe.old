@@ -9,15 +9,13 @@ require Exporter;
 ####################################
 # Global variables used internally
 ####################################
-use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS
-	    $URCOLLECTOR_LOC);
+use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 
 ####################################
 # Symbol export
 ####################################
 @ISA = qw(Exporter);
-@EXPORT = qw($URCOLLECTOR_LOC
-	     &error);
+@EXPORT = qw(&error);
 @EXPORT_OK = qw();
 %EXPORT_TAGS =
   (
@@ -29,9 +27,6 @@ Exporter::export_ok_tags('Locking');
 ####################################
 # Initialization / executable code
 ####################################
-
-# Installation area
-$URCOLLECTOR_LOC = $::ENV{URCOLLECTOR_LOCATION} || "/opt/urCollector";
 
 ####################################
 # End of initialization / executable code
