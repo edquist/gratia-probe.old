@@ -12,7 +12,7 @@
 URBox = "/var/lib/gratia/tmp/urCollector"
 
 # the lock file for urCollector.pl 
-collectorLockFileName = "/opt/urCollector/var/urCollector.lock"
+collectorLockFileName = "/var/lock/urCollector.lock"
 
 # the log file for urCollector.pl
 collectorLogFileName = "/var/lib/gratia/logs/urCollector.log"
@@ -20,7 +20,7 @@ collectorLogFileName = "/var/lib/gratia/logs/urCollector.log"
 # the buffer file that keeps track of the last processed LRMS job_id and
 # log timestamp for urCollector.pl:
 # (Note: the LRMS type specified in lrmsType will automatically be appended
-#  as suffix, for example: "/opt/urCollector/var/urCollectorBuffer.pbs")
+#  as suffix, for example: "/var/lib/gratia/tmp/urCollectorBuffer.pbs")
 collectorBufferFileName = "/var/lib/gratia/tmp/urCollectorBuffer"
 
 # if all jobs have been processed: seconds to wait before looking for new jobs in the LRMS log files (next iteration):

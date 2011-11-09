@@ -127,7 +127,7 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
     install -m 644 common/ProbeConfigTemplate.osg $PROBE_DIR/ProbeConfig
     ln -s %{_sysconfdir}/gratia/$probe/ProbeConfig $RPM_BUILD_ROOT/%{_datadir}/gratia/$probe/ProbeConfig
 
-    if [ $probe == *-transfer -o $probe == *-storage ]; then
+    if [ $probe == "*-transfer" -o $probe == "*-storage" ]; then
       endpoint=%{osg_transfer_collector}:%{default_collector_port}
     elif [ $probe == metric ]; then
       endpoint=%{osg_metric_collector}:%{metric_port}
@@ -261,7 +261,7 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
          -e "s#@PROBE_NAME@#pbs-lsf#" \
         $PROBE_ETC_DIR/ProbeConfig
   install -m 644 pbs-lsf/gratia-probe-pbs-lsf.cron $RPM_BUILD_ROOT%{_sysconfdir}/cron.d/
-  ln -s %{_sysconfdir}/gratia/pbs-lsf/ProbeConfig $PROBE_DIR/ProbeConfig
+  ln -sf %{_sysconfdir}/gratia/pbs-lsf/ProbeConfig $PROBE_DIR/ProbeConfig
 
   # Remove test cruft
   rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/test
