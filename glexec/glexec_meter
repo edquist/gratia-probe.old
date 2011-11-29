@@ -78,8 +78,8 @@ def save_last_check(data_dir,last_check):
 # Process data
 #
 
-def getCE(vdtsetup,host_proxy):
-    cmd="source '%s'; grid-proxy-info -f '%s'"%(vdtsetup,host_proxy)
+def getCE(host_proxy):
+    cmd="grid-proxy-info -f '%s'"%(host_proxy)
     cmd_el=popen2.Popen3(cmd,1)
     cmd_el.tochild.close() # no input
     exit_code=cmd_el.wait()
@@ -149,7 +149,7 @@ def main():
     sitename=Gratia.Config.get_SiteName()
     if sitename=="generic Site":
         raise RuntimeError,"SiteName unconfigured"
-    cename=getCE(Gratia.Config._ProbeConfiguration__getConfigAttribute('VDTSetupFile'),Gratia.Config.get_CertificateFile())
+    cename=getCE(Gratia.Config.get_CertificateFile())
     data_dir=Gratia.Config.get_DataFolder()
     logfile=Gratia.Config._ProbeConfiguration__getConfigAttribute('gLExecMonitorLog')
     #logfile="/var/log/glexec/glexec_monitor.log"

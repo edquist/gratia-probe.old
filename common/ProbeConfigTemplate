@@ -50,14 +50,13 @@
     KeyFile="/etc/grid-security/hostkey.pem"
     UseGratiaCertificates="0"
        Comments40="If no directory is specified the gratia certificate file will be created in 'WorkingFolder'/certs."
-    GratiaCertificateFile="gratia.probecert.pem"
-    GratiaKeyFile="gratia.probekey.pem"
+    GratiaCertificateFile="/var/lib/gratia/data/certs/gratia.probecert.pem"
+    GratiaKeyFile="/var/lib/gratia/data/certs/gratia.probekey.pem"
     
     Title5="File and directory location"
 
-    VDTSetupFile="MAGIC_VDT_LOCATION/setup.sh"
-    UserVOMapFile="MAGIC_VDT_LOCATION/monitoring/grid3-user-vo-map.txt"
-    CertInfoLogPattern="MAGIC_VDT_LOCATION/var/log/accounting/blahp.log-*"
+    UserVOMapFile="/var/lib/osg/user-vo-map"
+    CertInfoLogPattern="/var/log/accounting/blahp.log-*"
         Comments51="Location and wildcard pattern of log files that contains certificate information about the jobs in the format followed by the 'blah demons'."
 
     DataFolder="/var/lib/gratia/data/"

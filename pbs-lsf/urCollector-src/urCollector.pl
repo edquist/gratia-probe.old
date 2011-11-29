@@ -1477,11 +1477,6 @@ sub determineUserVO()
       $_[2] = $fqanParts[1];
       $retVal = 0;
    }
-   elsif ($uid =~ /^(.*)sgm$/o || $uid =~ /^(.*)prd$/o || $uid =~ /^(.*)\d{3}$/o)
-   {
-      $_[2] = $1;
-      $retVal = 0;        
-   }
    
    return $retVal;
 }

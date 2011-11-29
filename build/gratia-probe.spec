@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.09
-Release:            0.5.pre
+Release:            1
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -142,8 +142,8 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
 
     # Probe-specific customizations
     if [ $probe == "psacct" ]; then
-      sed -i -e 's#@PROBE_SPECIFIC_DATA@#PSACCTFileRepository="/usr/share/gratia/var/account/" \
-    PSACCTBackupFileRepository="/usr/share/gratia/var/backup/" \
+      sed -i -e 's#@PROBE_SPECIFIC_DATA@#PSACCTFileRepository="/var/lib/gratia/account/" \
+    PSACCTBackupFileRepository="/var/lib/gratia/backup/" \
     PSACCTExceptionsRepository="/var/log/gratia/exceptions/"#' $PROBE_DIR/ProbeConfig
     elif [ $probe == "sge" ]; then
       sed -i -e 's#@PROBE_SPECIFIC_DATA@#SGEAccountingFile=""#' $PROBE_DIR/ProbeConfig
@@ -246,13 +246,13 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
   pushd pbs-lsf/urCollector-src
     install -m 0755 urCreator urCollector.pl $PROBE_DIR
     install -m 0644 LICENSE $PROBE_DIR
-    install -m 0644 urCollector.conf-template $PROBE_DIR/urCollector.conf
     install -d -m 0755 $RPM_BUILD_ROOT%{perl_vendorlib}/urCollector/
     install -m 0644 urCollector/{Common,Configuration}.pm $RPM_BUILD_ROOT%{perl_vendorlib}/urCollector/
   popd
 
   # ProbeConfig customization
   install -m 0644 common/ProbeConfigTemplate.osg $PROBE_ETC_DIR/ProbeConfig
+  install -m 0644 pbs-lsf/urCollector-src/urCollector.conf-template $PROBE_ETC_DIR/urCollector.conf
   endpoint=%{osg_collector}:%{default_collector_port}
   sed -i -e "s#@COLLECTOR_ENDPOINT@#$endpoint#" \
          -e "s#@SSL_ENDPOINT@#%{osg_collector}:%{ssl_port}#" \
@@ -262,6 +262,7 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
         $PROBE_ETC_DIR/ProbeConfig
   install -m 644 pbs-lsf/gratia-probe-pbs-lsf.cron $RPM_BUILD_ROOT%{_sysconfdir}/cron.d/
   ln -sf %{_sysconfdir}/gratia/pbs-lsf/ProbeConfig $PROBE_DIR/ProbeConfig
+  ln -s %{_sysconfdir}/gratia/pbs-lsf/urCollector.conf $PROBE_DIR/urCollector.conf
 
   # Remove test cruft
   rm -rf $RPM_BUILD_ROOT%{_datadir}/gratia/pbs-lsf/test
@@ -306,6 +307,7 @@ This product includes software developed by The EU EGEE Project
 %doc %{_datadir}/gratia/pbs-lsf/README
 %dir %{_datadir}/gratia/pbs-lsf
 %{_datadir}/gratia/pbs-lsf/ProbeConfig
+%{_datadir}/gratia/pbs-lsf/urCollector.conf
 %{_datadir}/gratia/pbs-lsf/pbs-lsf_meter.cron.sh
 %{_datadir}/gratia/pbs-lsf/pbs-lsf_meter.pl
 %{_datadir}/gratia/pbs-lsf/pbs-lsf
@@ -313,7 +315,7 @@ This product includes software developed by The EU EGEE Project
 %{_datadir}/gratia/pbs-lsf/urCollector.pl
 %{perl_vendorlib}/urCollector/Common.pm
 %{perl_vendorlib}/urCollector/Configuration.pm
-%config(noreplace) %{_datadir}/gratia/pbs-lsf/urCollector.conf
+%config(noreplace) %{_sysconfdir}/gratia/pbs-lsf/urCollector.conf
 %config(noreplace) %{_sysconfdir}/gratia/pbs-lsf/ProbeConfig
 %config(noreplace) %{_sysconfdir}/cron.d/gratia-probe-pbs-lsf.cron
 
@@ -357,8 +359,6 @@ The psacct probe for the Gratia OSG accounting system.
 %doc %{default_prefix}/gratia/psacct/README
 %dir %{default_prefix}/gratia/psacct
 %{default_prefix}/gratia/psacct/ProbeConfig
-%config %{default_prefix}/gratia/psacct/facct-catchup
-%config %{default_prefix}/gratia/psacct/facct-turnoff.sh
 %config %{default_prefix}/gratia/psacct/psacct_probe.cron.sh
 %{default_prefix}/gratia/psacct/PSACCTProbe
 %{python_sitelib}/gratia/psacct
@@ -371,25 +371,13 @@ The psacct probe for the Gratia OSG accounting system.
 # Configure boot-time activation of accounting.
 /sbin/chkconfig --add gratia-psacct
 
-# Deal with legacy Fermilab psacct configuration:
-if grep -e 'fiscal/monacct\.log' >/dev/null 2>&1; then
-  tmpfile=`mktemp /tmp/gratia-probe-psacct-post.XXXXXXXXXX`
-  crontab -l 2>/dev/null | \
-  grep -v -e 'nite/acct\.log' \
-        -e 'fiscal/monacct\.log' > "$tmpfile" 2>/dev/null
-  crontab "$tmpfile" >/dev/null 2>&1
-  echo "Shutting down facct service" 1>&2
-  /sbin/chkconfig --del facct
-fi
-rm -f "$tmpfile"
-
 %customize_probeconfig -d psacct
 
 %package condor
 Summary: A Condor probe
 Group: Applications/System
 Requires: %{name}-common >= %{version}-%{release}
-Requires: /usr/bin/condor_history
+Requires: condor
 
 %description condor
 The Condor probe for the Gratia OSG accounting system.
@@ -436,6 +424,7 @@ The SGE probe for the Gratia OSG accounting system.
 Summary: A gLExec probe
 Group: Applications/System
 Requires: %{name}-common >= %{version}-%{release}
+Requires:  /usr/bin/grid-proxy-info
 
 %description glexec
 The gLExec probe for the Gratia OSG accounting system.
@@ -667,6 +656,7 @@ Summary: Probes that emits records of BDII status
 Group: Application/System
 Requires: %{name}-common >= %{version}-%{release}
 Requires: %{name}-services >= %{version}-%{release}
+Requires: /usr/bin/ldapsearch
 License: See LICENSE.
 
 %description bdii-status
@@ -690,10 +680,24 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
-* Tue Nov 08 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.09-0.5.pre
-- Make pbs-lsf probe not write into /opt (GRATIA-24).
-- Fix FHS locations in hadoop-storage probe (GRATIA-22).
-- Fix path to gridftp-transfer probe (GRATIA-19).
+* Wed Nov 15 2011 Tanya Levshina <tlevshin@fnal.gov> - 1.09-1
+- No changes from 1.09.08.pre - just official release
+
+* Wed Nov 15 2011 Tanya Levshina <tlevshin@fnal.gov> - 1.09-08.pre
+- Fixed psacct data dir location (removed them from /usr/share/gratia/var, and put them under /var/lib/gratia)
+- Added ldapsearch dependency to bdii probe
+- Fixed URCOLLECTOR_LOC  in pbs probe 
+
+* Tue Nov 08 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.09-0.6.pre
+ - Make pbs-lsf probe not write into /opt (GRATIA-24).
+ - Fix FHS locations in hadoop-storage probe (GRATIA-22).
+ - Fix path to gridftp-transfer probe (GRATIA-19).
+
+* Mon Oct 31 2011 Tanya Levshina <tlevshin@fnal.gov> - 1.09-0.5.pre
+- More fixes (https://jira.opensciencegrid.org/browse/GRATIA-16, 17, 20)
+
+* Mon Oct 31 2011 Tanya Levshina <tlevshin@fnal.gov> - 1.09-0.5.pre
+- Some small fixes (https://jira.opensciencegrid.org/browse/GRATIA-11, 13, 15)
 
 * Thu Sep 29 2011 Brian Bockelman <bbockelm@cse.unl.edu> - 1.09-0.4.pre
 - Metrics fixes from Scot K.

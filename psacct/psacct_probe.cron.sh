@@ -10,7 +10,7 @@ _nite=${_adm}/acct/nite
 _currentfile=${_nite}/spacct${_date}
 
 _gratia_dir=/usr/share/gratia
-_gratia_data_dir=${_gratia_dir}/var/data
+_gratia_data_dir=/var/lib/gratia/data
 test -e "${_currentfile}" && cp "${_currentfile}" "${_gratia_data_dir}"
 
 # Now run gratia

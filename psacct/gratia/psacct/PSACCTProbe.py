@@ -10,8 +10,8 @@
 #
 
 
-import sys, os, commands, time, shutil, glob, struct, Gratia, pwd, string, socket
-from Gratia import DebugPrint, Send, Error
+import sys, os, commands, time, shutil, glob, struct,  pwd, string, socket
+import gratia.common.Gratia as Gratia
 
 import traceback
 
@@ -116,7 +116,7 @@ class SystemInfo:
         try:
                 username = pwd.getpwuid(value)[0]
         except:
-                DebugPrint(0,"Warning the username was not found for uid="+uid)
+                Gratia.DebugPrint(0,"Warning the username was not found for uid="+uid)
                 username = "uid="+uid
         self.Users[uid] = username
         return username
@@ -203,7 +203,7 @@ class Aggregate:
     #  Usage Record - A Gratia Usage record populated with the data from the PSACCT record
     def Process(self):
         # We create a Gratia Record
-        DebugPrint(5, "Processing record")
+        Gratia.DebugPrint(5, "Processing record")
 
         usageRecord = Gratia.UsageRecord("RawCPU")
         usageRecord.LocalUserId(self.Username)
@@ -222,7 +222,7 @@ class Aggregate:
         usageRecord.Host(sysinfo.Hostname,True,hostdesc)
         usageRecord.MachineName(sysinfo.MachineName)
  
-        DebugPrint(5, "Done Processing")
+        Gratia.DebugPrint(5, "Done Processing")
 
         return usageRecord
 
@@ -241,23 +241,23 @@ class PsacctFiles:
     #  pendingFiles - A list of full paths for each PSACCT log file that needs to be processed.
     #
     def GetPSACCTFileNames(self,probeConfig):
-        DebugPrint(5, "Getting pending PSACCT files")
+        Gratia.DebugPrint(5, "Getting pending PSACCT files")
 
         DataRepository = probeConfig.get_DataFolder()
         pendingFiles = []
 
         # Get the list of all files in the PSACCT File Repository
-        DebugPrint(1, " Getting PSACCT files from " + DataRepository)
+        Gratia.DebugPrint(1, " Getting PSACCT files from " + DataRepository)
         files = glob.glob(DataRepository + "/spacct*")
 
         # Add each file to the pending files list if it doesn't already exist
         for f in files:
             if f not in pendingFiles and os.path.isdir(f) == False:
-                DebugPrint(2, " Adding file to process list:  " + f)
+                Gratia.DebugPrint(2, " Adding file to process list:  " + f)
                 pendingFiles.append(f)       
 
-        DebugPrint(1, " Pending files:  ", pendingFiles)
-        DebugPrint(5, "Done getting pending PSACCT files")
+        Gratia.DebugPrint(1, " Pending files:  ", pendingFiles)
+        Gratia.DebugPrint(5, "Done getting pending PSACCT files")
 
         files = None
 
@@ -288,7 +288,7 @@ class PsacctFiles:
             target = os.path.join(probeConfig.get_DataFolder(),"s"+os.path.basename(defaultPsacctFile))
             shutil.move(defaultPsacctFile,target)
 
-            DebugPrint(3, "Write empty account file ("+defaultPsacctFile+") to disable psacct logrotate")
+            Gratia.DebugPrint(3, "Write empty account file ("+defaultPsacctFile+") to disable psacct logrotate")
             emptyFile = open(defaultPsacctFile, "w")
             emptyFile.close()
  
@@ -304,15 +304,15 @@ class PsacctFiles:
     # Return:
     #  A boolean value indicating 'true' if the file is being accounting on and 'false' if it is not
     def IsAccounting(self,PSACCTFileName):
-        DebugPrint(5, "Is accounting on " + PSACCTFileName + "?")
+        Gratia.DebugPrint(5, "Is accounting on " + PSACCTFileName + "?")
 
         isOn = False
 
         # TODO:  How to check if accton is running on the given file?
         # Well you can not
 
-        DebugPrint(1, " Accounting on " + PSACCTFileName + ":  ", isOn)
-        DebugPrint(5, "Done checking for is accounting on " + PSACCTFileName)
+        Gratia.DebugPrint(1, " Accounting on " + PSACCTFileName + ":  ", isOn)
+        Gratia.DebugPrint(5, "Done checking for is accounting on " + PSACCTFileName)
 
         return isOn
 
@@ -326,12 +326,12 @@ class PsacctFiles:
     #  PSACCTFileName - The name of the PSACCT log file to stop accounting on
     #
     def StopAccounting(self,PSACCTFileName):
-        DebugPrint(5, "Stop accounting on " + PSACCTFileName)
+        Gratia.DebugPrint(5, "Stop accounting on " + PSACCTFileName)
 
         # Run ACCTON with no parameters to stop it
         commands.getstatusoutput("/usr/sbin/accton")
 
-        DebugPrint(5, "Stopped accounting on " + PSACCTFileName)
+        Gratia.DebugPrint(5, "Stopped accounting on " + PSACCTFileName)
 
     #
     # StartNewAccounting
@@ -342,7 +342,7 @@ class PsacctFiles:
     #  PSACCTFileNames - a list of file names on deck to be processed.  The new file name cannot be in this list.
     #
     def StartNewAccounting(self,PSACCTFileNames, probeConfig):
-        DebugPrint(5, "Starting new accounting process")
+        Gratia.DebugPrint(5, "Starting new accounting process")
 
         # Come up with a new file name that doesn't exist in the repository and append it to newAcctFile
         newAcctFile = probeConfig.get_PSACCTFileRepository() + time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime())
@@ -358,8 +358,8 @@ class PsacctFiles:
 
         self.DisableDefaultPsacct(probeConfig)
  
-        DebugPrint(1, " New accounting log file: " + newAcctFile)
-        DebugPrint(5, "Started new accounting process")
+        Gratia.DebugPrint(1, " New accounting log file: " + newAcctFile)
+        Gratia.DebugPrint(5, "Started new accounting process")
 
     #
     # MoveCurrentAccountingFile
@@ -370,10 +370,10 @@ class PsacctFiles:
     #  PSACCTFileNames - a list of file names on deck to be processed.  The new file name cannot be in this list.
     #
     def MoveCurrentAccountingFile(self,probeConfig):
-        DebugPrint(5, "Moving current accounting files")
+        Gratia.DebugPrint(5, "Moving current accounting files")
 
         repo = probeConfig.get_PSACCTFileRepository();
-        DebugPrint(0, "Moving current accounting files to ",repo)
+        Gratia.DebugPrint(0, "Moving current accounting files to ",repo)
         if os.access(repo, os.R_OK) == False:
             Gratia.Mkdir(repo)
         
@@ -391,7 +391,7 @@ class PsacctFiles:
             copyFile = prefix + time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime())
             while os.access(copyFile, os.R_OK):
                 copyFile = prefix + time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime())
-            DebugPrint(0, "Moving current accounting files from "+AcctFile+" to "+copyFile)
+            Gratia.DebugPrint(0, "Moving current accounting files from "+AcctFile+" to "+copyFile)
             os.rename(AcctFile,copyFile)
 
         if not os.access(AcctFile, os.R_OK):
@@ -405,13 +405,13 @@ class PsacctFiles:
         # Start accton on a new file
         res = commands.getstatusoutput("/usr/sbin/accton " + AcctFile)
         if res[0] != 0:
-            Error("Could not enable accounting with log file: " + AcctFile+"res=",res)
+            Gratia.Error("Could not enable accounting with log file: " + AcctFile+"res=",res)
         else:
-            DebugPrint(1, "New accounting log file: " + AcctFile)
+            Gratia.DebugPrint(1, "New accounting log file: " + AcctFile)
 
         self.DisableDefaultPsacct(probeConfig)
 
-        DebugPrint(5, "Started new accounting process")
+        Gratia.DebugPrint(5, "Started new accounting process")
 
  
     #
@@ -426,16 +426,16 @@ class PsacctFiles:
         backupDir = probeConfig.get_PSACCTBackupFileRepository()
         cutoff = time.time() - nDays * 24 * 3600
 
-        DebugPrint(1, " Removing backup PSACCT files older than ", nDays, " days from " , backupDir)
+        Gratia.DebugPrint(1, " Removing backup PSACCT files older than ", nDays, " days from " , backupDir)
  
         # Get the list of all files in the PSACCT File Backup Repository
         files = glob.glob(os.path.join(backupDir,"spacct")+"*")
 
-        DebugPrint(3, " Will check the files: ",files)
+        Gratia.DebugPrint(3, " Will check the files: ",files)
         
         for f in files:
             if os.path.getmtime(f) < cutoff:
-                DebugPrint(2, "Will remove: " + f)
+                Gratia.DebugPrint(2, "Will remove: " + f)
                 os.remove(f)
                 
         files = None
@@ -451,7 +451,7 @@ class PsacctFiles:
     # Parameters
     #  PSACCTFileName - 
     def CanBackupFile(self,PSACCTFileName, probeConfig):
-        DebugPrint(5, "Checking if file can be backed up")
+        Gratia.DebugPrint(5, "Checking if file can be backed up")
 
         canBackupFile = False
 
@@ -461,20 +461,20 @@ class PsacctFiles:
 
         # Check if the file already exists in the backup directory
         if os.access(probeConfig.get_PSACCTBackupFileRepository() + PSACCTFileName, os.R_OK) == True:
-            DebugPrint(0, PSACCTFileName + " already exists in backup repository!")
+            Gratia.DebugPrint(0, PSACCTFileName + " already exists in backup repository!")
         else:
             # Check to see if the new file can be created
             if os.access(probeConfig.get_PSACCTBackupFileRepository(), os.W_OK) == False:
-                DebugPrint(0, probeConfig.get_PSACCTBackupFileRepository() + " is not writeable!")
+                Gratia.DebugPrint(0, probeConfig.get_PSACCTBackupFileRepository() + " is not writeable!")
             else:
                 # Check to see if the current file can be deleted
                 if os.access(PSACCTFileName, os.W_OK) == False:
-                    DebugPrint(0, PSACCTFileName + " cannot be deleted!")
+                    Gratia.DebugPrint(0, PSACCTFileName + " cannot be deleted!")
                 else:
                     canBackupFile = True
 
-        DebugPrint(1, " Can backup " + PSACCTFileName + ":  ", canBackupFile)
-        DebugPrint(5, "Done checking if file can be backed up")
+        Gratia.DebugPrint(1, " Can backup " + PSACCTFileName + ":  ", canBackupFile)
+        Gratia.DebugPrint(5, "Done checking if file can be backed up")
 
         return canBackupFile
 
@@ -491,10 +491,10 @@ class PsacctFiles:
     #  probeConfig - A fully populated probe configuration object.
     #
     def BackupPSACCTFile(self,pendingFile, probeConfig):
-        DebugPrint(5, "Backing up " + pendingFile)
+        Gratia.DebugPrint(5, "Backing up " + pendingFile)
 
         # Move the pending file from the PSACCT file repository to the PSACCT file backup repository
-        DebugPrint(1, " Moving " + pendingFile + " to " + probeConfig.get_PSACCTBackupFileRepository() + " (PSACCT file backup repository)")
+        Gratia.DebugPrint(1, " Moving " + pendingFile + " to " + probeConfig.get_PSACCTBackupFileRepository() + " (PSACCT file backup repository)")
         Gratia.Mkdir(probeConfig.get_PSACCTBackupFileRepository())
 
         target = os.path.join(probeConfig.get_PSACCTBackupFileRepository(),os.path.basename(pendingFile))
@@ -502,7 +502,7 @@ class PsacctFiles:
 
         commands.getstatusoutput("gzip -9 " + target)
 
-        DebugPrint(5, "Done backing up " + pendingFile)
+        Gratia.DebugPrint(5, "Done backing up " + pendingFile)
 
 psacct = PsacctFiles()
 
@@ -521,7 +521,7 @@ psacct = PsacctFiles()
 #   each record..
 #
 def Read(PSACCTFileName, structFormat, structSize):
-    DebugPrint(5, "Reading PSACCT file:  ", PSACCTFileName)
+    Gratia.DebugPrint(5, "Reading PSACCT file:  ", PSACCTFileName)
 
     # TODO:  Instead of parsing the binary PSACCT file, I've switched to simply running the 'dump-acct' command
     #  and interpreting its results.  Will this always work?
@@ -564,8 +564,8 @@ def Read(PSACCTFileName, structFormat, structSize):
 
     output.close()
 
-    DebugPrint(1, "Read ", rcount,  " records into ", len(Aggregates), " aggregates.")
-    DebugPrint(5, "Done Reading PSACCT file:  ", PSACCTFileName)
+    Gratia.DebugPrint(1, "Read ", rcount,  " records into ", len(Aggregates), " aggregates.")
+    Gratia.DebugPrint(5, "Done Reading PSACCT file:  ", PSACCTFileName)
 
     return Aggregates
 
@@ -580,7 +580,7 @@ def Read(PSACCTFileName, structFormat, structSize):
 #  Usage Record - the Usage Record that failed to send to the collector
 #
 def LogException(usageRecord, probeConfig):
-    DebugPrint(5, "Log Exception")
+    Gratia.DebugPrint(5, "Log Exception")
 
     # Create the exceptions directory if it doesn't exist
     if os.access(probeConfig.get_PSACCTExceptionsRepository(), os.R_OK) == False:
@@ -598,9 +598,9 @@ def LogException(usageRecord, probeConfig):
             newFile.close()
             
     else:
-        DebugPrint(0, "Unable to write to exception path!  ", probeConfig.get_PSACCTExceptionsRepository())
+        Gratia.DebugPrint(0, "Unable to write to exception path!  ", probeConfig.get_PSACCTExceptionsRepository())
 
-    DebugPrint(5, "Done loggine Exception")
+    Gratia.DebugPrint(5, "Done loggine Exception")
 
 
 # PsAcct
@@ -644,7 +644,7 @@ def PsAcct(enable = True):
         pendingFiles = psacct.GetPSACCTFileNames(probeConfig)
 
         if len(pendingFiles) == 0:
-            DebugPrint(0, "No pending pending files to process")
+            Gratia.DebugPrint(0, "No pending pending files to process")
             Gratia.Reprocess()
 
         # Loop through each pending file to read and process it
@@ -677,7 +677,7 @@ def PsAcct(enable = True):
                        # Send the usage record to the collector
                        responseCode = Gratia.Send(usageRecord)
 
-                       DebugPrint(1, "Response:  ", responseCode)
+                       Gratia.DebugPrint(1, "Response:  ", responseCode)
 
                        # If the send to Gratia failed, then append this record to the 'failed' list
                        # TODO:  Synch up with the actual response codes from Gratia.py
@@ -687,7 +687,7 @@ def PsAcct(enable = True):
                     # Check if ALL records failed to send
                     if len(failedUsageRecords) == len(usageRecords) and len(usageRecords) > 0:
                         # All records failed to send.  Do not backup the file or log exceptions.
-                        DebugPrint(1, "All records failed to send to the collector")
+                        Gratia.DebugPrint(1, "All records failed to send to the collector")
                     else:
                         # At least one record successfully got to the collector.  Log the others as exceptions and
                         #  backup the psacct file so the one that made it is not processed again.
@@ -698,11 +698,11 @@ def PsAcct(enable = True):
                             LogException(failedUsageRecord, probeConfig)
                     
                 else:
-                    DebugPrint(0, "Could not backup " + pendingFile + ".  No data will be sent to the Collector")
+                    Gratia.DebugPrint(0, "Could not backup " + pendingFile + ".  No data will be sent to the Collector")
             except:
                 # TODO:  Handle unexpected errors gracefully
-                Error("Unexpected Exception", sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1])
-                Error(traceback.extract_tb(sys.exc_info()[2],2))
+                Gratia.Error("Unexpected Exception", sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1])
+                Gratia.Error(traceback.extract_tb(sys.exc_info()[2],2))
 
             # Loop garbage collection
             usageRecord = None            
@@ -712,8 +712,8 @@ def PsAcct(enable = True):
 
     except:
         # TODO:  Handle unexpected errors gracefully
-        Error("Unexpected Exception", sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1])
-        Error(traceback.extract_tb(sys.exc_info()[2],2))
+        Gratia.Error("Unexpected Exception", sys.exc_info(), "--", sys.exc_info()[0], "++", sys.exc_info()[1])
+        Gratia.Error(traceback.extract_tb(sys.exc_info()[2],2))
         
     # Garbage Collection
     probeConfig = None
