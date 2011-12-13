@@ -1,0 +1,2 @@
+0 * * * *  root /usr/share/gratia/onevm/onevm_probe.cron.sh  >>/var/log/gratia/onevm.log 2>&1 
+

@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.09
-Release:            1
+Release:            2
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -51,6 +51,7 @@ Source13: %{name}-condor-events-%{version}.tar.bz2
 Source14: %{name}-xrootd-transfer-%{version}.tar.bz2
 Source15: %{name}-xrootd-storage-%{version}.tar.bz2
 Source16: %{name}-bdii-status-%{version}.tar.bz2
+Source17: %{name}-onevm-%{version}.tar.bz2
 
 ########################################################################
 
@@ -80,6 +81,7 @@ Prefix: /etc
 %setup -q -D -T -a 14
 %setup -q -D -T -a 15
 %setup -q -D -T -a 16
+%setup -q -D -T -a 17
 
 %build
 %ifnarch noarch
@@ -98,7 +100,7 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
 %ifarch noarch
   # Obtain files
 
-%define noarch_packs common condor psacct sge glexec metric dCache-transfer dCache-storage gridftp-transfer services hadoop-storage condor-events xrootd-transfer xrootd-storage bdii-status
+%define noarch_packs common condor psacct sge glexec metric dCache-transfer dCache-storage gridftp-transfer services hadoop-storage condor-events xrootd-transfer xrootd-storage bdii-status onevm
 
   cp -pR %{noarch_packs}  $RPM_BUILD_ROOT%{_datadir}/gratia
 
@@ -676,6 +678,30 @@ Contributed by University of Nebraska Lincoln.
 
 %post bdii-status
 %customize_probeconfig -d bdii-status
+
+%package onevm 
+Summary: Gratia OSG accounting system probe for VM accounting.
+Group: Application/System
+Requires: %{name}-common >= %{version}-%{release}
+Requires: ruby 
+License: See LICENSE.
+
+%description onevm 
+Gratia OSG accounting system probe for providing VM accounting.
+
+%files onevm 
+%defattr(-,root,root,-)
+%{python_sitelib}/gratia/onevm
+%{default_prefix}/gratia/onevm/onevm_probe.cron.sh
+%dir %{default_prefix}/gratia/onevm
+%{default_prefix}/gratia/onevm/ProbeConfig
+%{default_prefix}/gratia/onevm/VMProbe
+%{default_prefix}/gratia/onevm/query_one.rb
+%config(noreplace) %{_sysconfdir}/gratia/onevm/ProbeConfig
+%config(noreplace) %{_sysconfdir}/cron.d/gratia-probe-onevm.cron
+
+%post onevm
+%customize_probeconfig -d onevm 
 
 %endif # noarch
 
