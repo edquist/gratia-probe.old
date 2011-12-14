@@ -1485,7 +1485,12 @@ def QuarantineFile(filename, isempty):
                 sys.exc_info()[1],
                 )
     else:
-        shutil.copy2(filename, os.path.join(quarantine, os.path.basename(filename)))
+        dest = os.path.join(quarantine, os.path.basename(filename))
+        try:
+            shutil.copy2(filename, dest)
+        except IOError, ie:
+            DebugPrint(1, "Unable to copy file %s to dest %s due to error: %s; ignoring" % (filename,dest,ie.strerror))
+            return
     RemoveRecordFile(filename)
 
 
