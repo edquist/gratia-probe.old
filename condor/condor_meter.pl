@@ -222,13 +222,13 @@ foreach $name_arg (@ARGV) {
 }
 
 # Remove old temporary files (if still there) used for debugging
-my $gram_log_dir = dirname($gram_log_state_file);
-foreach $tmp_file ( $gram_log_dir."/tmp.out", $gram_log_dir."/tmp_in.py") {
-  if ( -e $tmp_file ) {
-    unlink($tmp_file)
-      or warn "Unable to delete old file: $tmp_file\n";
-  }
-}
+#my $gram_log_dir = dirname($gram_log_state_file);
+#foreach $tmp_file ( $gram_log_dir."/tmp.out", $gram_log_dir."/tmp_in.py") {
+#  if ( -e $tmp_file ) {
+#    unlink($tmp_file)
+#      or warn "Unable to delete old file: $tmp_file\n";
+#  }
+#}
 
 #------------------------------------------------------------------
 # Open the pipe to the Gratia meter library process

@@ -389,6 +389,7 @@ The Condor probe for the Gratia OSG accounting system.
 %{default_prefix}/gratia/condor/ProbeConfig
 %{default_prefix}/gratia/condor/condor_meter.cron.sh
 %{default_prefix}/gratia/condor/condor_meter.pl
+%{default_prefix}/gratia/condor/condor_meter
 %config(noreplace) %{_sysconfdir}/condor/config.d/99_gratia.conf
 %config(noreplace) %{_sysconfdir}/gratia/condor/ProbeConfig
 %config(noreplace) %{_sysconfdir}/cron.d/gratia-probe-condor.cron
