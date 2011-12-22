@@ -28,6 +28,9 @@ def parse_opts():
     parser.add_option("-f", "--gratia_config", help="Location of the Gratia config; "
         "defaults to /etc/gratia/condor/ProbeConfig.", dest="gratia_config",
         default="/etc/gratia/condor/ProbeConfig")
+    parser.add_option("-r", "--history", help="Process output from condor_history, "
+        "ignoring the per-job history directory.", dest="condor_history",
+        default=False, action="store_true")
     parser.add_option("-v", "--verbose", help="Enable verbose logging to stdout.",
         default=False, action="store_true", dest="verbose")
 
@@ -41,7 +44,7 @@ def parse_opts():
     if opts.verbose:
         GratiaCore.Config.__DebugLevel = 5
 
-    if not args:
+    if not args and not opts.condor_history:
         args = [GratiaCore.Config.getConfigAttribute("DataFolder")]
         DebugPrint(5, "Defaulting processing directory to %s as none are specified on command line" % args[0])
 
@@ -81,9 +84,17 @@ def main():
         print >> sys.stderr, str(e)
         sys.exit(1)
 
+    init_gratia()
+    if opts.condor_history:
+        process_condor_history()
+    else:
+        process_history_dirs(dirs)
+
+def init_gratia():
+
     version = getCondorVersion()
 
-    GratiaCore.RegisterReporter("condor_meter.pl", "%s (tag %s)" % \
+    GratiaCore.RegisterReporter("condor_meter", "%s (tag %s)" % \
         (prog_revision, prog_version))
     try:
         condor_version = getCondorVersion()
@@ -99,8 +110,10 @@ def main():
     GratiaCore.RegisterService("Condor", condor_version)
     GratiaCore.setProbeBatchManager("condor")
 
+def process_history_dirs(dirs):
+
     submit_count = 0
-    submit_found = 0
+    found_count = 0
     logs_found = 0
     logfile_errors = 0
     # Note we are not ordering logfiles by type, as we don't want to
@@ -119,14 +132,14 @@ def main():
                 GratiaCore.QuarantineFile(log, False)
                 logfile_errors += 1
             submit_count += cnt_submit
-            submit_found += cnt_found
+            found_count += cnt_found
         else:
             DebugPrint(2, "Ignoring history file with invalid name: %s" % log)
 
     DebugPrint(2, "Number of logfiles processed: %d" % logs_found)
     DebugPrint(2, "Number of logfiles with errors: %d" % logfile_errors)
     DebugPrint(2, "Number of usage records submitted: %d" % submit_count)
-    DebugPrint(2, "Number of usage records found: %d" % submit_count)
+    DebugPrint(2, "Number of usage records found: %d" % found_count)
 
 def process_history_file(logfile):
 
@@ -156,7 +169,49 @@ def process_history_file(logfile):
             raise
         except Exception, e:
             DebugPrint(2, "Exception while converting the ClassAd to a JUR: %s" % str(e))
+            continue
+
+        if classad.get('CompletionDate', min_start_time) < min_start_time:
+            DebugPrint(2, "Ignoring too-old job: %s" % str(classad.get("ClusterId", "Unknown")))
+            continue
+
+        response = GratiaCore.Send(r)
+        if response[:2] == 'OK':
+            count_submit += 1
+
+    return count_submit, count_found
+
+def process_condor_history():
+    fd = os.popen("condor_history -l")
+    submit_count, found_count = process_history_fd(fd)
+    if fd.close():
+        DebugPrint(1, "Call to condor_history failed.")
+
+    DebugPrint(2, "Number of usage records submitted: %d" % submit_count)
+    DebugPrint(2, "Number of usage records found: %d" % found_count)
+
+def process_history_fd(fd):
+    """
+    Process the job history from a file descriptor.  The difference between
+    this and process_history_file is that Gratia doesn't have any transient
+    files it will attempt to cleanup afterward.
+    """
+    count_submit = 0
+    count_found  = 0
+    for classad in fd_to_classad(fd):
+        count_found += 1
+        if not classad:
+            DebugPrint(5, "Ignoring empty classad from file: %s" % logfile)
+            continue
+
+        try:
+            r = classadToJUR(classad)
+        except KeyboardInterrupt:
             raise
+        except SystemExit:
+            raise
+        except Exception, e:
+            DebugPrint(2, "Exception while converting the ClassAd to a JUR: %s" % str(e))
             continue
 
         if classad.get('CompletionDate', min_start_time) < min_start_time:
@@ -178,6 +233,45 @@ def setIfExists(func, classad, attr, comment=None, setstr=False):
             func(val)
         else:
             func(val, comment)
+
+split_re = re.compile(",\s*")
+def determine_host_description(classad):
+    """
+    Determine the value of the host description field.
+    This particular field is abused to report glideinWMS-based jobs by
+    looking for a particular attribute (MATCH_EXP_JOBGLIDEIN_ResourceName)
+
+    Further, there is logic here from the AAA project to determine if the job
+    was an overflow job and adds a "-overflow" suffix.
+
+    If there's no special host description, this returns None.
+    """
+    if 'MATCH_EXP_JOBGLIDEIN_ResourceName' not in classad:
+        return None
+
+    host_descr = classad['MATCH_EXP_JOBGLIDEIN_ResourceName']
+
+    # Check first for SE-based matching.
+    if ('DESIRED_SEs' not in classad) or ('MATCH_GLIDEIN_SEs' not in classad):
+        return host_descr
+    match_se = classad['MATCH_GLIDEIN_SEs'].strip()
+    for desired_se in split_re.split(classad['DESIRED_SEs']):
+        desired_se = desired_se.strip()
+        if match_se == desired_se:
+            return host_descr
+
+    # Then check for CE-based matching.
+    if ('DESIRED_Gatekeepers' not in classad) or \
+                ('MATCH_GLIDEIN_Gatekeeper' not in classad):
+        return host_descr
+    match_ce = classad['MATCH_GLIDEIN_Gatekeeper']
+    for desired_ce in split_re.split(classad['DESIRED_Gatekeepers']):
+        desired_ce = desired_ce.strip()
+        if match_ce == desired_ce:
+            return host_descr
+
+    # If neither CE nor SE matched, it must be an overflow job.
+    return host_descr + "-overflow"
 
 global_job_id_re = re.compile("(.*)\#\d+\.?\d*\#.*")
 def classadToJUR(classad):
@@ -259,8 +353,9 @@ def classadToJUR(classad):
 
     if 'LastRemoteHost' in classad:
         host = classad['LastRemoteHost'].split("@")[-1]
-        if 'MATCH_EXP_JOBGLIDEIN_ResourceName' in classad:
-            r.Host(host, True, classad['MATCH_EXP_JOBGLIDEIN_ResourceName'])
+        host_descr = determine_host_description(classad)
+        if host_descr:
+            r.Host(host, True, host_descr)
         else:
             r.Host(host, True)
 
