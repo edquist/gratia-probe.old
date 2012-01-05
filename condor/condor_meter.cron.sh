@@ -41,24 +41,24 @@ else
 fi
 
 # Need to be sure there is not one of these running already
-NCMeter=`ps -ef | grep condor_meter.pl | grep -v grep | wc -l`
+NCMeter=`ps -ef | grep condor_meter | grep -v grep | wc -l`
 eval `grep WorkingFolder $probeconfig_loc`
 if [ ${NCMeter} -ne 0 -a -e ${WorkingFolder}/condor_meter.cron.pid ]; then
-  # We might have a condor_meter.pl running, let's verify that we 
+  # We might have a condor_meter running, let's verify that we 
   # started it.
   
   otherpid=`cat ${WorkingFolder}/condor_meter.cron.pid`
   NCCron=`ps -ef | grep ${otherpid} | grep condor_meter.cron | wc -l`
   if [ ${NCCron} -ne 0 ]; then 
  
-     ${Logger} "There is a 'condor_meter.pl' task running already."
+     ${Logger} "There is a 'condor_meter' task running already."
      exit 0
   fi
 fi
 
 # We need to locate the condor probe script and it must be executable
-if [ ! -x condor_meter.pl ]; then
-  ${Logger} "The condor_meter.pl file is not in this directory: $(pwd)"
+if [ ! -x condor_meter ]; then
+  ${Logger} "The condor_meter file is not in this directory: $(pwd)"
   exit -2
 fi
   
@@ -115,17 +115,9 @@ if (( $status != 0 )); then
    exit -2
 fi 
 
-#echo "Begin processing directory ${DataFolder}"
-# The '-d' option tells the meter to delete log files after they are
-#    reported to Gratia.
-# The '-s' option gives the location of the state file for globus-condor.log
-./condor_meter.pl \
-  -d \
-  -v \
-  -x \
-  -s "${WorkingFolder}/globus-condor-log-state.dat" \
+./condor_meter \
   -f $probeconfig_loc \
-  ${DataFolder} | ${pp_dir}/DebugPrint -l 1 -c $probeconfig_loc
+  ${DataFolder}
 ExitCode=$?
 # If the probe ended in error, report this in Syslog and exit
 if [ $ExitCode != 0 ]; then
