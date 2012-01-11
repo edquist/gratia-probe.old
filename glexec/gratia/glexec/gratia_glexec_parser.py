@@ -239,7 +239,7 @@ def parse_line(line):
     if line[0]=='[':
       return parse_line_v1(line)
     else:
-      if line.find("glemon")>0:
+      if line.find("glemon")==0:
       	return parse_line_v2(line)
       else:
       	return parse_line_v3(line)
