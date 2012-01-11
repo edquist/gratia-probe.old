@@ -69,6 +69,7 @@ def logfiles_to_process(args):
             DebugPrint(5, "Processing logfile %s" % arg)
             yield arg
         elif os.path.isdir(arg):
+            DebugPrint(5, "Processing directory %s.", arg)
             for logfile in os.listdir(arg):
                 m = logfile_re.match(logfile)
                 if m:
@@ -118,6 +119,7 @@ def process_history_dirs(dirs):
     logfile_errors = 0
     # Note we are not ordering logfiles by type, as we don't want to
     # pull them all into memory at once.
+    DebugPrint(5, "We will process the following directories: %s.", ", ".join(dirs))
     for log in logfiles_to_process(dirs):
         logs_found += 1
         _, logfile = os.path.split(log)
@@ -172,7 +174,9 @@ def process_history_file(logfile):
             continue
 
         if classad.get('CompletionDate', min_start_time) < min_start_time:
-            DebugPrint(2, "Ignoring too-old job: %s" % str(classad.get("ClusterId", "Unknown")))
+            DebugPrint(2, "Ignoring too-old job: %s (job age: %s, oldest " \
+                "acceptable age: %d)" % (str(classad.get("ClusterId", "Unknown")),
+                str(classad.get('CompletionDate', 'MISSING')), min_start_time))
             continue
 
         response = GratiaCore.Send(r)
@@ -215,7 +219,9 @@ def process_history_fd(fd):
             continue
 
         if classad.get('CompletionDate', min_start_time) < min_start_time:
-            DebugPrint(2, "Ignoring too-old job: %s" % str(classad.get("ClusterId", "Unknown")))
+            DebugPrint(2, "Ignoring too-old job: %s (job age: %s, oldest " \
+                "acceptable age: %d)" % (str(classad.get("ClusterId", "Unknown")),
+                str(classad.get('CompletionDate', 'MISSING')), min_start_time))
             continue
 
         response = GratiaCore.Send(r)
@@ -233,6 +239,21 @@ def setIfExists(func, classad, attr, comment=None, setstr=False):
             func(val)
         else:
             func(val, comment)
+
+cream_re = re.compile("https://([A-Za-z-.0-9]+):(\d+)/ce-cream/services/CREAM2\s+(\S+)\s+\S+")
+def cream_match(match, desired):
+    """
+    CREAM matches are a bit different.  The desired CE looks like this:
+        llrcream.in2p3.fr:8443/cream-pbs
+    The match expression looks like this:
+        https://llrcream.in2p3.fr:8443/ce-cream/services/CREAM2 pbs cms
+    So "normal" matching doesn't work, and we match using this function.
+    """
+    m = cream_re.match(match)
+    hostname, port, jm = m.groups()
+    match2 = "%s:%s/cream-%s" % (hostname, port, jm)
+    match2 = match2.strip()
+    return match2 == desired
 
 split_re = re.compile(",\s*")
 def determine_host_description(classad):
@@ -267,7 +288,7 @@ def determine_host_description(classad):
     match_ce = classad['MATCH_GLIDEIN_Gatekeeper']
     for desired_ce in split_re.split(classad['DESIRED_Gatekeepers']):
         desired_ce = desired_ce.strip()
-        if match_ce == desired_ce:
+        if match_ce == desired_ce or cream_match(match_ce, desired_ce):
             return host_descr
 
     # If neither CE nor SE matched, it must be an overflow job.
