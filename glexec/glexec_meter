@@ -79,6 +79,11 @@ def save_last_check(data_dir,last_check):
 #
 
 def getCE(host_proxy):
+    #currently glexec is running on the worker nodes where proxy
+    #of ce host certificate is installed
+    #it is not necessarily will be true in the future
+    #so if host certificate proxy is unavailable we will assume
+    #that we are running node on ce and return hostname instead
     cmd="grid-proxy-info -f '%s'"%(host_proxy)
     cmd_el=popen2.Popen3(cmd,1)
     cmd_el.tochild.close() # no input
@@ -89,7 +94,7 @@ def getCE(host_proxy):
     cmd_el.fromchild.close()
     
     if exit_code!=0:
-        raise RuntimeError, "Failed to query host proxy: "+stderr
+	return get_host()
 
     return string.split(stdout,"/CN=",2)[1]
 

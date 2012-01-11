@@ -16,7 +16,6 @@ import time,calendar,string
 #   'usercpu','syscpu' - CPU seconds used in User and Kernel mode (only for terminated jobs)
 def parse_log(logfile,time_limit):
     out={}
-
     fd=ReadBackFile(logfile)
     fd.open()
     try:
@@ -28,10 +27,10 @@ def parse_log(logfile,time_limit):
 
             if line=="":
                 continue # skip empty lines
-
             try:
                 date,id,message=parse_line(line)
             except:
+		print "Can not parse, skipping ",line
                 continue # skip malformed lines
 
             if out.has_key(id):
@@ -203,6 +202,27 @@ def parseISO8601(datestr):
     else:
       return parseISO8601_Local(datestr)
 
+def parse_line_v3(line):
+    import datetime
+    #syslog type of message
+    #<LOCAL_DATE> hostname glexec.mon[<monitor_id>#<glexec_id>]: message\n
+    indx=line.find("glexec.mon[")
+    tmp=line[:indx].strip()
+    datestr=tmp[:tmp.rfind(" ")]
+    #syslog doesn't have year, so we have to guess year ourselves 
+    now=datetime.datetime.now()
+    ts=time.strptime("%s %s"% (now.year,datestr.strip()),"%Y %b %d %H:%M:%S")
+    if time.mktime(ts)>time.mktime(now.timetuple()):
+	#we are in new year already, get a previous year
+        ts=time.strptime("%s %s"% (now.year-1,datestr.strip()),"%Y %b %d %H:%M:%S")
+    date=time.mktime(ts)
+    tmp=line[indx:].strip()
+    message=tmp[tmp.find(":")+1:].strip()
+    tmp=line[indx+1:line.find("]:")]
+    mon_str,gl_str=line[indx+len("glexec.mon["):line.find("]:")].split("#")
+    return (long(date),(int(mon_str),int(gl_str)),message)
+
+
 def parse_line_v2(line):
     #looking for glemon[<monitor_id>#<glexec_id>]: <date> Msg\n
     if line[:7]!='glemon[':
@@ -219,10 +239,14 @@ def parse_line(line):
     if line[0]=='[':
       return parse_line_v1(line)
     else:
-      return parse_line_v2(line)
+      if line.find("glemon")>0:
+      	return parse_line_v2(line)
+      else:
+      	return parse_line_v3(line)
+
+	
 
 def update_element(el,date,msg):
-    #print date,msg
     msg7=msg[:7]
     if msg7=="Started":
         el["start"]=date
