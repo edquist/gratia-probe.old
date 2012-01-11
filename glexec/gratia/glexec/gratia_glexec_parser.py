@@ -30,7 +30,7 @@ def parse_log(logfile,time_limit):
             try:
                 date,id,message=parse_line(line)
             except:
-		print "Can not parse, skipping ",line
+		#print "Can not parse, skipping ",line
                 continue # skip malformed lines
 
             if out.has_key(id):
