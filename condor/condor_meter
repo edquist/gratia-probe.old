@@ -8,10 +8,12 @@ import os
 import re
 import sys
 import time
+import random
 import optparse
 
 from gratia.common.Gratia import DebugPrint
 import gratia.common.GratiaCore as GratiaCore
+import gratia.common.GratiaWrapper as GratiaWrapper
 import gratia.common.Gratia as Gratia
 
 prog_version = "%%%RPMVERSION%%%"
@@ -31,6 +33,9 @@ def parse_opts():
     parser.add_option("-r", "--history", help="Process output from condor_history, "
         "ignoring the per-job history directory.", dest="condor_history",
         default=False, action="store_true")
+    parser.add_option("-s", "--sleep", help="Do a random amount of sleep, up to the"
+        " specified number of seconds before running.", dest="sleep",
+        default=0, type="int")
     parser.add_option("-v", "--verbose", help="Enable verbose logging to stdout.",
         default=False, action="store_true", dest="verbose")
 
@@ -52,7 +57,14 @@ def parse_opts():
 
 condor_version_re = re.compile("^\$CondorVersion:\s*(.*)\s*\$\n\$CondorPlatform:\s*(.*)\s*\$")
 def getCondorVersion():
-    fd = os.popen("condor_version")
+    path = GratiaCore.Config.getConfigAttribute("CondorLocation")
+    fd = None
+    if path:
+        cmd = os.path.join(path, "bin", "condor_version")
+        if os.path.exists(cmd):
+            fd = os.popen(cmd)
+    if fd == None:
+        fd = os.popen("condor_version")
     version = fd.read()
     if fd.close():
         raise Exception("Unable to invoke condor_version")
@@ -69,7 +81,7 @@ def logfiles_to_process(args):
             DebugPrint(5, "Processing logfile %s" % arg)
             yield arg
         elif os.path.isdir(arg):
-            DebugPrint(5, "Processing directory %s.", arg)
+            DebugPrint(5, "Processing directory %s." % arg)
             for logfile in os.listdir(arg):
                 m = logfile_re.match(logfile)
                 if m:
@@ -85,15 +97,22 @@ def main():
         print >> sys.stderr, str(e)
         sys.exit(1)
 
-    init_gratia()
+    # Sanity checks for the probe's runtime environment.
+    # GratiaWrapper.CheckPreconditions()
+
+    if opts.sleep:
+        time.sleep(random.randint(1, int(opts.sleep)))
+
+    # Make sure we have an exclusive lock for this probe.
+    # GratiaWrapper.ExclusiveLock()
+
+    register_gratia()
     if opts.condor_history:
         process_condor_history()
     else:
         process_history_dirs(dirs)
 
-def init_gratia():
-
-    version = getCondorVersion()
+def register_gratia():
 
     GratiaCore.RegisterReporter("condor_meter", "%s (tag %s)" % \
         (prog_revision, prog_version))
@@ -104,8 +123,8 @@ def init_gratia():
     except KeyboardInterrupt:
         raise
     except Exception, e:
-        print >> sys.stderr, "Unable to successfully invoke condor_version"
-        print >> sys.stderr, str(e)
+        DebugPrint(0, "Unable to successfully invoke condor_version: %s" %
+            str(e))
         sys.exit(1)
 
     GratiaCore.RegisterService("Condor", condor_version)
@@ -119,7 +138,7 @@ def process_history_dirs(dirs):
     logfile_errors = 0
     # Note we are not ordering logfiles by type, as we don't want to
     # pull them all into memory at once.
-    DebugPrint(5, "We will process the following directories: %s.", ", ".join(dirs))
+    DebugPrint(5, "We will process the following directories: %s." % ", ".join(dirs))
     for log in logfiles_to_process(dirs):
         logs_found += 1
         _, logfile = os.path.split(log)
@@ -150,7 +169,8 @@ def process_history_file(logfile):
     try:
         fd = open(logfile, 'r')
     except IOError, ie:
-        DebugPrint(2, "Cannot process %s: (errno=%d) %s", logfile, ie.errno, ie.strerror)
+        DebugPrint(2, "Cannot process %s: (errno=%d) %s" % (logfile, ie.errno,
+            ie.strerror))
         return 0, 0
     added_transient = False
 
