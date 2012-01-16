@@ -295,6 +295,8 @@ def determine_host_description(classad):
     return host_descr + "-overflow"
 
 global_job_id_re = re.compile("(.*)\#\d+\.?\d*\#.*")
+campus_factory_usage = re.compile("(.*)\-CF$")
+campus_flock_usage = re.compile("(.*)\-Flock$")
 def classadToJUR(classad):
 
     if 'ClusterId' not in classad:
@@ -409,6 +411,12 @@ def classadToJUR(classad):
             r.Grid("OSG", "GratiaJobOrigin = GRAM")
         else:
             r.Grid("Local", "GratiaJobOrigin not GRAM")
+
+    if 'MATCH_EXP_JOBGLIDEIN_ResourceName' in classad:
+        if campus_factory_usage.search(classad['MATCH_EXP_JOBGLIDEIN_ResourceName']):
+            r.Grid("Campus", "Campus Factory Usage")
+        elif campus_flock_usage.search(classad['MATCH_EXP_JOBGLIDEIN_ResourceName']):
+            r.Grid("Campus", "Campus Flocking Usage")
 
     if 'logfile' in classad:
         r.AddTransientInputFile(classad["logfile"])
