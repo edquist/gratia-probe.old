@@ -63,6 +63,9 @@ def getCondorVersion():
         cmd = os.path.join(path, "bin", "condor_version")
         if os.path.exists(cmd):
             fd = os.popen(cmd)
+        else:
+            DebugPrint(0, "Unable to find specified condor_version: %s.  "
+                "Falling back to searching $PATH." % cmd)
     if fd == None:
         fd = os.popen("condor_version")
     version = fd.read()
@@ -98,13 +101,15 @@ def main():
         sys.exit(1)
 
     # Sanity checks for the probe's runtime environment.
-    # GratiaWrapper.CheckPreconditions()
+    GratiaWrapper.CheckPreconditions()
 
     if opts.sleep:
-        time.sleep(random.randint(1, int(opts.sleep)))
+        rnd = random.randint(1, int(opts.sleep))
+        DebugPrint(2, "Sleeping for %d seconds before proceeding." % rnd)
+        time.sleep(rnd)
 
     # Make sure we have an exclusive lock for this probe.
-    # GratiaWrapper.ExclusiveLock()
+    GratiaWrapper.ExclusiveLock()
 
     register_gratia()
     if opts.condor_history:
@@ -138,7 +143,7 @@ def process_history_dirs(dirs):
     logfile_errors = 0
     # Note we are not ordering logfiles by type, as we don't want to
     # pull them all into memory at once.
-    DebugPrint(5, "We will process the following directories: %s." % ", ".join(dirs))
+    DebugPrint(4, "We will process the following directories: %s." % ", ".join(dirs))
     for log in logfiles_to_process(dirs):
         logs_found += 1
         _, logfile = os.path.split(log)

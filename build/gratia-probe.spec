@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.10
-Release:            0.1.pre
+Release:            0.2.pre
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -276,6 +276,7 @@ grep -rIle '%%%%%%RPMVERSION%%%%%%' $RPM_BUILD_ROOT%{_datadir}/gratia $RPM_BUILD
 done
 
 install -d $RPM_BUILD_ROOT/%{_localstatedir}/log/gratia
+install -d $RPM_BUILD_ROOT/%{_localstatedir}/lock/gratia
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -335,6 +336,7 @@ Common files and examples for Gratia OSG accounting system probes.
 %doc %{default_prefix}/gratia/common/README
 %{_localstatedir}/lib/gratia/
 %{_localstatedir}/log/gratia/
+%{_localstatedir}/lock/gratia/
 %{python_sitelib}/gratia/__init__.py*
 %{python_sitelib}/gratia/common
 %dir %{default_prefix}/gratia/common
@@ -681,6 +683,12 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
+* Mon Jan 16 2012 Brian Bockelman <bbockelm@cse.unl.edu> - 1.10-0.2.pre
+- Rewrite of Condor probe into python.
+- Added support for campus grids to Condor probe.
+- Added support for CMS overflow to Condor probe.
+- Addition of POSIX-style locking for Condor probe.
+
 * Wed Nov 15 2011 Tanya Levshina <tlevshin@fnal.gov> - 1.09-1
 - No changes from 1.09.08.pre - just official release
 

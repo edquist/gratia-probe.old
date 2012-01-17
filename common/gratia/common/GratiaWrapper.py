@@ -13,16 +13,22 @@ import time
 import errno
 import fcntl
 import atexit
+import signal
 import struct
 import gratia.common.GratiaCore as GratiaCore
 from gratia.common.GratiaCore import DebugPrint
 
 fd = None
+# Record the PID that initially took the lock, to prevent unlinking
+# when a fork'ed child exits.
+pid_with_lock = None
 def close_and_unlink_lock():
     global fd
+    global pid_with_lock
     if fd:
-        pid = get_lock_pid(fd)
-        if pid == os.getpid():
+        #DebugPrint(4, "At close, PID with lock is %d; my PID is %d." % \
+        #    (pid_with_lock, os.getpid()))
+        if pid_with_lock == os.getpid():
             os.unlink(fd.name)
         fd.close()
 atexit.register(close_and_unlink_lock)
@@ -91,22 +97,43 @@ def ExclusiveLock(given_lock_location = None, timeout=3600):
             "not exist." % lockdir)
 
     global fd
+    global pid_with_lock
     fd = open(lock_location, "w")
 
     # POSIX file locking is cruelly crude.  There's nothing to do besides
     # try / sleep to grab the lock, no equivalent of polling.
     # Why hello, thundering herd.
+
+    # An alternate would be to block on the lock, and use signals to interupt.
+    # This would mess up Gratia's flawed use of signals already, and not be
+    # able to report on who has the lock.  I don't like indefinite waits!
     max_tries = 5
     for tries in range(1, max_tries+1):
         try:
             fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             fd.write("%d" % os.getpid())
+            pid_with_lock = os.getpid()
+            fd.flush()
             return
         except IOError, ie:
             if not ((ie.errno == errno.EACCES) or (ie.errno == errno.EAGAIN)):
                 raise
             if check_lock(fd, timeout):
-                continue
+                time.sleep(.2) # Fast case; however, we have *no clue* how
+                               # long it takes to clean/release the old lock.
+                               # Nor do we know if we'd get it if we did
+                               # fcntl.lockf w/ blocking immediately.  Blech.
+                # Check again immediately, especially if this was the last
+                # iteration in the for loop.
+                try:
+                    fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fd.write("%d" % os.getpid())
+                    pid_with_lock = os.getpid()
+                    fd.flush()
+                    return
+                except IOError, ie:
+                    if not ((ie.errno == errno.EACCES) or (ie.errno == errno.EAGAIN)):
+                        raise
         fd.close()
         fd = open(lock_location, "w")
         DebugPrint(0, "Unable to acquire lock, try %i; will sleep for %i "
@@ -127,17 +154,21 @@ def check_lock(fd, timeout):
     pid = get_lock_pid(fd)
     if pid == os.getpid():
         return True
-    DebugPrint(0, "Another process, %d, holds the probe lockfile." % pid)
 
     if timeout < 0:
+        DebugPrint(0, "Another process, %d, holds the probe lockfile." % pid)
         return False
 
     try:
         age = get_pid_age(pid)
     except:
+        DebugPrint(0, "Another process, %d, holds the probe lockfile." % pid)
         DebugPrint(0, "Unable to get the other process's age; will not time "
             "it out.")
         return False
+
+    DebugPrint(0, "Another process, %d (age %d seconds), holds the probe "
+        "lockfile." % (pid, age))
 
     if age > timeout:
         os.kill(pid, signal.SIGKILL)
@@ -183,7 +214,7 @@ def get_lock_pid(fd):
     if sys.platform == "darwin":
         _, _, pid, _, _ = struct.unpack("QQihh", result)
     else:
-        _, _, _, _, pid = struct.unpack(linux_struct_flock)
+        _, _, _, _, pid = struct.unpack(linux_struct_flock, result)
     return pid
 
 def get_pid_age(pid):
@@ -200,6 +231,6 @@ if __name__ == "__main__":
         print "Child got the lock.  Sleep 5, then exit"
         time.sleep(5)
         os._exit(0)
-    print "Parent got the lock.  Sleep 20, then exit"
-    time.sleep(20)
+    print "Parent got the lock.  Sleep 5, then exit"
+    time.sleep(5)
 
