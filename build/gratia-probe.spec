@@ -331,11 +331,18 @@ Requires: pyOpenSSL
 %description common
 Common files and examples for Gratia OSG accounting system probes.
 
+%pre common
+getent group gratia >/dev/null || groupadd -r gratia
+getent passwd gratia >/dev/null || \
+       useradd -r -g gratia -c "gratia runtime user" \
+       -s /sbin/nologin -d /etc/gratia gratia
+
 %files common
 %defattr(-,root,root,-)
 %doc %{default_prefix}/gratia/common/README
 %{_localstatedir}/lib/gratia/
-%{_localstatedir}/log/gratia/
+%attr(-,gratia,gratia) %{_localstatedir}/log/gratia/
+%dir %{_sysconfdir}/gratia
 %{_localstatedir}/lock/gratia/
 %{python_sitelib}/gratia/__init__.py*
 %{python_sitelib}/gratia/common
@@ -537,7 +544,6 @@ Contributed by Andrei Baranovski of the OSG storage team.
 %files gridftp-transfer
 %defattr(-,root,root,-)
 %{python_sitelib}/gratia/gridftp_transfer
-%{default_prefix}/gratia/gridftp-transfer/gridftp-transfer_meter.cron.sh
 %dir %{default_prefix}/gratia/gridftp-transfer
 %{default_prefix}/gratia/gridftp-transfer/ProbeConfig
 %{default_prefix}/gratia/gridftp-transfer/GridftpTransferProbeDriver

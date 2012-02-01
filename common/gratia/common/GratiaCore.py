@@ -134,7 +134,7 @@ class ProbeConfiguration:
 
     def __loadConfiguration__(self):
         self.__doc = xml.dom.minidom.parse(self.__configname)
-        DebugPrint(0, 'Using config file: ' + self.__configname)
+        DebugPrint(1, 'Using config file: ' + self.__configname)
 
     def __getConfigAttribute(self, attributeName):
         """

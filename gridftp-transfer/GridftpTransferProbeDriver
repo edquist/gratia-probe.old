@@ -1,13 +1,15 @@
 #!/usr/bin/python
 
+import gratia.common.GratiaWrapper as GratiaWrapper
 import gratia.common.Gratia as Gratia
+
 import gratia.gridftp_transfer.GratiaConnector as GratiaConnector
 import gratia.gridftp_transfer.GftpLogParserCorrelator as GftpLogParserCorrelator
 import gratia.gridftp_transfer.FileDigest as FileDigest
 import gratia.gridftp_transfer.GridftpToGratiaEventTransformer as GridftpToGratiaEventTransformer
+import gratia.gridftp_transfer.Logger as Logger
 from gratia.gridftp_transfer.ContextTransaction import ContextTransaction
 
-import gratia.gridftp_transfer.Logger as Logger
 import time
 import sys
 import os
@@ -100,24 +102,58 @@ class ProbeDriver:
               self.txn.commit() 
               time.sleep(0.1)
 
-if __name__ == "__main__":
+def parse_opts():
 
+    parser = optparse.OptionParser(usage="%prog [options]")
+    parser.add_option("-f", "--gratia_config", help="Location of the Gratia config; "
+        "defaults to /etc/gratia/gridftp-transfer/ProbeConfig.", dest="gratia_config",
+        default="/etc/gratia/gridftp-transfer/ProbeConfig")
+    parser.add_option("-s", "--sleep", help="Do a random amount of sleep, up to the"
+        " specified number of seconds before running.", dest="sleep",
+        default=0, type="int")
+    parser.add_option("-v", "--verbose", help="Enable verbose logging to stdout.",
+        default=False, action="store_true", dest="verbose")
+
+    opts, args = parser.parse_args()
+
+    # Initialize Gratia
+    if not opts.gratia_config or not os.path.exists(opts.gratia_config):
+        raise Exception("Gratia config, %s, does not exist." % opts.gratia_config)
+    GratiaCore.Initialize(opts.gratia_config)
+
+    if opts.verbose:
+        GratiaCore.Config.__DebugLevel = 5
+
+    return opts, args
+
+def main():
    logger = Logger.createLogger()
 
+   try:
+      opts, dirs = parse_opts()
+   except Exception, e:
+      print >> sys.stderr, str(e)
+      sys.exit(1)
+
    cfg = Config()
+
+   # Sanity checks for the probe's runtime environment.
+   GratiaWrapper.CheckPreconditions()
+
+   if opts.sleep:
+      rnd = random.randint(1, int(opts.sleep))
+      DebugPrint(2, "Sleeping for %d seconds before proceeding." % rnd)
+      time.sleep(rnd)
+
+   # Make sure we have an exclusive lock for this probe.
+   GratiaWrapper.ExclusiveLock()
   
    Logger.configureLogger(logger,cfg)
 
-   workingDir = cfg.WorkingFolder
-   if not os.path.isdir( workingDir ):
-            os.mkdir( workingDir , 0755 )
-
-   rev =  Gratia.ExtractCvsRevision("$Revision: 1.2 $")
-   tag =  Gratia.ExtractCvsRevision("$Name:  $")
-
+   rev =  Gratia.ExtractSvnRevision("$Revision$")
    conn = GratiaConnector.GratiaConnector(("gridftp","2.0"),
                                           ("GridftpTransferProbeDriver.py",
-                                           str(rev) + " (tag " + str(tag) + ")"))
+                                           str(rev)))
 
    logger = Logger.getLogger("main")
    logger.debug("Starting log file scan cycle")
@@ -125,3 +161,7 @@ if __name__ == "__main__":
    probDriver.loop()
    probDriver.close()
    logger.debug("Log file scan is done")
+
+if __name__ == "__main__":
+   main()
+
