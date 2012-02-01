@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import gratia.common.GratiaWrapper as GratiaWrapper
+import gratia.common.GratiaCore as GratiaCore
 import gratia.common.Gratia as Gratia
 
 import gratia.gridftp_transfer.GratiaConnector as GratiaConnector
@@ -10,14 +11,16 @@ import gratia.gridftp_transfer.GridftpToGratiaEventTransformer as GridftpToGrati
 import gratia.gridftp_transfer.Logger as Logger
 from gratia.gridftp_transfer.ContextTransaction import ContextTransaction
 
+import optparse
+import random
 import time
 import sys
 import os
 
 class Config(Gratia.ProbeConfiguration):
 
-      def __init__(self):
-          Gratia.ProbeConfiguration.__init__(self)
+      def __init__(self, customConfig="ProbeConfig"):
+          Gratia.ProbeConfiguration.__init__(self, customConfig=customConfig)
 
       def __getattr__(self,name):
           return self.getConfigAttribute(name)
@@ -135,14 +138,14 @@ def main():
       print >> sys.stderr, str(e)
       sys.exit(1)
 
-   cfg = Config()
+   cfg = Config(opts.gratia_config)
 
    # Sanity checks for the probe's runtime environment.
    GratiaWrapper.CheckPreconditions()
 
    if opts.sleep:
       rnd = random.randint(1, int(opts.sleep))
-      DebugPrint(2, "Sleeping for %d seconds before proceeding." % rnd)
+      GratiaCore.DebugPrint(2, "Sleeping for %d seconds before proceeding." % rnd)
       time.sleep(rnd)
 
    # Make sure we have an exclusive lock for this probe.
