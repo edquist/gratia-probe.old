@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.10
-Release:            0.2
+Release:            0.3.pre
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -325,7 +325,6 @@ This product includes software developed by The EU EGEE Project
 %package common
 Summary: Common files for Gratia OSG accounting system probes
 Group: Applications/System
-Requires: python >= 2.3
 Requires: pyOpenSSL
 
 %description common
@@ -351,6 +350,16 @@ getent passwd gratia >/dev/null || \
 %{default_prefix}/gratia/common/DebugPrint
 %{default_prefix}/gratia/common/GetProbeConfigAttribute
 %{default_prefix}/gratia/common/ProbeConfigTemplate
+
+
+%package gram
+Summary: GRAM extensions for Gratia OSG accounting system
+Group: Applications/System
+
+%description gram
+%{summary}
+
+%files gram
 %{perl_vendorlib}/Globus/GRAM/JobManagerGratia.pm
 
 %package psacct
@@ -410,7 +419,6 @@ The Condor probe for the Gratia OSG accounting system.
 Summary: An SGE probe
 Group: Applications/System
 %if %{?python:0}%{!?python:1}
-Requires: python >= 2.3
 %endif
 Requires: %{name}-common >= %{version}-%{release}
 
@@ -689,6 +697,10 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
+* Wed Feb 1  2012 Brian Bockelman <bbockelm@cse.unl.edu> - 1.10-0.3.pre
+- Update the GridFTP probe to use POSIX locking; removed wrapper script.
+- Split out the GRAM module from the common RPM.
+
 * Mon Jan 16 2012 Brian Bockelman <bbockelm@cse.unl.edu> - 1.10-0.2.pre
 - Rewrite of Condor probe into python.
 - Added support for campus grids to Condor probe.
