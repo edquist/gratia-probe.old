@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.10
-Release:            0.3.pre
+Release:            0.4.pre
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -178,6 +178,11 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
 
   done
 
+  # common probe init script
+  install -d $RPM_BUILD_ROOT/%{_initrddir}
+  install -p -m 755 common/gratia-probes-cron.init $RPM_BUILD_ROOT%{_initrddir}/gratia-probes-cron
+  rm $RPM_BUILD_ROOT%{_datadir}/gratia/common/gratia-probes-cron.init
+
   # dCache-transfer init script
   install -d $RPM_BUILD_ROOT/%{_initrddir}
   install -m 755 dCache-transfer/gratia-dcache-transfer.init $RPM_BUILD_ROOT%{_initrddir}/gratia-dcache-transfer
@@ -326,6 +331,8 @@ This product includes software developed by The EU EGEE Project
 Summary: Common files for Gratia OSG accounting system probes
 Group: Applications/System
 Requires: pyOpenSSL
+Requires(post): chkconfig
+Requires(preun): chkconfig
 
 %description common
 Common files and examples for Gratia OSG accounting system probes.
@@ -335,9 +342,18 @@ getent group gratia >/dev/null || groupadd -r gratia
 getent passwd gratia >/dev/null || \
        useradd -r -g gratia -c "gratia runtime user" \
        -s /sbin/nologin -d /etc/gratia gratia
+%post 
+/sbin/chkconfig --add gratia-probes-cron
+
+%preun
+if [ $1 = 0 ] ; then
+     /sbin/service gratia-probes-cron stop >/dev/null 2>&1
+     /sbin/chkconfig --del gratia-probes-cron
+fi
 
 %files common
 %defattr(-,root,root,-)
+%{_initrddir}/gratia-probes-cron
 %doc %{default_prefix}/gratia/common/README
 %{_localstatedir}/lib/gratia/
 %attr(-,gratia,gratia) %{_localstatedir}/log/gratia/
@@ -350,6 +366,7 @@ getent passwd gratia >/dev/null || \
 %{default_prefix}/gratia/common/DebugPrint
 %{default_prefix}/gratia/common/GetProbeConfigAttribute
 %{default_prefix}/gratia/common/ProbeConfigTemplate
+#%{default_prefix}/gratia/common/gratia-probes-cron
 
 
 %package gram
@@ -697,6 +714,10 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
+* Thu Feb 2  2012 Tanya Levshina <tlevshin@fnal.gov> - 1.10-0.4.pre
+- Applied pacthes for pbs probes https://jira.opensciencegrid.org/browse/GRATIA-44 
+- Implemented gratia-probes-cron to start/stop gratia probes that are ran as cronjob as a service (https://jira.opensciencegrid.org/browse/GRATIA-30)
+
 * Wed Feb 1  2012 Brian Bockelman <bbockelm@cse.unl.edu> - 1.10-0.3.pre
 - Update the GridFTP probe to use POSIX locking; removed wrapper script.
 - Split out the GRAM module from the common RPM.
