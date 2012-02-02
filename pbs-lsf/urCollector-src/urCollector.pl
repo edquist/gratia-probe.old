@@ -335,8 +335,8 @@ sub processLrmsLogs {
    opendir(DIR, $lrmsLogDir) || &error("Error: can't open dir $lrmsLogDir: $!");
    while( defined(my $file = readdir(DIR)) ) {
       next if ( $file =~ /^\.\.?$/o ); # skip '.' and '..' 
-      next if ( $lrmsType eq "pbs" && !($file =~ /^\d{8}(\.gz)?$/o) );
-      next if ( $lrmsType eq "lsf" && !($file =~ /^lsb\.acct(\.\d*)?(\.gz)?$/o) );
+      next if ( $lrmsType eq "pbs" && !($file =~ /^\d{8}(\.(gz|bz2))?$/o) );
+      next if ( $lrmsType eq "lsf" && !($file =~ /^lsb\.acct(\.\d*)?(\.(gz|bz2))?$/o) );
       # we accept compressed files as well (but will be able to parse them
       # only if we have the command less, see later)
       
@@ -409,7 +409,7 @@ sub processLrmsLogFile {
    # building command to open the log file
    my $cmd = $tac_cmd;
    # decide whether to decompress using 'less':
-   if ($filename =~ /(\.gz)?$/o) {
+   if ($filename =~ /(\.(gz|bz2))?$/o) {
       # decompress and pipe into tac:
       $cmd = "$less_cmd -f $lrmsLogDir/$filename | ".$cmd;
    } else {
@@ -593,9 +593,9 @@ sub parseCeUserMapLog {
       #print "CE_LOG_FILE:$fullname ...\n";
       
       next if ($file =~ /^\.\.?$/o); # skip '.' and '..' 
-      next if ( !( $fullname =~ /^$ceJobMapLog[\/\-_]?\d{8}(\.gz)?$/ ) &&
-      !( $fullname =~ /^$ceJobMapLog[\/\-_]?\d{4}-\d{2}-\d{2}(\.gz)?$/ ) &&
-      !( $fullname =~ /^$ceJobMapLog(\.\d*)?(\.gz)?$/)
+      next if ( !( $fullname =~ /^$ceJobMapLog[\/\-_]?\d{8}(\.(gz|bz2))?$/ ) &&
+      !( $fullname =~ /^$ceJobMapLog[\/\-_]?\d{4}-\d{2}-\d{2}(\.(gz|bz2))?$/ ) &&
+      !( $fullname =~ /^$ceJobMapLog(\.\d*)?(\.(gz|bz2))?$/)
       ); # skip if not like "<logname>(-)20060309(.gz)" (one per day)
       # skip if not like "<logname>(-)2006-03-09(.gz)" (one per day)
       # and not like "<logname>.1(.gz)" (rotated)!
@@ -676,7 +676,7 @@ sub parseCeUserMapLog {
          $cmd = $cat_cmd;
       }
       # decide whether to decompress using 'less':
-      if ($scanFile =~ /(\.gz)?$/o) {
+      if ($scanFile =~ /(\.(gz|bz2))?$/o) {
          # decompress and pipe into cat/tac:
          $cmd = "$less_cmd $ceJobMapLogDir/$scanFile | ".$cmd;
       } else {
@@ -1342,6 +1342,9 @@ sub parseUR_pbs {
          next;
       } elsif ( $record_field =~ /^Resource_List\.select=(\d+)(?::ncpus=(\d+))/o ) {
          $urAcctlogInfo{select} = $1 * ( ${2} || 1 );
+         next;
+      } elsif ( $record_field =~ /^Resource_List\.select=(\d+)/o ) {
+         $urAcctlogInfo{select} = $1;
          next;
       } elsif ( $record_field =~ /^Resource_List\.nodes=(\d+)(?::(\d+))/o ) {
          $urAcctlogInfo{nodes} = ${1} * ( ${2} || 1 );
