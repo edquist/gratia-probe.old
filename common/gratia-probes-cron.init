@@ -1,0 +1,81 @@
+#!/bin/bash
+#
+# gratia-probes-cron  This shell script enables  specified gratia probes via cron
+#
+#
+# source function library
+. /etc/rc.d/init.d/functions
+
+lockfile=/var/lock/subsys/gratia-probe-cron
+
+RETVAL=0
+
+checkEnabledProbes() {
+	for name in `ls -1 /etc/cron.d/gratia-probe*cron`
+	do 
+		dir=`echo $name|basename $name|sed 's/gratia-probe-//'|sed 's/.cron//'`
+		grep "EnableProbe.*=.*1" /etc/gratia/$dir/ProbeConfig >/dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			echo 0
+			return
+		fi
+	done
+	echo 1
+}
+start() {
+	isEnabled=`checkEnabledProbes`
+        if [ $isEnabled -eq 0 ]
+	then
+		action $"Enabling gratia probes cron:" touch "$lockfile" 
+                RETVAL=$?
+	else
+		echo "There are no enabled probes to start."
+		RETVAL=2
+	fi
+}
+
+stop() {
+       	action $"Disabling gratia probes cron:" rm "$lockfile"
+	RETVAL=$?
+}
+
+restart() {
+	stop
+	start
+}
+status() {
+		if [ -f $lockfile ]
+		then
+                	echo "gratia probes cron is enabled."
+			RETVAL=0
+		else
+                	echo "gratia probes cron is disabled."
+			RETVAL=3
+		fi
+
+}
+case $1  in
+  start)
+	start
+	;;
+  stop) 
+	stop
+	;;
+  restart|force-reload)
+	restart
+	;;
+  reload)
+	;;
+  condrestart)
+	[ ! -f "$lockfile" ] && restart
+	;;
+  status)
+	status
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart}"
+	exit 1
+esac
+
+exit $RETVAL
