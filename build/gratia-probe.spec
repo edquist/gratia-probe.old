@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.10
-Release:            0.4.pre
+Release:            0.4.pre{?dist}
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -366,7 +366,7 @@ fi
 %{default_prefix}/gratia/common/DebugPrint
 %{default_prefix}/gratia/common/GetProbeConfigAttribute
 %{default_prefix}/gratia/common/ProbeConfigTemplate
-#%{default_prefix}/gratia/common/gratia-probes-cron
+%{default_prefix}/gratia/common/cron_check
 
 
 %package gram
@@ -714,9 +714,10 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
-* Thu Feb 2  2012 Tanya Levshina <tlevshin@fnal.gov> - 1.10-0.4.pre
+* Thu Feb 3  2012 Tanya Levshina <tlevshin@fnal.gov> - 1.10-0.4.pre
 - Applied pacthes for pbs probes https://jira.opensciencegrid.org/browse/GRATIA-44 
 - Implemented gratia-probes-cron to start/stop gratia probes that are ran as cronjob as a service (https://jira.opensciencegrid.org/browse/GRATIA-30)
+- Added %{?dist} tag to release
 
 * Wed Feb 1  2012 Brian Bockelman <bbockelm@cse.unl.edu> - 1.10-0.3.pre
 - Update the GridFTP probe to use POSIX locking; removed wrapper script.

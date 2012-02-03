@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # gratia-probes-cron  This shell script enables  specified gratia probes via cron
-#
+# based on fetch-crl-cron script (Steve Traylen <steve.traylen@cern.ch>)
 #
 # source function library
 . /etc/rc.d/init.d/functions
