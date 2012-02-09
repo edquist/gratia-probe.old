@@ -9,7 +9,7 @@
 # source function library
 . /etc/rc.d/init.d/functions
 
-lockfile=/var/lock/subsys/gratia-probe-cron
+lockfile=/var/lock/subsys/gratia-probes-cron
 
 RETVAL=0
 

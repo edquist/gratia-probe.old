@@ -25,17 +25,16 @@ if __name__== "__main__":
 	# checks arguments
 
 	global verbose
-	verbose=True
 	from optparse import OptionParser
-        usage="Usage: ./cron_check  [options] config_file"
+        usage="Usage: ./cron_check  [-v] config_file"
 	try:
 		parser = OptionParser(usage=usage)
- 		parser.add_option("-v", "--verbose", help="Enable verbose logging to stdout.",default=False, action="store_true", dest="verbose")
+ 		parser.add_option("-v", "--verbose", help="Enable verbose logging to stdout.", default=False, action="store_true", dest="verbose")
 		opts, args = parser.parse_args()
 	except Exception, e:
         	log(str(e))
         	sys.exit(1)
-	
+	verbose=opts.verbose	
 	#checks if the confif file has been provided 
 	if len(args):
 		config_file=args[0]
