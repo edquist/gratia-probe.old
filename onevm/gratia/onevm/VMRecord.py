@@ -82,10 +82,11 @@ class VMRecord:
         self.user_name=self.info["USERNAME"]
         self.state=self.info["STATE_STR"]
         self.ip=""
-        if type(self.info["IP"])==list:
-            for ip in self.info["IP"]:
-                self.ip="%s/%s" % (self.ip,ip)
-        else:
+        if self.info.has_key("IP"):
+            if type(self.info["IP"])==list:
+                for ip in self.info["IP"]:
+                    self.ip="%s/%s" % (self.ip,ip)
+            else:
                 self.ip=self.info["IP"]
         self.records=[]
         self.setRecords()
@@ -95,19 +96,31 @@ class VMRecord:
             return False
         else:
             return True
-        
-    def setRecords(self):
-        if type(self.info['HISTORY_STIME'])==list:
-            for i in range(len(self.info['HISTORY_STIME'])):
-                tmp=Record(self.info["HISTORY_STIME"][i],self.info["HISTORY_ETIME"][i],
-                           self.info["HOSTNAME"][i],self.state,self.info['HISTORY_REASON'][i])
-                if tmp.isValid():
-                    self.records.append(tmp)
-        else:
-            tmp=Record(self.info["HISTORY_STIME"],self.info["HISTORY_ETIME"],
-                           self.info["HOSTNAME"],self.state,self.info['HISTORY_REASON'])
+
+    def createRecord(self,ct, stime,etime,hn,state,reason):
+        if etime != 0:
+            ct=int(etime)
+        st=stime
+        while (st+24*60*60) < ct:
+            et=st+24*60*60
+            tmp=Record(st,et,hostname,"ACTIVE",0)
             if tmp.isValid():
                     self.records.append(tmp)
+            st=et
+
+        tmp=Record(st,etime,hn,state,reason)
+        if tmp.isValid():
+            self.records.append(tmp)
+        
+    def setRecords(self):
+        ct=time.time()
+        if type(self.info['HISTORY_STIME'])==list:
+            for i in range(len(self.info['HISTORY_STIME'])):
+                self.createRecord(ct,self.info["HISTORY_STIME"][i],self.info["HISTORY_ETIME"][i],
+                           self.info["HOSTNAME"][i],self.state,self.info['HISTORY_REASON'][i]))
+        else:
+            self.createRecord(ct,self.info["HISTORY_STIME"],self.info["HISTORY_ETIME"],
+                           self.info["HOSTNAME"],self.state,self.info['HISTORY_REASON'])
                     
 
     def getRecords(self):

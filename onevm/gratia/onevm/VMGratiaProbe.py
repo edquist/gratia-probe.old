@@ -14,7 +14,7 @@ class VMGratiaProbe:
         self._dataFolder=config.get_DataFolder()
         self._log=logger
         #self._maxAge = should get from Config
-        self._maxAge =30
+        self._maxAge =365
         vmChkptFN = 'chkpt_vm_DoNotDelete'
         if  self._dataFolder != None:
             vmChkptFN = os.path.join(self._dataFolder, vmChkptFN)

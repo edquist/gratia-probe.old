@@ -9,7 +9,16 @@ import traceback
 from gratia.onevm.OneReader import OneReader
 from gratia.onevm.VMGratiaProbe import VMGratiaProbe
 import sys
+def usage():
+	print "sys.argv[0] onevm_file  onevm_version [probe_config]"
+	
 if __name__ == '__main__':
+	if len(sys.argv) < 3:
+		usage()
+		sys.exit(1)
+	if not (sys.argv[2].startsWith("2") or sys.argv[2].startsWith("3")):
+		print "Unknown version of OpenNebula %s, only 2.x.x and 3.x.x are accepted " % (sys.argv[2],)
+		sys.exit(1)
     logger = logging.getLogger("VMGratiaProbe")
     probe_config="/etc/gratia/onevm/ProbeConfig"
     records={}
@@ -22,8 +31,8 @@ if __name__ == '__main__':
         print traceback.format_exception_only(etype, value)[0]
         sys.exit(1)
 
-    if (len(sys.argv) > 2):
-        probe_config=sys.argv[2]
+    if (len(sys.argv) > 3):
+        probe_config=sys.argv[3]
     print probe_config
     #config=VMGratiaProbeConfig.VMGratiaProbeConfig(probe_config)
     Gratia.Initialize(probe_config)
