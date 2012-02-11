@@ -1,0 +1,513 @@
+#!/usr/bin/python
+#
+# condor_meter - Python-based Condor probe for Gratia
+#       By Brian Bockelman; Nov 4, 2011
+#
+
+import os
+import re
+import sys
+import time
+import random
+import optparse
+
+from gratia.common.Gratia import DebugPrint
+import gratia.common.GratiaCore as GratiaCore
+import gratia.common.GratiaWrapper as GratiaWrapper
+import gratia.common.Gratia as Gratia
+
+prog_version = "%%%RPMVERSION%%%"
+prog_revision = '$Revision$'
+max_batch_size = 500
+
+min_start_time = time.time() - 120*86400
+
+def parse_opts():
+
+    global ProbeConfig
+
+    parser = optparse.OptionParser(usage="%prog [options] dir1 dir2")
+    parser.add_option("-f", "--gratia_config", help="Location of the Gratia config; "
+        "defaults to /etc/gratia/condor/ProbeConfig.", dest="gratia_config",
+        default="/etc/gratia/condor/ProbeConfig")
+    parser.add_option("-r", "--history", help="Process output from condor_history, "
+        "ignoring the per-job history directory.", dest="condor_history",
+        default=False, action="store_true")
+    parser.add_option("-s", "--sleep", help="Do a random amount of sleep, up to the"
+        " specified number of seconds before running.", dest="sleep",
+        default=0, type="int")
+    parser.add_option("-v", "--verbose", help="Enable verbose logging to stdout.",
+        default=False, action="store_true", dest="verbose")
+
+    opts, args = parser.parse_args()
+
+    # Initialize Gratia
+    if not opts.gratia_config or not os.path.exists(opts.gratia_config):
+        raise Exception("Gratia config, %s, does not exist." % opts.gratia_config)
+    GratiaCore.Initialize(opts.gratia_config)
+
+    if opts.verbose:
+        GratiaCore.Config.__DebugLevel = 5
+
+    if not args and not opts.condor_history:
+        args = [GratiaCore.Config.getConfigAttribute("DataFolder")]
+        DebugPrint(5, "Defaulting processing directory to %s as none are specified on command line" % args[0])
+
+    return opts, args
+
+condor_version_re = re.compile("^\$CondorVersion:\s*(.*)\s*\$\n\$CondorPlatform:\s*(.*)\s*\$")
+def getCondorVersion():
+    path = GratiaCore.Config.getConfigAttribute("CondorLocation")
+    fd = None
+    if path:
+        cmd = os.path.join(path, "bin", "condor_version")
+        if os.path.exists(cmd):
+            fd = os.popen(cmd)
+        else:
+            DebugPrint(0, "Unable to find specified condor_version: %s.  "
+                "Falling back to searching $PATH." % cmd)
+    if fd == None:
+        fd = os.popen("condor_version")
+    version = fd.read()
+    if fd.close():
+        raise Exception("Unable to invoke condor_version")
+    m = condor_version_re.match(version.strip())
+    if m:
+        return "%s / %s" % m.groups()
+    raise Exception("Unable to parse condor_version output: %s" % version)
+    return version.strip()
+
+logfile_re = re.compile("^history\.(?:.*?\#)?\d+\.\d+")
+def logfiles_to_process(args):
+    for arg in args:
+        if os.path.isfile(arg) and os.stat(arg).st_size:
+            DebugPrint(5, "Processing logfile %s" % arg)
+            yield arg
+        elif os.path.isdir(arg):
+            DebugPrint(5, "Processing directory %s." % arg)
+            for logfile in os.listdir(arg):
+                m = logfile_re.match(logfile)
+                if m:
+                    DebugPrint(5, "Processing logfile %s" % logfile)
+                    yield os.path.join(arg, logfile)
+
+condor_history_re = re.compile("^history.(\d+)\.(\d+)")
+def main():
+
+    try:
+        opts, dirs = parse_opts()
+    except Exception, e:
+        print >> sys.stderr, str(e)
+        sys.exit(1)
+
+    # Sanity checks for the probe's runtime environment.
+    GratiaWrapper.CheckPreconditions()
+
+    if opts.sleep:
+        rnd = random.randint(1, int(opts.sleep))
+        DebugPrint(2, "Sleeping for %d seconds before proceeding." % rnd)
+        time.sleep(rnd)
+
+    # Make sure we have an exclusive lock for this probe.
+    GratiaWrapper.ExclusiveLock()
+
+    register_gratia()
+    if opts.condor_history:
+        process_condor_history()
+    else:
+        process_history_dirs(dirs)
+
+def register_gratia():
+
+    GratiaCore.RegisterReporter("condor_meter", "%s (tag %s)" % \
+        (prog_revision, prog_version))
+    try:
+        condor_version = getCondorVersion()
+    except SystemExit:
+        raise
+    except KeyboardInterrupt:
+        raise
+    except Exception, e:
+        DebugPrint(0, "Unable to successfully invoke condor_version: %s" %
+            str(e))
+        sys.exit(1)
+
+    GratiaCore.RegisterService("Condor", condor_version)
+    GratiaCore.setProbeBatchManager("condor")
+
+def process_history_dirs(dirs):
+
+    submit_count = 0
+    found_count = 0
+    logs_found = 0
+    logfile_errors = 0
+    # Note we are not ordering logfiles by type, as we don't want to
+    # pull them all into memory at once.
+    DebugPrint(4, "We will process the following directories: %s." % ", ".join(dirs))
+    for log in logfiles_to_process(dirs):
+        logs_found += 1
+        _, logfile = os.path.split(log)
+        # Make sure the filename is in a reasonable format
+        m = condor_history_re.match(logfile)
+        if m:
+            cnt_submit, cnt_found = process_history_file(log)
+            if cnt_submit == cnt_found and cnt_submit > 0:
+                DebugPrint(5, "Processed %i ClassAds from file %s" % (cnt_submit, log))
+            else:
+                DebugPrint(2, "Unable to process ClassAd from file (will add to quarantine): %s.  Submit count %d; found count %d" % (log, cnt_submit, cnt_found))
+                GratiaCore.QuarantineFile(log, False)
+                logfile_errors += 1
+            submit_count += cnt_submit
+            found_count += cnt_found
+        else:
+            DebugPrint(2, "Ignoring history file with invalid name: %s" % log)
+
+    DebugPrint(2, "Number of logfiles processed: %d" % logs_found)
+    DebugPrint(2, "Number of logfiles with errors: %d" % logfile_errors)
+    DebugPrint(2, "Number of usage records submitted: %d" % submit_count)
+    DebugPrint(2, "Number of usage records found: %d" % found_count)
+
+def process_history_file(logfile):
+
+    count_submit = 0
+    count_found = 0
+    try:
+        fd = open(logfile, 'r')
+    except IOError, ie:
+        DebugPrint(2, "Cannot process %s: (errno=%d) %s" % (logfile, ie.errno,
+            ie.strerror))
+        return 0, 0
+    added_transient = False
+
+    for classad in fd_to_classad(fd):
+        count_found += 1
+        if not classad:
+            DebugPrint(5, "Ignoring empty classad from file: %s" % logfile)
+            continue
+
+        if not added_transient:
+            classad['logfile'] = logfile
+            added_transient = True
+        try:
+            r = classadToJUR(classad)
+        except KeyboardInterrupt:
+            raise
+        except SystemExit:
+            raise
+        except Exception, e:
+            DebugPrint(2, "Exception while converting the ClassAd to a JUR: %s" % str(e))
+            continue
+
+        if classad.get('CompletionDate', min_start_time) < min_start_time:
+            DebugPrint(2, "Ignoring too-old job: %s (job age: %s, oldest " \
+                "acceptable age: %d)" % (str(classad.get("ClusterId", "Unknown")),
+                str(classad.get('CompletionDate', 'MISSING')), min_start_time))
+            continue
+
+        response = GratiaCore.Send(r)
+        if response[:2] == 'OK':
+            count_submit += 1
+
+    return count_submit, count_found
+
+def process_condor_history():
+    fd = os.popen("condor_history -l")
+    submit_count, found_count = process_history_fd(fd)
+    if fd.close():
+        DebugPrint(1, "Call to condor_history failed.")
+
+    DebugPrint(2, "Number of usage records submitted: %d" % submit_count)
+    DebugPrint(2, "Number of usage records found: %d" % found_count)
+
+def process_history_fd(fd):
+    """
+    Process the job history from a file descriptor.  The difference between
+    this and process_history_file is that Gratia doesn't have any transient
+    files it will attempt to cleanup afterward.
+    """
+    count_submit = 0
+    count_found  = 0
+    for classad in fd_to_classad(fd):
+        count_found += 1
+        if not classad:
+            DebugPrint(5, "Ignoring empty classad from file: %s" % logfile)
+            continue
+
+        try:
+            r = classadToJUR(classad)
+        except KeyboardInterrupt:
+            raise
+        except SystemExit:
+            raise
+        except Exception, e:
+            DebugPrint(2, "Exception while converting the ClassAd to a JUR: %s" % str(e))
+            continue
+
+        if classad.get('CompletionDate', min_start_time) < min_start_time:
+            DebugPrint(2, "Ignoring too-old job: %s (job age: %s, oldest " \
+                "acceptable age: %d)" % (str(classad.get("ClusterId", "Unknown")),
+                str(classad.get('CompletionDate', 'MISSING')), min_start_time))
+            continue
+
+        response = GratiaCore.Send(r)
+        if response[:2] == 'OK':
+            count_submit += 1
+
+    return count_submit, count_found
+
+def setIfExists(func, classad, attr, comment=None, setstr=False):
+    if attr in classad:
+        val = classad[attr]
+        if setstr:
+            val = str(val)
+        if not comment:
+            func(val)
+        else:
+            func(val, comment)
+
+cream_re = re.compile("https://([A-Za-z-.0-9]+):(\d+)/ce-cream/services/CREAM2\s+(\S+)\s+\S+")
+def cream_match(match, desired):
+    """
+    CREAM matches are a bit different.  The desired CE looks like this:
+        llrcream.in2p3.fr:8443/cream-pbs
+    The match expression looks like this:
+        https://llrcream.in2p3.fr:8443/ce-cream/services/CREAM2 pbs cms
+    So "normal" matching doesn't work, and we match using this function.
+    """
+    m = cream_re.match(match)
+    hostname, port, jm = m.groups()
+    match2 = "%s:%s/cream-%s" % (hostname, port, jm)
+    match2 = match2.strip()
+    return match2 == desired
+
+split_re = re.compile(",\s*")
+def determine_host_description(classad):
+    """
+    Determine the value of the host description field.
+    This particular field is abused to report glideinWMS-based jobs by
+    looking for a particular attribute (MATCH_EXP_JOBGLIDEIN_ResourceName)
+
+    Further, there is logic here from the AAA project to determine if the job
+    was an overflow job and adds a "-overflow" suffix.
+
+    If there's no special host description, this returns None.
+    """
+    if 'MATCH_EXP_JOBGLIDEIN_ResourceName' not in classad:
+        return None
+
+    host_descr = classad['MATCH_EXP_JOBGLIDEIN_ResourceName']
+
+    # Check first for SE-based matching.
+    if ('DESIRED_SEs' not in classad) or ('MATCH_GLIDEIN_SEs' not in classad):
+        return host_descr
+    match_se = classad['MATCH_GLIDEIN_SEs'].strip()
+    for desired_se in split_re.split(classad['DESIRED_SEs']):
+        desired_se = desired_se.strip()
+        if match_se == desired_se:
+            return host_descr
+
+    # Then check for CE-based matching.
+    if ('DESIRED_Gatekeepers' not in classad) or \
+                ('MATCH_GLIDEIN_Gatekeeper' not in classad):
+        return host_descr
+    match_ce = classad['MATCH_GLIDEIN_Gatekeeper']
+    for desired_ce in split_re.split(classad['DESIRED_Gatekeepers']):
+        desired_ce = desired_ce.strip()
+        if match_ce == desired_ce or cream_match(match_ce, desired_ce):
+            return host_descr
+
+    # If neither CE nor SE matched, it must be an overflow job.
+    return host_descr + "-overflow"
+
+global_job_id_re = re.compile("(.*)\#\d+\.?\d*\#.*")
+campus_factory_usage = re.compile("(.*)\-CF$")
+campus_flock_usage = re.compile("(.*)\-Flock$")
+def classadToJUR(classad):
+
+    if 'ClusterId' not in classad:
+        DebugPrint(2, "No data passed to classadToJUR: %s" % str(classad))
+        return 0
+    DebugPrint(5, "Creating JUR for %s" % classad['ClusterId'])
+
+    resource_type = "Batch"
+    if classad.get("GridMonitorJob", False):
+        resource_type = "GridMonitor"
+    elif 'MATCH_EXP_JOBGLIDEIN_ResourceName' in classad:
+        resource_type = 'BatchPilot'
+    r = Gratia.UsageRecord(resource_type)
+
+    r.GlobalJobId(classad.get("UniqGlobalJobId", ""))
+
+    if "ProcId" in classad and int(classad["ProcId"]) > 0:
+        r.LocalJobId("%s.%s" % (classad["ClusterId"], classad["ProcId"]))
+    else:
+        r.LocalJobId(str(classad['ClusterId']))
+
+    # I don't think ProcessId was ever correct - used to take the UDP port 
+    # from the LastClaimId?
+
+    setIfExists(r.LocalUserId, classad, "Owner")
+    setIfExists(r.GlobalUsername, classad, "User")
+    setIfExists(r.DN, classad, 'x509userproxysubject')
+    setIfExists(r.VOName, classad, 'x509UserProxyFirstFQAN')
+    setIfExists(r.ReportableVOName, classad, 'x509UserProxyVOName')
+
+    if 'GlobalJobId' in classad:
+        r.JobName(classad["GlobalJobId"])
+        m = global_job_id_re.match(classad['GlobalJobId'])
+        if m:
+            submit_host = m.groups()[0]
+            r.MachineName(submit_host)
+            r.SubmitHost(submit_host)
+
+    setIfExists(r.Status, classad, 'ExitStatus', "Condor Exit Status")
+
+    setIfExists(r.WallDuration, classad, 'RemoteWallClockTime', "Was entered in seconds")
+
+    if 'RemoteUserCpu' in classad:
+        r.TimeDuration(classad['RemoteUserCpu'], "RemoteUserCpu")
+    else:
+        classad['RemoteUserCpu'] = 0
+
+    if 'LocalUserCpu' in classad:
+        r.TimeDuration(classad['LocalUserCpu'], 'LocalUserCpu')
+    else:
+        classad['LocalUserCpu'] = 0
+
+    if 'RemoteSysCpu' in classad:
+        r.TimeDuration(classad['RemoteSysCpu'], 'RemoteSysCpu')
+    else:
+        classad['RemoteSysCpu'] = 0
+
+    if 'LocalSysCpu' in classad:
+        r.TimeDuration(classad['LocalSysCpu'], 'LocalSysCpu')
+    else:
+        classad['LocalSysCpu'] = 0
+
+    setIfExists(r.TimeDuration, classad, 'CumulativeSuspensionTime', 'CumulativeSuspensionTime')
+    setIfExists(r.TimeDuration, classad, 'CommittedSuspensionTime', 'CommittedSuspensionTime')
+    setIfExists(r.TimeDuration, classad, 'CommittedTime', 'CommittedTime')
+
+    classad['SysCpuTotal'] = classad['RemoteSysCpu'] + classad['LocalSysCpu']
+    r.CpuDuration(classad['SysCpuTotal'], "system", "Was entered in seconds")
+
+    classad['UserCpuTotal'] = classad['RemoteUserCpu'] + classad['LocalUserCpu']
+    r.CpuDuration(classad['UserCpuTotal'], "user", "Was entered in seconds")
+
+    if 'CompletionDate' in classad and classad['CompletionDate'] > 0:
+        r.EndTime(classad['CompletionDate'], "Was entered in seconds")
+
+    setIfExists(r.StartTime, classad, 'JobStartDate', "Was entered in seconds")
+
+    if 'LastRemoteHost' in classad:
+        host = classad['LastRemoteHost'].split("@")[-1]
+        host_descr = determine_host_description(classad)
+        if host_descr:
+            r.Host(host, True, host_descr)
+        else:
+            r.Host(host, True)
+
+    setIfExists(r.Queue, classad, "JobUniverse", "Condor's JobUniverse field", setstr=True)
+    setIfExists(r.NodeCount, classad, 'MaxHosts', "max")
+
+    if 'MachineAttrCpus0' in classad:
+        r.Processors(classad['MachineAttrCpus0'], metric="max")
+
+    if 'MyType' in classad:
+        r.AdditionalInfo("CondorMyType", classad['MyType'])
+
+    if 'AccountingGroup' in classad:
+        r.AdditionalInfo("AccountingGroup", classad['AccountingGroup'])
+
+    if 'ExitBySignal' in classad:
+        if classad['ExitBySignal']:
+            # Gratia expects lower-case; python produces "True".
+            r.AdditionalInfo('ExitBySignal', 'true')
+        else:
+            r.AdditionalInfo('ExitBySignal', 'false')
+    if 'ExitSignal' in classad:
+        r.AdditionalInfo("ExitSignal", classad['ExitSignal'])
+    if 'ExitCode' in classad:
+        r.AdditionalInfo("ExitCode", classad['ExitCode'])
+    if 'JobStatus' in classad:
+        r.AdditionalInfo("condor.JobStatus", classad['JobStatus'])
+    if 'GratiaJobOrigin' in classad:
+        if classad['GratiaJobOrigin'] == "GRAM":
+            r.Grid("OSG", "GratiaJobOrigin = GRAM")
+        else:
+            r.Grid("Local", "GratiaJobOrigin not GRAM")
+
+    if 'MATCH_EXP_JOBGLIDEIN_ResourceName' in classad:
+        if campus_factory_usage.search(classad['MATCH_EXP_JOBGLIDEIN_ResourceName']):
+            r.Grid("Campus", "Campus Factory Usage")
+        elif campus_flock_usage.search(classad['MATCH_EXP_JOBGLIDEIN_ResourceName']):
+            r.Grid("Campus", "Campus Flocking Usage")
+
+    if 'logfile' in classad:
+        r.AddTransientInputFile(classad["logfile"])
+
+
+    networkPhaseUnit = classad.get('RemoteWallClockTime', '')
+    total_network = 0
+    for attr, val in classad.items():
+        if attr.startswith("Network"):
+            total_network += val
+            r.Network(val, storageUnit='b', phaseUnit=networkPhaseUnit, metric=attr, description=attr)
+    r.Network(total_network, storageUnit='b', phaseUnit=networkPhaseUnit, metric="total")
+
+    return r
+
+classad_bool_re = re.compile("^(\w{1,255}) = (true|True|TRUE|false|False|FALSE)$")
+classad_int_re = re.compile("^(\w{1,255}) = (-?\d{1,30})$")
+classad_double_re = re.compile("(\w{1,255}) = (-?\d{1,30}\.?\d{1,30}?)")
+classad_string_re = re.compile("^(\S+) = \"(.*)\"$")
+classad_catchall_re = re.compile("^(\S+) = (.*)$")
+def fd_to_classad(fd):
+    classad = {}
+    for line in fd.readlines():
+        line = line.strip()
+        m = classad_bool_re.match(line)
+        if m:
+            attr, val = m.groups()
+            if val.lower().find("true") >= 0:
+                classad[attr] = True
+            else:
+                classad[attr] = False
+            continue
+        m = classad_int_re.match(line)
+        if m:
+            attr, val = m.groups()
+            classad[attr] = int(val)
+            continue
+        m = classad_double_re.match(line)
+        if m:
+            attr, val = m.groups()
+            classad[attr] = float(val)
+            continue
+        m = classad_string_re.match(line)
+        if m:
+            attr, val = m.groups()
+            classad[attr] = str(val)
+            continue
+        m = classad_catchall_re.match(line)
+        if m:
+            attr, val = m.groups()
+            classad[attr] = str(val)
+            continue
+        if not line:
+            yield add_unique_id(classad)
+            classad = {}
+            continue
+        DebugPrint(2, "Invalid line in ClassAd: %s" % line)
+
+    yield add_unique_id(classad)
+        
+def add_unique_id(classad):
+    if 'GlobalJobId' in classad:
+        classad['UniqGlobalJobId'] = 'condor.%s' % classad['GlobalJobId']
+        DebugPrint(6, "Unique ID: %s" % classad['UniqGlobalJobId'])
+    return classad
+
+if __name__ == "__main__":
+    main()
+

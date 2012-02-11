@@ -1,8 +1,8 @@
 Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
-Version:            1.09
-Release:            2
+Version:            1.10
+Release:            0.6.pre%{?dist}
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -180,6 +180,11 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
 
   done
 
+  # common probe init script
+  install -d $RPM_BUILD_ROOT/%{_initrddir}
+  install -p -m 755 common/gratia-probes-cron.init $RPM_BUILD_ROOT%{_initrddir}/gratia-probes-cron
+  rm $RPM_BUILD_ROOT%{_datadir}/gratia/common/gratia-probes-cron.init
+
   # dCache-transfer init script
   install -d $RPM_BUILD_ROOT/%{_initrddir}
   install -m 755 dCache-transfer/gratia-dcache-transfer.init $RPM_BUILD_ROOT%{_initrddir}/gratia-dcache-transfer
@@ -278,6 +283,7 @@ grep -rIle '%%%%%%RPMVERSION%%%%%%' $RPM_BUILD_ROOT%{_datadir}/gratia $RPM_BUILD
 done
 
 install -d $RPM_BUILD_ROOT/%{_localstatedir}/log/gratia
+install -d $RPM_BUILD_ROOT/%{_localstatedir}/lock/gratia
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -326,17 +332,35 @@ This product includes software developed by The EU EGEE Project
 %package common
 Summary: Common files for Gratia OSG accounting system probes
 Group: Applications/System
-Requires: python >= 2.3
 Requires: pyOpenSSL
+Requires(post): chkconfig
+Requires(preun): chkconfig
 
 %description common
 Common files and examples for Gratia OSG accounting system probes.
 
+%pre common
+getent group gratia >/dev/null || groupadd -r gratia
+getent passwd gratia >/dev/null || \
+       useradd -r -g gratia -c "gratia runtime user" \
+       -s /sbin/nologin -d /etc/gratia gratia
+%post 
+/sbin/chkconfig --add gratia-probes-cron
+
+%preun
+if [ $1 = 0 ] ; then
+     /sbin/service gratia-probes-cron stop >/dev/null 2>&1
+     /sbin/chkconfig --del gratia-probes-cron
+fi
+
 %files common
 %defattr(-,root,root,-)
+%{_initrddir}/gratia-probes-cron
 %doc %{default_prefix}/gratia/common/README
 %{_localstatedir}/lib/gratia/
-%{_localstatedir}/log/gratia/
+%attr(-,gratia,gratia) %{_localstatedir}/log/gratia/
+%dir %{_sysconfdir}/gratia
+%{_localstatedir}/lock/gratia/
 %{python_sitelib}/gratia/__init__.py*
 %{python_sitelib}/gratia/common
 %dir %{default_prefix}/gratia/common
@@ -344,6 +368,17 @@ Common files and examples for Gratia OSG accounting system probes.
 %{default_prefix}/gratia/common/DebugPrint
 %{default_prefix}/gratia/common/GetProbeConfigAttribute
 %{default_prefix}/gratia/common/ProbeConfigTemplate
+%{default_prefix}/gratia/common/cron_check
+
+
+%package gram
+Summary: GRAM extensions for Gratia OSG accounting system
+Group: Applications/System
+
+%description gram
+%{summary}
+
+%files gram
 %{perl_vendorlib}/Globus/GRAM/JobManagerGratia.pm
 
 %package psacct
@@ -391,6 +426,7 @@ The Condor probe for the Gratia OSG accounting system.
 %{default_prefix}/gratia/condor/ProbeConfig
 %{default_prefix}/gratia/condor/condor_meter.cron.sh
 %{default_prefix}/gratia/condor/condor_meter.pl
+%{default_prefix}/gratia/condor/condor_meter
 %config(noreplace) %{_sysconfdir}/condor/config.d/99_gratia.conf
 %config(noreplace) %{_sysconfdir}/gratia/condor/ProbeConfig
 %config(noreplace) %{_sysconfdir}/cron.d/gratia-probe-condor.cron
@@ -402,7 +438,6 @@ The Condor probe for the Gratia OSG accounting system.
 Summary: An SGE probe
 Group: Applications/System
 %if %{?python:0}%{!?python:1}
-Requires: python >= 2.3
 %endif
 Requires: %{name}-common >= %{version}-%{release}
 
@@ -536,7 +571,6 @@ Contributed by Andrei Baranovski of the OSG storage team.
 %files gridftp-transfer
 %defattr(-,root,root,-)
 %{python_sitelib}/gratia/gridftp_transfer
-%{default_prefix}/gratia/gridftp-transfer/gridftp-transfer_meter.cron.sh
 %dir %{default_prefix}/gratia/gridftp-transfer
 %{default_prefix}/gratia/gridftp-transfer/ProbeConfig
 %{default_prefix}/gratia/gridftp-transfer/GridftpTransferProbeDriver
@@ -706,6 +740,24 @@ Gratia OSG accounting system probe for providing VM accounting.
 %endif # noarch
 
 %changelog
+* Thu Feb 9  2012 Tanya Levshina <tlevshin@fnal.gov> - 1.10-0.6.pre
+- Fixed various bugs intoroduced in 1.10-0.4
+
+* Thu Feb 3  2012 Tanya Levshina <tlevshin@fnal.gov> - 1.10-0.4.pre
+- Applied pacthes for pbs probes https://jira.opensciencegrid.org/browse/GRATIA-44 
+- Implemented gratia-probes-cron to start/stop gratia probes that are ran as cronjob as a service (https://jira.opensciencegrid.org/browse/GRATIA-30)
+- Added dist tag to release
+
+* Wed Feb 1  2012 Brian Bockelman <bbockelm@cse.unl.edu> - 1.10-0.3.pre
+- Update the GridFTP probe to use POSIX locking; removed wrapper script.
+- Split out the GRAM module from the common RPM.
+
+* Mon Jan 16 2012 Brian Bockelman <bbockelm@cse.unl.edu> - 1.10-0.2.pre
+- Rewrite of Condor probe into python.
+- Added support for campus grids to Condor probe.
+- Added support for CMS overflow to Condor probe.
+- Addition of POSIX-style locking for Condor probe.
+
 * Wed Nov 15 2011 Tanya Levshina <tlevshin@fnal.gov> - 1.09-1
 - No changes from 1.09.08.pre - just official release
 
