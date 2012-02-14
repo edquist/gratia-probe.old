@@ -55,7 +55,7 @@ class ProbeDriver:
          self.gridftplogFile = file(self.gridftplogFilePath)
          self.gridftpAuthlogFile = file(self.gridftpAuthlogFilePath)
        
-         self.txn = ContextTransaction(cfg.WorkingFolder+"/GridftpAccountingProbeState")
+         self.txn = ContextTransaction(os.path.join(cfg.WorkingFolder, "GridftpAccountingProbeState"))
 
          self.context = self.txn.context()
 
@@ -122,10 +122,10 @@ def parse_opts():
     # Initialize Gratia
     if not opts.gratia_config or not os.path.exists(opts.gratia_config):
         raise Exception("Gratia config, %s, does not exist." % opts.gratia_config)
-    GratiaCore.Initialize(opts.gratia_config)
+    GratiaCore.Config = GratiaCore.ProbeConfiguration(opts.gratia_config)
 
     if opts.verbose:
-        GratiaCore.Config.__DebugLevel = 5
+        GratiaCore.Config.set_DebugLevel(5)
 
     return opts, args
 
@@ -157,6 +157,7 @@ def main():
    conn = GratiaConnector.GratiaConnector(("gridftp","2.0"),
                                           ("GridftpTransferProbeDriver.py",
                                            str(rev)))
+   GratiaCore.Initialize(opts.gratia_config)
 
    logger = Logger.getLogger("main")
    logger.debug("Starting log file scan cycle")

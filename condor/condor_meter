@@ -44,10 +44,10 @@ def parse_opts():
     # Initialize Gratia
     if not opts.gratia_config or not os.path.exists(opts.gratia_config):
         raise Exception("Gratia config, %s, does not exist." % opts.gratia_config)
-    GratiaCore.Initialize(opts.gratia_config)
+    GratiaCore.Config = GratiaCore.ProbeConfiguration(opts.gratia_config)
 
     if opts.verbose:
-        GratiaCore.Config.__DebugLevel = 5
+        GratiaCore.Config.set_DebugLevel(5)
 
     if not args and not opts.condor_history:
         args = [GratiaCore.Config.getConfigAttribute("DataFolder")]
@@ -112,6 +112,8 @@ def main():
     GratiaWrapper.ExclusiveLock()
 
     register_gratia()
+    GratiaCore.Initialize(opts.gratia_config)
+
     if opts.condor_history:
         process_condor_history()
     else:

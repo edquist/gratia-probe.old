@@ -24,10 +24,6 @@
 import gratia.common.Gratia as Gratia
 import os, copy, pwd, time, sys, string
 
-if not Gratia.pythonVersionRequire(2,3):
-    Gratia.Error("SGE Probe requires python version >= 2.3 (current version " + sys.version + ")")
-    sys.exit(1)
-
 # This module requires python v2.3
 from optparse import OptionParser
 
@@ -280,7 +276,7 @@ class SGE:
             
 
 if __name__ == '__main__':
-
+def main():
 
     sgeRoot = os.getenv("SGE_ROOT", "/sge")
     sgeCell = os.getenv("SGE_CELL", "default") 
@@ -435,3 +431,7 @@ if __name__ == '__main__':
 
     # Clean things up
     # Do we need to define a clean exit function?
+
+if __name__ == '__main__':
+    main()
+
