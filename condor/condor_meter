@@ -200,6 +200,10 @@ def process_history_file(logfile):
             DebugPrint(2, "Exception while converting the ClassAd to a JUR: %s" % str(e))
             continue
 
+        enteredStatus = classad.get('EnteredCurrentStatus', 0)
+        if classad.get('CompletionDate', 0) == 0:
+            classad['CompletionDate'] = enteredStatus
+
         if classad.get('CompletionDate', min_start_time) < min_start_time:
             DebugPrint(2, "Ignoring too-old job: %s (job age: %s, oldest " \
                 "acceptable age: %d)" % (str(classad.get("ClusterId", "Unknown")),
@@ -245,6 +249,10 @@ def process_history_fd(fd):
             DebugPrint(2, "Exception while converting the ClassAd to a JUR: %s" % str(e))
             continue
 
+        enteredStatus = classad.get('EnteredCurrentStatus', 0)
+        if classad.get('CompletionDate', 0) == 0:
+            classad['CompletionDate'] = enteredStatus
+
         if classad.get('CompletionDate', min_start_time) < min_start_time:
             DebugPrint(2, "Ignoring too-old job: %s (job age: %s, oldest " \
                 "acceptable age: %d)" % (str(classad.get("ClusterId", "Unknown")),
@@ -277,6 +285,8 @@ def cream_match(match, desired):
     So "normal" matching doesn't work, and we match using this function.
     """
     m = cream_re.match(match)
+    if not m:
+        return False
     hostname, port, jm = m.groups()
     match2 = "%s:%s/cream-%s" % (hostname, port, jm)
     match2 = match2.strip()
