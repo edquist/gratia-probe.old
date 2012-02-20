@@ -1000,11 +1000,13 @@ sub writeGGFURFile {
       $cmd .= "\"LocalUserGroup=$urAcctlogInfo{group}\" ";
    }
    
-   if ($userVo ne "") {
-      $cmd .= "\"UserVOName=$userVo\" ";
-   } elsif (exists $urAcctlogInfo{account} and $urAcctlogInfo{account} ne "") {
-      $cmd .= "\"UserVOName=$urAcctlogInfo{account}\" ";
-   }
+   #supress generation of UserVOName attribute that causes to 
+   # gratia collector to store the value of this attribute as a VOName	
+   #if ($userVo ne "") {
+   #   $cmd .= "\"UserVOName=$userVo\" ";
+   #} elsif (exists $urAcctlogInfo{account} and $urAcctlogInfo{account} ne "") {
+   #   $cmd .= "\"UserVOName=$urAcctlogInfo{account}\" ";
+   #}
    
    if ($fqan ne "") {
       $cmd .= "\"UserFQAN=$fqan\" ";
