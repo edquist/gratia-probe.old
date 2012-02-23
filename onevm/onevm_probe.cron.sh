@@ -15,21 +15,26 @@ if [ x${_version} == "x" ]
 then
 	_version=3.0.0
 fi
+options=""
 if [ ${_version} == "3.0.0" ]
 then
-	/sbin/runuser - oneadmin -c ${_gratia_dir}/onevm/query_one.rb > "${_currentfile}"
+	#check if chkpt_vm_DoNotDelete exists
+	if [ ! -f ${_gratia_data_dir}/chkpt_vm_DoNotDelete ]
+	then
+		#we will start from the beginig
+		options="-a"
+	else
+		ct=`date +%s`
+		let delta=${ct}-`cat ${_gratia_data_dir}/chkpt_vm_DoNotDelete`
+		options="-t ${ct} -d ${delta}"
+	fi
+	/sbin/runuser - oneadmin ${options} -c ${_gratia_dir}/onevm/query_one_lite.rb -c ${_gratia_data_dir} -o "${_currentfile}"
 else
 	#get the latest vmid
 	_vmid=`onevm list -l id|sort -n|tail -1`
-	/sbin/runuser - oneadmin -c ${_gratia_dir}/onevm/query_one_2.0.0 ${_vmid}
+	/sbin/runuser - oneadmin -c ${_gratia_dir}/onevm/query_one_2.0.0 ${_vmid} >  "${_currentfile}"
 fi
 	
 echo "End onevm dump " `date`
 python ${_gratia_dir}/onevm/VMProbe  ${_currentfile} ${_version}
 exit $?
-
-
-
-
-#version
-version=`onevm --version|grep ^OpenNebula|cut -d' ' -f2`

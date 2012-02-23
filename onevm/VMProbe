@@ -21,6 +21,8 @@ if __name__ == '__main__':
 		sys.exit(1)
     logger = logging.getLogger("VMGratiaProbe")
     probe_config="/etc/gratia/onevm/ProbeConfig"
+    if len(sys.argv)==4:
+	probe_config=sys.argv[3]
     records={}
     try:
         reader=OneReader(sys.argv[1])
@@ -31,9 +33,6 @@ if __name__ == '__main__':
         print traceback.format_exception_only(etype, value)[0]
         sys.exit(1)
 
-    if (len(sys.argv) > 3):
-        probe_config=sys.argv[3]
-    print probe_config
     #config=VMGratiaProbeConfig.VMGratiaProbeConfig(probe_config)
     Gratia.Initialize(probe_config)
     vmProbe=VMGratiaProbe(Gratia.Config,logger)

@@ -19,10 +19,16 @@ $: << RUBY_LIB_LOCATION
 ##############################################################################
 
 require 'pp'
+require 'optparse'
 require 'OpenNebula'
+require 'OpenNebula/Pool'
  
 include OpenNebula
  
+##############################################################################
+# Classes
+##############################################################################
+
 ##############################################################################
 # Custom Functions
 ##############################################################################
@@ -64,11 +70,48 @@ end
 #HASH = true
 #client = Client.new(CREDENTIALS, ENDPOINT, HASH)
 
+options = {}
+optparse = OptionParser.new() do |opts|
+    opts.banner = "Usage: blah blah blah ..."
+
+    options[:time] = Time.now().to_i()
+    opts.on('-t', '--time TIME', 'Sec since epoch') do |time|
+        options[:time] = time
+    end
+
+    options[:delta] = -3600
+    opts.on('-d', '--delta DELTA', 'Sec since time. Negetive means go back in history. Defaults to -3600') do |d|
+        options[:delta] = d
+    end
+    
+    opts.on( '-h', '--help', 'Display help screen' ) do
+        puts opts
+        exit
+    end
+end
+    
+stime = etime = nil
+
+if options[:delta] < 0
+    stime = options[:time] + options[:delta]
+    etime = options[:time]
+else
+    stime = options[:time]
+    etime = options[:time] + options[:delta]
+end
+
+# Parse the command-line. There are two forms of the parse method.
+# The 'parse' method simply parses ARGV, while the 'parse!' method parses
+# ARGV and removes any options found there, as well as any parameters for
+# the options. What's left is the list of files to resize.
+optparse.parse!
+
+#exit
 # Use the default, i.e. anything that comes from the configs
 client = Client.new()
  
 vm_pool = VirtualMachinePool.new(client, -1)
- 
+
 =begin
 # Added following vm_pool.info_dump
         def info_dump()
@@ -83,7 +126,16 @@ vm_pool = VirtualMachinePool.new(client, -1)
 
 # Query all the VMS
 #rc = vm_pool.info_all()
-rc = vm_pool.info_dump()
+#rc = vm_pool.info_dump()
+
+#rc = vm_pool.info(user_id, -1, -1, state_id)
+
+# Current VMS
+rc = vm_pool.info(-2, -1, -1, -1)
+
+# All VMS
+#rc = vm_pool.info(-2, -1, -1, -2)
+
 if OpenNebula.is_error?(rc)
     puts rc.message
     exit -1
@@ -108,7 +160,7 @@ fields_map = {
     "HID"             => ["HISTORY_RECORDS", "HISTORY", "HID"],
     "HISTORY_STIME"   => ["HISTORY_RECORDS", "HISTORY", "STIME"],
     "HISTORY_ETIME"   => ["HISTORY_RECORDS", "HISTORY", "ETIME"],
-    "HISTORY_REASON"   => ["HISTORY_RECORDS", "HISTORY", "REASON"],
+    "HISTORY_REASON"  => ["HISTORY_RECORDS", "HISTORY", "REASON"],
     "HOSTNAME"        => ["HISTORY_RECORDS", "HISTORY", "HOSTNAME"],
     "MAC"             => ["TEMPLATE", "NIC", "MAC"],
     "IP"              => ["TEMPLATE", "NIC", "IP"],
@@ -127,8 +179,9 @@ fields_map = {
 
 vms = {}
 
+
 vm_pool.each do |vm|
-    rc = vm.info
+    rc = vm.info()
     if OpenNebula.is_error?(rc)
         puts "Virtual Machine #{vm.id}: #{rc.message}"
     else
@@ -142,7 +195,6 @@ vm_pool.each do |vm|
         # Additional info that cannot be mapped
         vms[vm_id]["STATE_STR"] = vm.state_str()
         vms[vm_id]["LCM_STATE_STR"] = vm.lcm_state_str()
-        
     end
 end
  
