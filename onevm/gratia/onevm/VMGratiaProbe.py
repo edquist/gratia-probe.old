@@ -19,14 +19,20 @@ class VMGratiaProbe:
         if  self._dataFolder != None:
             vmChkptFN = os.path.join(self._dataFolder, vmChkptFN)
         self._lastChkpt = Checkpoint(vmChkptFN, self._maxAge)
-        self.resourceType="ONEVM"
+        self.resourceType="FermiCloud-OneVM"
         self.project="FERMICLOUD"
-
+    def setVersion(self,version):
+	self.version=version
+    def getVersion(self,version):
+	return self.version
+    def setResourceType(self):
+	self.resourceType=self.resourceType+self.version[0:self.version.rfind(".")]
     #check when was the last time we have run - if timestamp exist
     #if it exists 
     #send all jobs that are currently running (started and endtime=Now) 
     #send all finished jobs that since then
     def process(self,records):
+	self.setResourceType()
         current_time=time.time()
         for key,vmr in records.items():
             print key,vmr.getMachineName()
@@ -92,12 +98,13 @@ if __name__ == '__main__':
         print traceback.format_exception_only(etype, value)[0]
         sys.exit(1)
     
-    if (len(sys.argv) > 2):
-        probe_config=sys.argv[2]
+    if (len(sys.argv) > 3):
+        probe_config=sys.argv[3]
     print probe_config
     #config=VMGratiaProbeConfig.VMGratiaProbeConfig(probe_config)
     Gratia.Initialize(probe_config)
     vmProbe=VMGratiaProbe(Gratia.Config,logger)
+    vmProbe.setVersion(sys.argv[2])
     vmProbe.process(records)
     
     
