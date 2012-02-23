@@ -180,6 +180,11 @@ install -d $RPM_BUILD_ROOT/%{_sysconfdir}/gratia
 
   done
 
+  # Remove unnecessary links
+  rm $RPM_BUILD_ROOT%{_datadir}/gratia/condor/ProbeConfig
+  rm $RPM_BUILD_ROOT%{_datadir}/gratia/gridftp-transfer/ProbeConfig
+  rm $RPM_BUILD_ROOT%{_datadir}/gratia/glexec/ProbeConfig
+
   # common probe init script
   install -d $RPM_BUILD_ROOT/%{_initrddir}
   install -p -m 755 common/gratia-probes-cron.init $RPM_BUILD_ROOT%{_initrddir}/gratia-probes-cron
@@ -423,9 +428,6 @@ The Condor probe for the Gratia OSG accounting system.
 %defattr(-,root,root,-)
 %doc %{default_prefix}/gratia/condor/README
 %dir %{default_prefix}/gratia/condor
-%{default_prefix}/gratia/condor/ProbeConfig
-%{default_prefix}/gratia/condor/condor_meter.cron.sh
-%{default_prefix}/gratia/condor/condor_meter.pl
 %{default_prefix}/gratia/condor/condor_meter
 %config(noreplace) %{_sysconfdir}/condor/config.d/99_gratia.conf
 %config(noreplace) %{_sysconfdir}/gratia/condor/ProbeConfig
@@ -468,7 +470,6 @@ The gLExec probe for the Gratia OSG accounting system.
 
 %files glexec
 %defattr(-,root,root,-)
-%{default_prefix}/gratia/glexec/ProbeConfig
 %doc %{default_prefix}/gratia/glexec/README
 %{default_prefix}/gratia/glexec/glexec_meter.cron.sh
 %{default_prefix}/gratia/glexec/glexec_meter
@@ -572,7 +573,6 @@ Contributed by Andrei Baranovski of the OSG storage team.
 %defattr(-,root,root,-)
 %{python_sitelib}/gratia/gridftp_transfer
 %dir %{default_prefix}/gratia/gridftp-transfer
-%{default_prefix}/gratia/gridftp-transfer/ProbeConfig
 %{default_prefix}/gratia/gridftp-transfer/GridftpTransferProbeDriver
 %config(noreplace) %{_sysconfdir}/gratia/gridftp-transfer/ProbeConfig
 %config(noreplace) %{_sysconfdir}/cron.d/gratia-probe-gridftp-transfer.cron

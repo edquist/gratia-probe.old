@@ -3,49 +3,45 @@
 # Gratia plugin for gLExec-GUMS 
 #
 
-import os,os.path,sys,time,string,pwd
+import os
+import pwd
+import sys
+import time
+import random
 import socket
-import popen2
+import optparse
 
 import gratia.glexec.gratia_glexec_parser as gratia_glexec_parser
 import gratia.common.Gratia as Gratia
+import gratia.common.GratiaCore as GratiaCore
+import gratia.common.GratiaWrapper as GratiaWrapper
+from gratia.common.GratiaCore import DebugPrint
 
-#
-# Handle lock
-#
+def parse_opts():
+            
+    global ProbeConfig
+            
+    parser = optparse.OptionParser(usage="%prog [options] dir1 dir2")
+    parser.add_option("-f", "--gratia_config", help="Location of the Gratia config; "
+        "defaults to /etc/gratia/glexec/ProbeConfig.", dest="gratia_config",
+        default="/etc/gratia/glexec/ProbeConfig")
+    parser.add_option("-s", "--sleep", help="Do a random amount of sleep, up to the"
+        " specified number of seconds before running.", dest="sleep",
+        default=0, type="int")
+    parser.add_option("-v", "--verbose", help="Enable verbose logging to stdout.",
+        default=False, action="store_true", dest="verbose")
 
-def get_lock_name(data_dir):
-    return os.path.join(data_dir,'glexec_plugin.lck')
+    opts, args = parser.parse_args()
 
-def create_lock(data_dir):
-    lock_name=get_lock_name(data_dir)
-    if os.path.exists(lock_name):
-        verify_lock(data_dir)
+    # Initialize Gratia
+    if not opts.gratia_config or not os.path.exists(opts.gratia_config):
+        raise Exception("Gratia config, %s, does not exist." % opts.gratia_config)
+    GratiaCore.Config = GratiaCore.ProbeConfiguration(opts.gratia_config)
 
-    fd = open(lock_name,"w")
-    try:
-        fd.write("%i\n"%os.getpid());
-    finally:
-        fd.close()
-    return
+    if opts.verbose:
+        GratiaCore.Config.set_DebugLevel(5)
 
-def verify_lock(data_dir):
-    lock_name=get_lock_name(data_dir)
-    fd=open(lock_name,"r")
-    try:
-        lock_str=string.strip(fd.read())
-    finally:
-        fd.close()
-
-    if os.path.exists(os.path('/proc',lock_str)):
-        raise RuntimeError,"Another copy running as PID %s"%lock_str
-
-    os.unlink(lock_name)
-    return
-    
-def remove_lock(data_dir):
-    lock_name=get_lock_name(data_dir)
-    os.unlink(lock_name)
+    return opts, args
 
 #
 # Process transactions
@@ -58,7 +54,7 @@ def load_last_check(data_dir):
     if os.path.exists(check_fname):
         fd=open(check_fname,"r")
         try:
-            last_check_str=string.strip(fd.read())
+            last_check_str=fd.read().strip()
         finally:
             fd.close()
         return long(last_check_str)
@@ -84,20 +80,34 @@ def getCE(host_proxy):
     #it is not necessarily will be true in the future
     #so if host certificate proxy is unavailable we will assume
     #that we are running node on ce and return hostname instead
-    cmd="grid-proxy-info -f '%s'"%(host_proxy)
-    cmd_el=popen2.Popen3(cmd,1)
-    cmd_el.tochild.close() # no input
-    exit_code=cmd_el.wait()
-    stderr=cmd_el.childerr.read()
-    stdout=cmd_el.fromchild.read()
-    cmd_el.childerr.close()
-    cmd_el.fromchild.close()
+
+    # os.popen can generate deprecation warnings.  Simply replace.
+    stdout_r, stdout_w = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        # Child
+        try:
+            new_stderr_fd = os.dup(2)
+            dev_null_fd = os.open("/dev/null", os.WRONLY)
+            os.dup2(dev_null_fd, 2)
+            os.close(dev_null_fd)
+            os.close(stdout_r)
+            os.dup2(stdout_w, 1)
+            os.close(stdout_w)
+            os.close(0)
+            os.execl("grid-proxy-info", "grid-proxy-info", "-identity", "-f", str(host_proxy))
+        finally:
+            os._exit(1)
+
+    os.close(stdout_w)
+    stdout = os.read(stdout_r, 16*1024)
+    os.close(stdout_r)
+    exit_status = os.waitpid(pid, 0)
     
-    if exit_code!=0:
+    if exit_status!=0:
 	return get_host()
 
-    return string.split(stdout,"/CN=",2)[1]
-
+    return stdout.split("/CN=", 2)[-1]
 
 # a cached way to convert uid to name
 UID_DICT={}
@@ -148,41 +158,52 @@ def send_one(el,
 #
 
 def main():
+
+    try:
+        opts, dirs = parse_opts()
+    except Exception, e:
+        print >> sys.stderr, str(e)
+        sys.exit(1)
+        
+    # Sanity checks for the probe's runtime environment.
+    GratiaWrapper.CheckPreconditions()
+
+    if opts.sleep:
+        rnd = random.randint(1, int(opts.sleep)) 
+        DebugPrint(2, "Sleeping for %d seconds before proceeding." % rnd)
+        time.sleep(rnd)
+    
+    # Make sure we have an exclusive lock for this probe.
+    GratiaWrapper.ExclusiveLock()
+
     rev =  Gratia.ExtractSvnRevision("$Revision$")
     Gratia.RegisterReporter("glexec_meter.py", str(rev) + " (tag %%%RPMVERSION%%%)")
-    Gratia.Initialize()
-    sitename=Gratia.Config.get_SiteName()
-    if sitename=="generic Site":
-        raise RuntimeError,"SiteName unconfigured"
+    GratiaCore.Initialize(opts.gratia_config)
+
     cename=getCE(Gratia.Config.get_CertificateFile())
     data_dir=Gratia.Config.get_DataFolder()
-    logfile=Gratia.Config._ProbeConfiguration__getConfigAttribute('gLExecMonitorLog')
-    #logfile="/var/log/glexec/glexec_monitor.log"
-    create_lock(data_dir)
-    try:
-        last_check=load_last_check(data_dir)
-        host=get_host()
-        glexec_data=gratia_glexec_parser.parse_log(logfile,last_check+1)
-        # find out only finished jobs
-        ids=[]
-        for id in glexec_data.keys():
-            el=glexec_data[id]
-            if el.has_key('end'):
-                ids.append(id)
+    logfile=Gratia.Config.getConfigAttribute('gLExecMonitorLog')
 
-        # sort by termination time
-        ids.sort(lambda e1,e2:cmp(glexec_data[e1]['end'],glexec_data[e2]['end']))
+    last_check=load_last_check(data_dir)
+    host=get_host()
+    glexec_data=gratia_glexec_parser.parse_log(logfile,last_check+1)
+    # find out only finished jobs
+    ids=[]
+    for id in glexec_data.keys():
+        el=glexec_data[id]
+        if el.has_key('end'):
+            ids.append(id)
 
-        max_end=last_check
-        for id in ids:
-            el=glexec_data[id]
-            send_one(el,host,cename)
-            if el['end']>max_end:
-                max_end=el['end']
-                save_last_check(data_dir,max_end)
-    finally:
-        remove_lock(data_dir)
+    # sort by termination time
+    ids.sort(lambda e1,e2:cmp(glexec_data[e1]['end'],glexec_data[e2]['end']))
 
+    max_end=last_check
+    for id in ids:
+        el=glexec_data[id]
+        send_one(el,host,cename)
+        if el['end']>max_end:
+            max_end=el['end']
+            save_last_check(data_dir,max_end)
     
 if __name__== '__main__':
     main()

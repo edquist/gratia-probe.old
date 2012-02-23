@@ -373,6 +373,9 @@ class ProbeConfiguration:
             self.__DebugLevel = int(self.__getConfigAttribute('DebugLevel'))
         return self.__DebugLevel
 
+    def set_DebugLevel(self, val):
+        self.__DebugLevel = int(val)
+
     def get_LogLevel(self):
         if self.__LogLevel == None:
             val = self.__getConfigAttribute('LogLevel')

@@ -18,7 +18,6 @@ class GratiaConnector:
                                          Gratia.ExtractCvsRevision("$Revision: 1.3 $"))
 
           # Report info before sending in handshake
-          Gratia.Initialize()
 
           self._log = Logger.getLogger( 'GratiaConnector' )
 

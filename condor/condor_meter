@@ -44,10 +44,10 @@ def parse_opts():
     # Initialize Gratia
     if not opts.gratia_config or not os.path.exists(opts.gratia_config):
         raise Exception("Gratia config, %s, does not exist." % opts.gratia_config)
-    GratiaCore.Initialize(opts.gratia_config)
+    GratiaCore.Config = GratiaCore.ProbeConfiguration(opts.gratia_config)
 
     if opts.verbose:
-        GratiaCore.Config.__DebugLevel = 5
+        GratiaCore.Config.set_DebugLevel(5)
 
     if not args and not opts.condor_history:
         args = [GratiaCore.Config.getConfigAttribute("DataFolder")]
@@ -112,6 +112,8 @@ def main():
     GratiaWrapper.ExclusiveLock()
 
     register_gratia()
+    GratiaCore.Initialize(opts.gratia_config)
+
     if opts.condor_history:
         process_condor_history()
     else:
@@ -198,6 +200,10 @@ def process_history_file(logfile):
             DebugPrint(2, "Exception while converting the ClassAd to a JUR: %s" % str(e))
             continue
 
+        enteredStatus = classad.get('EnteredCurrentStatus', 0)
+        if classad.get('CompletionDate', 0) == 0:
+            classad['CompletionDate'] = enteredStatus
+
         if classad.get('CompletionDate', min_start_time) < min_start_time:
             DebugPrint(2, "Ignoring too-old job: %s (job age: %s, oldest " \
                 "acceptable age: %d)" % (str(classad.get("ClusterId", "Unknown")),
@@ -243,6 +249,10 @@ def process_history_fd(fd):
             DebugPrint(2, "Exception while converting the ClassAd to a JUR: %s" % str(e))
             continue
 
+        enteredStatus = classad.get('EnteredCurrentStatus', 0)
+        if classad.get('CompletionDate', 0) == 0:
+            classad['CompletionDate'] = enteredStatus
+
         if classad.get('CompletionDate', min_start_time) < min_start_time:
             DebugPrint(2, "Ignoring too-old job: %s (job age: %s, oldest " \
                 "acceptable age: %d)" % (str(classad.get("ClusterId", "Unknown")),
@@ -275,6 +285,8 @@ def cream_match(match, desired):
     So "normal" matching doesn't work, and we match using this function.
     """
     m = cream_re.match(match)
+    if not m:
+        return False
     hostname, port, jm = m.groups()
     match2 = "%s:%s/cream-%s" % (hostname, port, jm)
     match2 = match2.strip()

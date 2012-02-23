@@ -59,7 +59,7 @@ if __name__== "__main__":
 
 	#performs other sanity checks  
 	try:
-		GratiaCore.Initialize(config_file)
+		GratiaCore.Config = GratiaCore.ProbeConfiguration(config_file)
 		GratiaWrapper.CheckPreconditions()
 	except Exception, e:
                 log(str(e))
