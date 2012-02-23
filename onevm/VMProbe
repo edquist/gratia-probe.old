@@ -36,5 +36,6 @@ if __name__ == '__main__':
     #config=VMGratiaProbeConfig.VMGratiaProbeConfig(probe_config)
     Gratia.Initialize(probe_config)
     vmProbe=VMGratiaProbe(Gratia.Config,logger)
+    vmProbe.setVersion(sys.argv[2])
     vmProbe.process(records)
     sys.exit(0)	
