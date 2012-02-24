@@ -11,6 +11,8 @@
 #"DISK_TYPE": [None, "swap", "fs"], 
 #"IP": "192.168.154.153", "DISK_ID": ["0", "1", "2"], "DISK_SIZE": [None, "5120", "4096"], 
 #"GNAME": "docs", "STATE": "3", "CPU": "0", "ETIME": "0", "LCM_STATE": "3", 
+import time
+import sys
 
 class Record:
     def __init__(self, stime,endtime,host,state,reason):
@@ -71,13 +73,19 @@ class Record:
     
     def getStatus(self):
         return self.status
+    def dump(self):
+        print >> sys.stdout,"Start_Time: %s, End_Time: %s , Host: %s, State: %s, Reason %s, Status: %s" % (self.stime,self.endtime,self.host,
+		self.state, self.reason, self.status)
     
 class VMRecord:
     def __init__(self,jid,info):
         self.jid=jid
         self.info=info
         self.job_name=self.info["NAME"]
-        self.vcpu=self.info["VCPU"]
+	if self.info.has_key("VCPU"):
+        	self.vcpu=self.info["VCPU"]
+	else:
+		self.vcpu=0
         self.memory=self.info["MEMORY"]
         self.user_name=self.info["USERNAME"]
         self.state=self.info["STATE_STR"]
@@ -100,10 +108,10 @@ class VMRecord:
     def createRecord(self,ct, stime,etime,hn,state,reason):
         if etime != 0:
             ct=int(etime)
-        st=stime
+        st=int(stime)
         while (st+24*60*60) < ct:
             et=st+24*60*60
-            tmp=Record(st,et,hostname,"ACTIVE",0)
+            tmp=Record(st,et,hn,"ACTIVE",0)
             if tmp.isValid():
                     self.records.append(tmp)
             st=et
@@ -117,10 +125,19 @@ class VMRecord:
         if type(self.info['HISTORY_STIME'])==list:
             for i in range(len(self.info['HISTORY_STIME'])):
                 self.createRecord(ct,self.info["HISTORY_STIME"][i],self.info["HISTORY_ETIME"][i],
-                           self.info["HOSTNAME"][i],self.state,self.info['HISTORY_REASON'][i]))
+                           self.info["HOSTNAME"][i],self.state,self.info['HISTORY_REASON'][i])
         else:
+	    if not self.info.has_key('HISTORY_REASON'):
+		reason=0
+	    else:
+		reason=self.info['HISTORY_REASON']
+            if not self.info.has_key('HOSTNAME'):
+                hostname=""
+            else:
+                hostname=self.info['HOSTNAME']
+
             self.createRecord(ct,self.info["HISTORY_STIME"],self.info["HISTORY_ETIME"],
-                           self.info["HOSTNAME"],self.state,self.info['HISTORY_REASON'])
+                           hostname,self.state,reason)
                     
 
     def getRecords(self):
@@ -153,9 +170,7 @@ class VMRecord:
         return int(self.memory)*1024
     def getMachineName(self):
         return self.ip
-        
-    
- 
-
-
-        
+    def dump(self):
+        print >> sys.stdout, "JobID: %s, Job_Name: %s, VCPU: %s, Memory: %s, User_Name: %s, State: %s, IP %s" % (self.jid,self.job_name,self.vcpu,self.memory,self.user_name,self.state,self.ip)
+	for r in self.records:
+		r.dump()

@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.10
-Release:            0.6.pre%{?dist}
+Release:            0.7.pre%{?dist}
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -729,8 +729,11 @@ Gratia OSG accounting system probe for providing VM accounting.
 %{default_prefix}/gratia/onevm/onevm_probe.cron.sh
 %dir %{default_prefix}/gratia/onevm
 %{default_prefix}/gratia/onevm/ProbeConfig
-%{default_prefix}/gratia/onevm/VMProbe
+%{default_prefix}/gratia/onevm/VMGratiaProbe
 %{default_prefix}/gratia/onevm/query_one.rb
+%{default_prefix}/gratia/onevm/query_one_2.0.0
+%{default_prefix}/gratia/onevm/query_one_lite.rb
+
 %config(noreplace) %{_sysconfdir}/gratia/onevm/ProbeConfig
 %config(noreplace) %{_sysconfdir}/cron.d/gratia-probe-onevm.cron
 

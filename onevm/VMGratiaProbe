@@ -1,48 +1,51 @@
+#!/usr/bin/env python
 import gratia.common.Gratia as Gratia
 import gratia.common.GratiaCore as GratiaCore
+from gratia.common.Gratia import DebugPrint
+from gratia.onevm.OneReader import OneReader
+from gratia.onevm.VMRecord import VMRecord
+from gratia.onevm.VMGratiaProbeConfig import VMGratiaProbeConfig 
+from gratia.onevm.Checkpoint import Checkpoint 
+
 import sys
-import logging
-import VMGratiaProbeConfig
 import os
 import time
 import traceback
-from Checkpoint import Checkpoint 
-from OneReader import OneReader
 
 class VMGratiaProbe:
-    def __init__(self,config,logger):
+    def __init__(self,config,version,verbose):
+	if verbose:
+		GratiaCore.Config.set_DebugLevel(5)
         self._dataFolder=config.get_DataFolder()
-        self._log=logger
         #self._maxAge = should get from Config
         self._maxAge =365
         vmChkptFN = 'chkpt_vm_DoNotDelete'
         if  self._dataFolder != None:
             vmChkptFN = os.path.join(self._dataFolder, vmChkptFN)
         self._lastChkpt = Checkpoint(vmChkptFN, self._maxAge)
-        self.resourceType="FermiCloud-OneVM"
-        self.project="FERMICLOUD"
-    def setVersion(self,version):
 	self.version=version
+		
+        self.resourceType="FermiCloud-OneVM"
+	self.setResourceType()
+        self.project="FermiCloud"
     def getVersion(self,version):
 	return self.version
     def setResourceType(self):
-	self.resourceType=self.resourceType+self.version[0:self.version.rfind(".")]
+	self.resourceType=self.resourceType+self.version
     #check when was the last time we have run - if timestamp exist
     #if it exists 
     #send all jobs that are currently running (started and endtime=Now) 
     #send all finished jobs that since then
     def process(self,records):
-	self.setResourceType()
         current_time=time.time()
         for key,vmr in records.items():
-            print key,vmr.getMachineName()
             if not vmr.isValid():
-                   print "The machine didn't really started for some reason"
+		   DebugPrint(5,"The machine %s didn't really started for some reason" % (key))
                    continue
             recs=vmr.getRecords()    
             for i in range(len(recs)):   
                 if (recs[i].getEndTime() != None) and (0 < float(recs[i].getEndTime()) < self._lastChkpt.getLastCheckPoint()):
-		    print "Skipping VM "+key+"["+repr(i)+"]"
+		    DebugPrint(5,"Skipping record %s, %s - we have already reported that VM" % (key, i))
                     continue # we have already reported that VM
                 r = Gratia.UsageRecord()
                 r.LocalUserId(vmr.getLocalUserId())
@@ -61,14 +64,13 @@ class VMGratiaProbe:
                 r.NodeCount(1) # default to total
                 r.Processors(vmr.getNumberOfCPU(),0,"total")
                 stime=self._lastChkpt.getLastCheckPoint()
-		print "check point", time.gmtime(stime)
                 if recs[i].isRunning():
-		    print " VM "+key+"["+repr(i)+"] is running"
+		    DebugPrint(5," VM %s, %s is running" % (key, i))
                     #this is actively running VM
                     if float(recs[i].getStartTime()) >stime:
                         stime=float(recs[i].getStartTime()) #VM started after we ran
                 else:
-		    print " VM "+key+"["+repr(i)+"] is done"
+		    DebugPrint(5," VM %s, %s is done" % (key, i))
                     if float(recs[i].getStartTime()) >stime:
                         stime=float(recs[i].getStartTime()) #VM started after we ran
                 
@@ -83,28 +85,43 @@ class VMGratiaProbe:
                 r.SubmitHost(recs[i].getSubmitHost())
                 r.ProjectName(self.project)
                 r.ResourceType(self.resourceType)
-                print Gratia.Send(r)
+                Gratia.Send(r)
         self._lastChkpt.createCheckPoint(current_time)
+def parse_opts():
+    import optparse
+    parser = optparse.OptionParser(usage="%prog [options]")
+    parser.add_option("-v", "--verbose", help="Enable verbose logging to stdout.",
+        default=False, action="store_true", dest="verbose")
+    parser.add_option("-f", "--one_query_file", help="Location of the OneVM query output file; "
+        "defaults to /var/lib/gratia/data/query_one.log.", dest="one_query_file",
+        default="/var/lib/gratia/data/query_one.log")
+    parser.add_option("-c", "--gratia_config", help="Location of the Gratia config; "
+        "defaults to /etc/gratia/onevm/ProbeConfig.", dest="gratia_config",
+        default="/etc/gratia/onevm/ProbeConfig")
+    parser.add_option("-V", "--onevm_version",type="choice", help="OpenNebula version; "
+        "defaults to 3.0",choices=["2.0","3.0","3.2"], dest="version",
+        default="3.0")
+    opts, args = parser.parse_args()
+    if not opts.one_query_file or not os.path.isfile(opts.one_query_file):
+        raise Exception("One_query file, %s , does not exist." % opts.one_query_file)
+    if not opts.gratia_config or not os.path.isfile(opts.gratia_config):
+	raise Exception("Gratia config, %s, does not exist." % opts.gratia_config)
+    return opts, args
+
 if __name__ == '__main__':
-    logger = logging.getLogger("VMGratiaProbe")
-    probe_config="ProbeConfig"
-    records={}
-    try:
-        reader=OneReader(sys.argv[1])
+   try:
+	opts, dirs = parse_opts()
+      	reader=OneReader(opts.one_query_file,opts.verbose)
         reader.readFile()
         records=reader.getRecords()
-    except:
-        etype,value,trace=sys.exc_info()
-        print traceback.format_exception_only(etype, value)[0]
+	#config=VMGratiaProbeConfig.VMGratiaProbeConfig(opts.gratia_config)
+    	Gratia.Initialize(opts.gratia_config)
+    	vmProbe=VMGratiaProbe(Gratia.Config,opts.version,opts.verbose)
+    	vmProbe.process(records)
+   except Exception, e:
+      	print >> sys.stderr, str(e)
         sys.exit(1)
+   sys.exit(0)
     
-    if (len(sys.argv) > 3):
-        probe_config=sys.argv[3]
-    print probe_config
-    #config=VMGratiaProbeConfig.VMGratiaProbeConfig(probe_config)
-    Gratia.Initialize(probe_config)
-    vmProbe=VMGratiaProbe(Gratia.Config,logger)
-    vmProbe.setVersion(sys.argv[2])
-    vmProbe.process(records)
     
     

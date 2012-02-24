@@ -10,13 +10,15 @@ test -e "${_currentfile}" && cp "${_currentfile}" "${_currentfile}".`date +%s`
 echo "Start onevm dump " `date`
 #version
 _version=`onevm --version|grep ^OpenNebula|cut -d' ' -f2`
-echo "OpenNebula version $version"
+#_version=2.0.0
+echo "OpenNebula version $_version"
 if [ x${_version} == "x" ]
 then
 	_version=3.0.0
 fi
+_version=`echo ${_version%.*}`
 options=""
-if [ ${_version} == "3.0.0" ]
+if [ ${_version} == "3.0" ]
 then
 	#check if chkpt_vm_DoNotDelete exists
 	if [ ! -f ${_gratia_data_dir}/chkpt_vm_DoNotDelete ]
@@ -36,5 +38,5 @@ else
 fi
 	
 echo "End onevm dump " `date`
-python ${_gratia_dir}/onevm/VMProbe  ${_currentfile} ${_version}
+${_gratia_dir}/onevm/VMGratiaProbe  -f ${_currentfile} -V ${_version} 
 exit $?
