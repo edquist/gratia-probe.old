@@ -1,5 +1,5 @@
 #!/bin/sh
-set -x
+#set -x
 export PATH=$PATH:/usr/bin:/usr/local/bin/
 
 _gratia_dir=/usr/share/gratia
@@ -9,7 +9,7 @@ test -e "${_currentfile}" && cp "${_currentfile}" "${_currentfile}".`date +%s`
 
 echo "Start onevm dump " `date`
 #version
-_version=`onevm --version|grep ^OpenNebula|cut -d' ' -f2`
+_version=`/sbin/runuser - oneadmin -c "onevm --version|grep ^OpenNebula|cut -d' ' -f2"`
 #_version=2.0.0
 echo "OpenNebula version $_version"
 if [ x${_version} == "x" ]
@@ -33,7 +33,7 @@ then
 	/sbin/runuser - oneadmin ${options} -c ${_gratia_dir}/onevm/query_one_lite.rb -c ${_gratia_data_dir} -o "${_currentfile}"
 else
 	#get the latest vmid
-	_vmid=`onevm list -l id|sort -n|tail -1`
+	_vmid=`/sbin/runuser - oneadmin -c "onevm list -l id|sort -n|tail -1"`
 	/sbin/runuser - oneadmin -c ${_gratia_dir}/onevm/query_one_2.0.0 ${_vmid} >  "${_currentfile}"
 fi
 	
