@@ -106,9 +106,10 @@ class VMRecord:
             return True
 
     def createRecord(self,ct, stime,etime,hn,state,reason):
-        if etime != 0:
-            ct=int(etime)
+        end=int(etime)
         st=int(stime)
+        if end != 0:
+            ct=end
         while (st+24*60*60) < ct:
             et=st+24*60*60
             tmp=Record(st,et,hn,"ACTIVE",0)
@@ -116,7 +117,7 @@ class VMRecord:
                     self.records.append(tmp)
             st=et
 
-        tmp=Record(st,etime,hn,state,reason)
+        tmp=Record(st,ct,hn,state,reason)
         if tmp.isValid():
             self.records.append(tmp)
         
@@ -136,6 +137,7 @@ class VMRecord:
             else:
                 hostname=self.info['HOSTNAME']
 
+	    print "starting", self.jid, ct, self.info["HISTORY_STIME"],self.info["HISTORY_ETIME"]
             self.createRecord(ct,self.info["HISTORY_STIME"],self.info["HISTORY_ETIME"],
                            hostname,self.state,reason)
                     
