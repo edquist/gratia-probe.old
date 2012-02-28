@@ -417,7 +417,7 @@ optparse = OptionParser.new() do |opts|
     end
     
     options[:cachedir] = "/var/tmp/one-gratia-history"
-    opts.on('-c', '--cache-dir CACHEDIR', 'Cache dir. Defaults to /var/tmp/onestats') do |cachedir|
+    opts.on('-c', '--cache-dir CACHEDIR', 'Cache dir. Defaults to /var/tmp/one-gratia-history') do |cachedir|
         options[:cachedir] = cachedir
     end
     
