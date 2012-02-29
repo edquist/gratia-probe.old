@@ -30,11 +30,11 @@ then
 		let delta=${ct}-`cat ${_gratia_data_dir}/chkpt_vm_DoNotDelete`
 		options="-t ${ct} -d ${delta}"
 	fi
-	/sbin/runuser - oneadmin ${options} -c ${_gratia_dir}/onevm/query_one_lite.rb -c ${_gratia_data_dir} -o "${_currentfile}"
+	/sbin/runuser - oneadmin ${options} -c "${_gratia_dir}/onevm/query_one_lite.rb -c ${_gratia_data_dir} -o ${_currentfile}"
 else
 	#get the latest vmid
 	_vmid=`/sbin/runuser - oneadmin -c "onevm list -l id|sort -n|tail -1"`
-	/sbin/runuser - oneadmin -c ${_gratia_dir}/onevm/query_one_2.0.0 ${_vmid} >  "${_currentfile}"
+	/sbin/runuser - oneadmin -c "${_gratia_dir}/onevm/query_one_2.0.0 ${_vmid}" >  "${_currentfile}"
 fi
 	
 echo "End onevm dump " `date`

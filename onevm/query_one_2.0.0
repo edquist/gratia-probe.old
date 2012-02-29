@@ -9,7 +9,7 @@ from gratia.onevm.opennebula.scheduler import OneQueue
 
 def main(argv):
 
-    last_vm_id = 1800
+    last_vm_id = 5000
     if len(argv) == 2:
         last_vm_id = int(argv[1])
     q = OneQueue(socket.gethostname())
