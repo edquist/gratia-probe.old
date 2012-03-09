@@ -124,6 +124,7 @@ class ProbeConfiguration:
     __UserVOMapFile = None
     __FilenameFragment = None
     __CertInfoLogPattern = None
+    __VOOverride = None
 
     def __init__(self, customConfig='ProbeConfig'):
         if os.path.exists(customConfig):
@@ -557,6 +558,21 @@ class ProbeConfiguration:
             return 900
         else:
             return int(val)    
+
+    def get_VOOverride(self):
+        # Get the VOOverride, which can be 'None', therefore using the 
+        # probe's detected VO
+        if self.__VOOverride == None:
+            self.__VOOverride = self.__getConfigAttribute('VOOverride')
+
+        return self.__VOOverride
+
+    def get_MapGroupToRole(self):
+        if self.__getConfigAttribute('MapGroupToRole') == "1":
+            return True
+        else:
+            return False
+
 
 
 class Response:
@@ -2173,6 +2189,7 @@ class Record(object):
         self.__GridDescription = r''
         self.RecordData = []
         self.TransientInputFiles = []
+        self.__VOOverrid = Config.get_VOOverride()
 
     def Print(self):
         DebugPrint(3, 'Usage Record: ', self)
@@ -3808,12 +3825,21 @@ def CheckAndExtendUserIdentity(
         vo_info = VOfromUser(LocalUserId)
         if Config.get_MapUnknownToGroup() and not vo_info:
             fromuserid = LocalUserId
+            groupid = "unknown"
             try:
                 gid = pwd.getpwnam(LocalUserId)[3]
                 fromuserid = grp.getgrgid(gid)[0]
+                groupid = fromuserid
             except:
                 pass
-            vo_info = {'VOName': fromuserid, 'ReportableVOName': fromuserid}
+
+            # Check the differen VO mapping methods
+            if Config.get_MapGroupToRole() and Config.get_VOOverride():
+                vo_info = {'VOName': "/%s/LocalGroup=%s" % (Config.get_VOOverride(), groupid), 'ReportableVOName': Config.get_VOOverride()}
+            elif Config.get_VOOverride():
+                vo_info = {'VOName': Config.get_VOOverride(), 'ReportableVOName': Config.get_VOOverride()}
+            else:
+                vo_info = {'VOName': fromuserid, 'ReportableVOName': fromuserid}
 
     # Resolve.
 

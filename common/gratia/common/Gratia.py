@@ -155,6 +155,8 @@ class UsageRecord(Record):
 
     def LocalUserId(self, value):
         self.UserId = self.AddToList(self.UserId, 'LocalUserId', r'', value)
+        if Config.get_MapGroupToRole() and Config.get_VOOverride():
+            self.DN("/OU=LocalUser/CN=%s" % value)
 
     def UserKeyInfo(self, value):  # NB This is deprecated in favor of DN, below.
         ''' Example:
@@ -178,12 +180,21 @@ class UsageRecord(Record):
         self.UserId = self.AddToList(self.UserId, 'DN', r'', value)
 
     def VOName(self, value):
-        self.UserId = self.AddToList(self.UserId, 'VOName', r'', value)
+        override = Config.get_VOOverride()
+        if override:
+            self.UserId = self.AddToList(self.UserId, 'VOName', r'', override)
+        else:
+            self.UserId = self.AddToList(self.UserId, 'VOName', r'', value)
 
     def ReportableVOName(self, value):
         ''' Set reportable VOName'''
 
-        self.UserId = self.AddToList(self.UserId, 'ReportableVOName', r'', value)
+        override = Config.get_VOOverride()
+
+        if override:
+            self.UserId = self.AddToList(self.UserId, 'ReportableVOName', r'', override)
+        else:
+            self.UserId = self.AddToList(self.UserId, 'ReportableVOName', r'', value)
 
     def JobName(self, value, description=r''):
         self.RecordData = self.AddToList(self.RecordData, 'JobName', self.Description(description), value)
