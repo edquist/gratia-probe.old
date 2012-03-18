@@ -1,4 +1,4 @@
-#!/usr//bin/python
+#!/usr/bin/python
 # cron-check 
 # checks if 
 #    gratia probes service is on
