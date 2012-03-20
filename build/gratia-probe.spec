@@ -714,7 +714,7 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
-* Mon March 18, 2012 Tanya Levshina <tlevshin@fnal.gov> - 1.10-0.8.pre
+* Mon Mar 18, 2012 Tanya Levshina <tlevshin@fnal.gov> - 1.10-0.8.pre
 - VOOverride feature for campus grid usage https://jira.opensciencegrid.org/browse/GRATIA-57 - Derek Weitzel
 - cron_check header fix
 
