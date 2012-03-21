@@ -236,7 +236,7 @@ def process_history_fd(fd):
     for classad in fd_to_classad(fd):
         count_found += 1
         if not classad:
-            DebugPrint(5, "Ignoring empty classad from file: %s" % logfile)
+            DebugPrint(5, "Ignoring empty classad from file: %s" % fd.name)
             continue
 
         try:
