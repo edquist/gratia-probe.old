@@ -26,6 +26,19 @@ checkEnabledProbes() {
 	done
 	echo 1
 }
+
+printProbeStatus() {
+    for name in `ls -1 /etc/cron.d/gratia-probe*cron`; do
+        shortname=`echo $name|basename $name|sed 's/gratia-probe-//'|sed 's/.cron//'`
+        grep "EnableProbe.*=.*1" /etc/gratia/$shortname/ProbeConfig >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            echo "    $shortname probe: Enabled"
+        else
+            echo "    $shortname probe: Disabled"
+        fi
+    done
+}
+
 start() {
 	isEnabled=`checkEnabledProbes`
         if [ $isEnabled -eq 0 ]
@@ -39,7 +52,7 @@ start() {
 }
 
 stop() {
-       	action $"Disabling gratia probes cron:" rm "$lockfile"
+       	action $"Disabling gratia probes cron:" rm -f "$lockfile"
 	RETVAL=$?
 }
 
@@ -48,15 +61,14 @@ restart() {
 	start
 }
 status() {
-		if [ -f $lockfile ]
-		then
-                	echo "gratia probes cron is enabled."
-			RETVAL=0
-		else
-                	echo "gratia probes cron is disabled."
-			RETVAL=3
-		fi
-
+    if [ -f $lockfile ]; then
+        echo "gratia probes cron is enabled."
+        RETVAL=0
+        printProbeStatus
+    else
+        echo "gratia probes cron is disabled."
+        RETVAL=3
+    fi
 }
 case $1  in
   start)
