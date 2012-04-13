@@ -79,7 +79,10 @@ class Record:
     
 class VMRecord:
     def __init__(self,jid,info):
-        self.jid=jid
+ 	if type(jid)== int:
+ 		self.jid=repr(jid)
+ 	else:
+         	self.jid=jid
         self.info=info
         self.job_name=self.info["NAME"]
 	if self.info.has_key("VCPU"):
@@ -106,16 +109,22 @@ class VMRecord:
             return True
 
     def createRecord(self,ct, stime,etime,hn,state,reason):
+	from datetime import date
+ 	if (stime == None):
+ 		return
         end=int(etime)
         st=int(stime)
+	d=date.fromtimestamp(st)
+        et=time.mktime(time.strptime("%s %s %s %s %s %s" % (d.year,d.month,d.day,23,59,59),'%Y %m %d %H %M %S'))
         if end != 0:
             ct=end
-        while (st+24*60*60) < ct:
-            et=st+24*60*60
+		
+        while et < ct:
             tmp=Record(st,et,hn,"ACTIVE",0)
             if tmp.isValid():
                     self.records.append(tmp)
             st=et
+            et=st+24*60*60
 
         tmp=Record(st,ct,hn,state,reason)
         if tmp.isValid():

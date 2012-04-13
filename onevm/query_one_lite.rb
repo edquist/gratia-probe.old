@@ -364,6 +364,15 @@ end #OpenNebulaVirtualMachine
 # Custom Functions
 ##############################################################################
 
+def format_results(vms)
+    ovms = {}
+    vms.each_key() do |id|
+        ovms[id] = vms[id].info
+    end
+    return ovms.inspect().gsub("=>", ": ").gsub("nil", "None")
+end
+
+
 def output_results(results, file)
     outfile = File.new(file, "w")
     old = $stdout
@@ -526,7 +535,7 @@ while 1
     id += 1
 end
 
-output_results(vms.inspect().gsub("=>", ": ").gsub("nil", "None"), outputfile)
+output_results(format_results(vms), outputfile)
 
 result_cache = OpenNebulaSensorCache.new(rtime=Time.now().to_i(), 
                                          stime=stime, etime=etime, 
@@ -535,6 +544,8 @@ result_cache = OpenNebulaSensorCache.new(rtime=Time.now().to_i(),
 cache_manager.store(result_cache)
 
 
+# HACK
+exit 0
 
 ###############################################################################
 # Print Short Runtime Report to stdout

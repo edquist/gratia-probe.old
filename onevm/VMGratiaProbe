@@ -24,14 +24,10 @@ class VMGratiaProbe:
             vmChkptFN = os.path.join(self._dataFolder, vmChkptFN)
         self._lastChkpt = Checkpoint(vmChkptFN, self._maxAge)
 	self.version=version
-		
-        self.resourceType="FermiCloud-OneVM"
-	self.setResourceType()
+        self.resourceType="OneVM"
         self.project="FermiCloud"
     def getVersion(self,version):
 	return self.version
-    def setResourceType(self):
-	self.resourceType=self.resourceType+self.version
     #check when was the last time we have run - if timestamp exist
     #if it exists 
     #send all jobs that are currently running (started and endtime=Now) 
@@ -85,6 +81,7 @@ class VMGratiaProbe:
                 r.SubmitHost(recs[i].getSubmitHost())
                 r.ProjectName(self.project)
                 r.ResourceType(self.resourceType)
+		r.AdditionalInfo("Version",self.version)
                 Gratia.Send(r)
         self._lastChkpt.createCheckPoint(current_time)
 def parse_opts():
