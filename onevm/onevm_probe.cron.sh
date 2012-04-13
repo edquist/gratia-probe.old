@@ -27,7 +27,7 @@ then
 		options="-a"
 	else
 		ct=`date +%s`
-		let delta=${ct}-`cat ${_gratia_data_dir}/chkpt_vm_DoNotDelete`
+		let delta=${ct}-`cut -d'.' -f 1 /var/lib/gratia/data/chkpt_vm_DoNotDelete`
 		options="-t ${ct} -d ${delta}"
 	fi
 	/sbin/runuser - oneadmin -c "${_gratia_dir}/onevm/query_one_lite.rb ${options} -c ${_gratia_data_dir} -o ${_currentfile}"
