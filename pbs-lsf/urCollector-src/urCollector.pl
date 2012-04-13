@@ -1351,6 +1351,9 @@ sub parseUR_pbs {
       } elsif ( $record_field =~ /^Resource_List\.nodes=(\d+)(?::(\d+))/o ) {
          $urAcctlogInfo{nodes} = ${1} * ( ${2} || 1 );
          next;
+      } elsif ( $record_field =~ /^Resource_List\.nodes=(\d+):ppn=(\d+)/o ) {
+         $urAcctlogInfo{nodes} = ${1} * ( ${2} || 1 );
+         next;
       } elsif ( $record_field =~ /^Resource_List\.ncpus=(\d+)/o ) {
          $urAcctlogInfo{cores} = ${1};
          next;
