@@ -1,8 +1,8 @@
 Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
-Version:            1.10
-Release:            11.pre%{?dist}
+Version:            1.12
+Release:            1.pre%{?dist}
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -714,6 +714,9 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
+* Mon Apr 23  2012 Tanya Levshina <tlevshin@fnal.gov> - 1.12-1.pre
+- No changes pre-production release with gratia service
+
 * Mon Apr 16  2012 Tanya Levshina <tlevshin@fnal.gov> - 1.10-11.pre
 - Incorporated fix to PBS probe provided by Derek Weitzel  https://jira.opensciencegrid.org/browse/GRATIA-63
 
