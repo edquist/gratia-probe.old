@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.12
-Release:            1%{?dist}
+Release:            5.pre%{?dist}
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -714,6 +714,10 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
+* Tue May 8 2012 Hyunwoo Kim <hyunwoo@fnal.gov> - 1.12-5pre
+- Modified GratiaCore.py GenerateFilename to remove Config.getFilenameFragment()
+- so that we can simplify temp filenames https://jira.opensciencegrid.org/browse/GRATIA-61
+
 * Mon Apr 23  2012 Tanya Levshina <tlevshin@fnal.gov> - 1.12-1
 - No changes production release with gratia service 1.12
 

@@ -1968,8 +1968,7 @@ def SearchOutstandingRecord():
 
 def GenerateFilename(prefix, current_dir):
     '''Generate a filename of the for current_dir/prefix.$pid.ConfigFragment.gratia.xml__Unique'''
-
-    filename = prefix + str(RecordPid) + '.' + Config.getFilenameFragment() + '.' + Config.get_GratiaExtension() \
+    filename = prefix + str(RecordPid) + '.' + Config.get_GratiaExtension() \
         + '__XXXXXXXXXX'
     filename = os.path.join(current_dir, filename)
     mktemp_pipe = os.popen('mktemp -q "' + filename + '"')
