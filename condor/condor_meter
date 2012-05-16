@@ -9,6 +9,7 @@ import re
 import sys
 import time
 import random
+import os.path
 import optparse
 
 from gratia.common.Gratia import DebugPrint
@@ -21,6 +22,9 @@ prog_revision = '$Revision$'
 max_batch_size = 500
 
 min_start_time = time.time() - 120*86400
+
+class IgnoreClassadException(Exception):
+    pass
 
 def parse_opts():
 
@@ -196,6 +200,10 @@ def process_history_file(logfile):
             raise
         except SystemExit:
             raise
+        except IgnoreClassadException, e:
+            DebugPrint(3, "Ignoring ClassAd: %s" % str(e))
+            count_submit += 1
+            continue
         except Exception, e:
             DebugPrint(2, "Exception while converting the ClassAd to a JUR: %s" % str(e))
             continue
@@ -245,6 +253,10 @@ def process_history_fd(fd):
             raise
         except SystemExit:
             raise
+        except IgnoreClassadException, e:
+            DebugPrint(3, "Ignoring ClassAd: %s" % str(e))
+            count_submit += 1
+            continue
         except Exception, e:
             DebugPrint(2, "Exception while converting the ClassAd to a JUR: %s" % str(e))
             continue
@@ -338,8 +350,12 @@ def classadToJUR(classad):
 
     if 'ClusterId' not in classad:
         DebugPrint(2, "No data passed to classadToJUR: %s" % str(classad))
-        return 0
+        raise Exception("No data passed to classadToJUR: %s" % str(classad))
     DebugPrint(5, "Creating JUR for %s" % classad['ClusterId'])
+
+    cmd = os.path.split(classad.get("Cmd", "foo"))[-1]
+    if cmd == "condor_dagman":
+        raise IgnoreClassadException("Ignoring classad for condor_dagman monitor.")
 
     resource_type = "Batch"
     if classad.get("GridMonitorJob", False):
