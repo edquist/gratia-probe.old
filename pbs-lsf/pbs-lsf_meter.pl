@@ -71,7 +71,8 @@ if ($lrms_version) {
                    $lrms_version);
 } else {
   $status = system("/usr/share/gratia/pbs-lsf/pbs-lsf",
-                   "$configValues{URBox}", $lrms);
+                   "$configValues{URBox}",
+                   $lrms);
 }
 
 exit($status);
