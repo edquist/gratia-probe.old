@@ -2,17 +2,25 @@
 
 ## Updated by Brian Bockelman, University of Nebraska-Lincoln (http://rcf.unl.edu)
 
+import time
 import types
+import socket
+import xml.dom.minidom
 
-from gratia.common.GratiaCore import *
+import gratia.common.global_state as global_state
+import gratia.common.xml_utils as xml_utils
+import gratia.common.record as record
+import gratia.common.utils as utils
 
-class Subcluster(Record):
+from gratia.common.debug import DebugPrint
+
+class Subcluster(record.Record):
     "Base class for the Gratia Subcluster"
 
     def __init__(self):
         # Initializer
         super(self.__class__, self).__init__()
-        DebugPrint(0, "Creating a Subcluster Record"+TimeToString())
+        DebugPrint(0, "Creating a Subcluster Record"+utils.TimeToString())
 
     def Print(self):
         DebugPrint(1, "Subcluster: ", self)
@@ -25,7 +33,6 @@ class Subcluster(Record):
         super(self.__class__, self).XmlAddMembers()
 
     def XmlCreate(self):
-        global RecordId
 
         self.XmlAddMembers()
 
@@ -35,8 +42,8 @@ class Subcluster(Record):
 
         # Add the record indentity
         self.XmlData.append("<RecordIdentity urwg:recordId=\""+socket.getfqdn()+":"+
-                            str(RecordPid)+"."+str(RecordId)+"\" urwg:createTime=\""+TimeToString(time.gmtime())+"\" />\n")
-        RecordId = RecordId + 1
+                            str(global_state.RecordPid)+"."+str(record.RecordId)+"\" urwg:createTime=\""+utils.TimeToString(time.gmtime())+"\" />\n")
+        record.RecordId += 1
 
         for data in self.RecordData:
             self.XmlData.append("\t")
@@ -82,7 +89,7 @@ class Subcluster(Record):
         if isinstance(value, types.StringType):
             realvalue = value
         else:
-            realvalue = TimeToString(time.gmtime(value))
+            realvalue = utils.TimeToString(time.gmtime(value))
         self.AppendToList(self.RecordData, "Timestamp", "", realvalue)
         
     def Cores(self, value):
@@ -153,11 +160,9 @@ def SubclusterCheckXmldoc(xmlDoc, external, resourceType = None):
                 prefix = child.prefix + ":"
                 break
                                
-        StandardCheckXmldoc(xmlDoc, subClusterNode, external, prefix)
+        xml_utils.StandardCheckXmldoc(xmlDoc, subClusterNode, external, prefix)
             
     return len(getSubclusters(xmlDoc))
 
-XmlRecordCheckers.append(SubclusterCheckXmldoc)
+xml_utils.XmlChecker.AddChecker(SubclusterCheckXmldoc)
 
-
-         

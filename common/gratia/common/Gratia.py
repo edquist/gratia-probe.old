@@ -6,66 +6,55 @@
 Gratia Job Usage Record Library
 """
 
+#pylint: disable=W0611
+
 import gratia.common.GratiaCore as GratiaCore
 import re
 import socket
-import string
 import time
-import xml
 
 # For Backward compatibility
-from gratia.common.GratiaCore import Send
-from gratia.common.GratiaCore import SendStatus
-from gratia.common.GratiaCore import SendXMLFiles
-from gratia.common.GratiaCore import Reprocess
-from gratia.common.GratiaCore import ProcessBundle
-from gratia.common.GratiaCore import DebugPrint
-from gratia.common.GratiaCore import DebugPrintTraceback
-from gratia.common.GratiaCore import Error
+from gratia.common.send import Send
+from gratia.common.send import SendXMLFiles
+from gratia.common.reprocess import Reprocess
+from gratia.common.bundle import ProcessBundle
+from gratia.common.debug import DebugPrint, DebugPrintTraceback, Error
 
-from gratia.common.GratiaCore import ProbeConfiguration
-from gratia.common.GratiaCore import Record
-from gratia.common.GratiaCore import ProbeDetails
+from gratia.common.probe_config import ProbeConfiguration
+from gratia.common.probe_details import ProbeDetails
 from gratia.common.GratiaCore import TimeToString
 from gratia.common.GratiaCore import escapeXML
-from gratia.common.GratiaCore import Mkdir
 
-class ConfigProxy:
-    def __getattr__(self, attrname):
-        return getattr(GratiaCore.Config, attrname)
+from gratia.common.config import ConfigProxy
+
+import gratia.common.record as record
+import gratia.common.global_state as global_state
+import gratia.common.vo as vo
 
 class BundleProxy:
     def __getattr__(self, attrname):
-        return getattr(GratiaCore.CurrentBundle, attrname)
+        return getattr(global_state.CurrentBundle, attrname)
 
 class RecordPidProxy:
     def __str__(self):
-        return str(GratiaCore.RecordPid)
+        return str(global_state.RecordPid)
       
 Config = ConfigProxy()
 CurrentBundle = BundleProxy()
 RecordPid = RecordPidProxy()
 
-from gratia.common.GratiaCore import XmlRecordCheckers
-
-from gratia.common.GratiaCore import StandardCheckXmldoc
-from gratia.common.GratiaCore import RegisterReporterLibrary
-from gratia.common.GratiaCore import RegisterReporter
-from gratia.common.GratiaCore import RegisterService
-from gratia.common.GratiaCore import ExtractCvsRevision
-from gratia.common.GratiaCore import ExtractCvsRevisionFromFile
-from gratia.common.GratiaCore import ExtractSvnRevision
-from gratia.common.GratiaCore import ExtractSvnRevisionFromFile
+from gratia.common.probe_details import RegisterReporterLibrary, RegisterReporter, RegisterService
 from gratia.common.GratiaCore import Initialize
 from gratia.common.GratiaCore import Maintenance
-from gratia.common.GratiaCore import setProbeBatchManager
-from gratia.common.GratiaCore import pythonVersionRequire
+from gratia.common.utils import setProbeBatchManager
+
+from gratia.common.utils import ExtractCvsRevision, ExtractCvsRevisionFromFile, ExtractSvnRevision, ExtractSvnRevisionFromFile
 
 
 # Privates globals
 
 
-class UsageRecord(Record):
+class UsageRecord(record.Record):
 
     '''Base class for the Gratia Usage Record'''
 
@@ -402,8 +391,8 @@ class UsageRecord(Record):
         description=r'',
         servicetype=r'' # Obsolete use serviceLevelType instead.
         ):
-        if ( serviceLevelType == r'' ) :
-           serviceLevelType = servicetype
+        if serviceLevelType == r'':
+            serviceLevelType = servicetype
         self.AppendToList(self.RecordData, 'ServiceLevel', self.Type(servicetype) + self.Description(description),
                           str(value))
 
@@ -459,7 +448,7 @@ class UsageRecord(Record):
 
         # Obtain user->VO info from reverse gridmap file.
 
-        vo_info = GratiaCore.VOfromUser(id_info['LocalUserId']['Value'])
+        vo_info = vo.VOfromUser(id_info['LocalUserId']['Value'])
         if vo_info != None:
 
             # If we already have one of the two, update both to remain consistent.
@@ -488,9 +477,9 @@ class UsageRecord(Record):
 
         # Add the record indentity
 
-        self.XmlData.append('<RecordIdentity urwg:recordId="' + socket.getfqdn() + ':' + str(RecordPid) + '.'
-                            + str(GratiaCore.RecordId) + '" urwg:createTime="' + TimeToString(time.gmtime()) + '" />\n')
-        GratiaCore.RecordId = GratiaCore.RecordId + 1
+        self.XmlData.append('<RecordIdentity urwg:recordId="' + socket.getfqdn() + ':' + str(global_state.RecordPid) + '.'
+                            + str(record.RecordId) + '" urwg:createTime="' + TimeToString(time.gmtime()) + '" />\n')
+        record.RecordId += 1
  
         if len(self.JobId) > 0:
             self.XmlData.append('<JobIdentity>\n')
@@ -514,157 +503,15 @@ class UsageRecord(Record):
             self.XmlData.append('\n')
         self.XmlData.append('</JobUsageRecord>\n')
 
-def getUsageRecords(xmlDoc):
-    if not xmlDoc.documentElement:  # Major problem
-        return []
-    namespace = xmlDoc.documentElement.namespaceURI
-    return xmlDoc.getElementsByTagNameNS(namespace, 'UsageRecord') + xmlDoc.getElementsByTagNameNS(namespace,
-            'JobUsageRecord')
 
-def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
-    '''Fill in missing field in the xml document if needed'''
-
-    DebugPrint(4, 'DEBUG: In UsageCheckXmldoc')
-    DebugPrint(4, 'DEBUG: Checking xmlDoc integrity')
-    if not xmlDoc.documentElement:  # Major problem
-        return 0
-    DebugPrint(4, 'DEBUG: Checking xmlDoc integrity: OK')
-    DebugPrint(4, 'DEBUG: XML record to send: \n' + xmlDoc.toxml())
-
-    # Local namespace
-
-    namespace = xmlDoc.documentElement.namespaceURI
-
-    # Loop over (posibly multiple) jobUsageRecords
-
-    DebugPrint(4, 'DEBUG: About to examine individual UsageRecords')
-    for usageRecord in getUsageRecords(xmlDoc):
-        DebugPrint(4, 'DEBUG: Examining UsageRecord')
-        DebugPrint(4, 'DEBUG: Looking for prefix')
-
-        # Local namespace and prefix, if any
-
-        prefix = r''
-        for child in usageRecord.childNodes:
-            if child.nodeType == xml.dom.minidom.Node.ELEMENT_NODE and child.prefix:
-                prefix = child.prefix + ':'
-                break
-
-        DebugPrint(4, 'DEBUG: Looking for prefix: ' + prefix)
-
-        GratiaCore.StandardCheckXmldoc(xmlDoc, usageRecord, external, prefix)
-
-        # Add ResourceType if appropriate
-
-        if external and resourceType != None:
-            DebugPrint(4, 'DEBUG: Adding missing resourceType ' + str(resourceType))
-            GratiaCore.AddResourceIfMissingKey(
-                xmlDoc,
-                usageRecord,
-                namespace,
-                prefix,
-                'ResourceType',
-                resourceType,
-                )
-
-        # Identity info check
-
-        VOName = None
-        id_info = {}
-
-        DebugPrint(4, 'DEBUG: Finding userIdentityNodes')
-        userIdentityNodes = usageRecord.getElementsByTagNameNS(namespace, 'UserIdentity')
-        DebugPrint(4, 'DEBUG: Finding userIdentityNodes (processing)')
-        if not userIdentityNodes:
-            DebugPrint(4, 'DEBUG: Finding userIdentityNodes: 0')
-            [jobIdType, jobId] = GratiaCore.FindBestJobId(usageRecord, namespace)
-            DebugPrint(0, 'Warning: no UserIdentity block in ' + jobIdType + ' ' + jobId)
-        else:
-            try:
-                DebugPrint(4, 'DEBUG: Finding userIdentityNodes (processing 2)')
-                DebugPrint(4, 'DEBUG: Finding userIdentityNodes: ' + str(userIdentityNodes.length))
-                if userIdentityNodes.length > 1:
-                    [jobIdType, jobId] = GratiaCore.FindBestJobId(usageRecord, namespace)
-                    DebugPrint(0, 'Warning: too many UserIdentity blocks  in ' + jobIdType + ' ' + jobId)
-
-                DebugPrint(4, 'DEBUG: Call CheckAndExtendUserIdentity')
-                id_info = GratiaCore.CheckAndExtendUserIdentity(xmlDoc, userIdentityNodes[0], namespace, prefix)
-                DebugPrint(4, 'DEBUG: Call CheckAndExtendUserIdentity: OK')
-                ResourceType = GratiaCore.FirstResourceMatching(xmlDoc, usageRecord, namespace, prefix, 'ResourceType')
-                DebugPrint(4, 'DEBUG: Read ResourceType as ' + str(ResourceType))
-                if Config.get_NoCertinfoBatchRecordsAreLocal() and ResourceType and ResourceType == 'Batch' \
-                    and not (id_info.has_key('has_certinfo') and id_info['has_certinfo']):
-
-                    # Set grid local
-
-                    DebugPrint(4, 'DEBUG: no certinfo: setting grid to Local')
-                    GratiaCore.UpdateOrInsertElement(
-                        xmlDoc,
-                        usageRecord,
-                        namespace,
-                        prefix,
-                        'Grid',
-                        'Local',
-                        )
-                if id_info.has_key('VOName'):
-                    VOName = id_info['VOName']
-            except Exception, e:
-                DebugPrint(0, 'DEBUG: Caught exception: ', e)
-                DebugPrintTraceback()
-                raise
-
-        # If we are trying to handle only GRID jobs, optionally suppress records.
-        #
-        # Order of preference from the point of view of data integrity:
-        #
-        # 1. With grid set to Local (modern condor probe (only) detects
-        # attribute inserted in ClassAd by Gratia JobManager patch found
-        # in OSG 1.0+).
-        #
-        # 2, Missing DN (preferred, but requires JobManager patch and
-        # could miss non-delegated WS jobs).
-        #
-        # 3. A null or unknown VOName (prone to suppressing jobs we care
-        # about if osg-user-vo-map.txt is not well-cared-for).
-
-        reason = None
-        grid = GratiaCore.GetElement(xmlDoc, usageRecord, namespace, prefix, 'Grid')
-        if Config.get_SuppressgridLocalRecords() and grid and string.lower(grid) == 'local':
-
-            # 1
-
-            reason = 'Grid == Local'
-        elif Config.get_SuppressNoDNRecords() and not usageRecord.getElementsByTagNameNS(namespace, 'DN'):
-
-            # 2
-
-            reason = 'missing DN'
-        elif Config.get_SuppressUnknownVORecords() and (not VOName or VOName == 'Unknown'):
-
-            # 3
-
-            reason = 'unknown or null VOName'
-
-        if reason:
-            [jobIdType, jobId] = GratiaCore.FindBestJobId(usageRecord, namespace)
-            DebugPrint(0, 'Info: suppressing record with ' + jobIdType + ' ' + jobId + ' due to ' + reason)
-            usageRecord.parentNode.removeChild(usageRecord)
-            usageRecord.unlink()
-            continue
-
-    return len(getUsageRecords(xmlDoc))
+def LocalJobId(myrecord, value):
+    myrecord.LocalJobId(value)
 
 
-def LocalJobId(record, value):
-    record.LocalJobId(value)
+def GlobalJobId(myrecord, value):
+    myrecord.GlobalJobId(value)
 
 
-def GlobalJobId(record, value):
-    record.GlobalJobId(value)
-
-
-def ProcessJobId(record, value):
-    record.ProcessJobId(value)
-
-XmlRecordCheckers.append(UsageCheckXmldoc)
+def ProcessJobId(myrecord, value):
+    myrecord.ProcessJobId(value)
 

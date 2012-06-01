@@ -3,9 +3,18 @@
 ## Updated by Arvind Gopu, Indiana University (http://peart.ucs.indiana.edu)
 ## More Updates by Arvind Gopu 2007-10-19
 
-from gratia.common.GratiaCore import *
+import time
+import socket
+import xml.dom.minidom
 
-class MetricRecord(Record):
+import gratia.common.xml_utils as xml_utils
+import gratia.common.record as record
+import gratia.common.utils as utils
+import gratia.common.global_state as global_state
+
+from gratia.common.debug import DebugPrint
+
+class MetricRecord(record.Record):
     """
     Base class for the Gratia Metric Record
     See https://twiki.cern.ch/twiki/bin/view/LCG/GridMonitoringProbeSpecification for information of the information content
@@ -14,7 +23,7 @@ class MetricRecord(Record):
     def __init__(self):
         # Initializer
         super(self.__class__, self).__init__()
-        DebugPrint(1, "Creating a metric Record "+TimeToString())
+        DebugPrint(1, "Creating a metric Record "+utils.TimeToString())
 
     def Print(self) :
         DebugPrint(3, "Metric Record: ", self)
@@ -27,7 +36,6 @@ class MetricRecord(Record):
         super(self.__class__, self).XmlAddMembers()
 
     def XmlCreate(self):
-        global RecordId
 
         self.XmlAddMembers()
 
@@ -37,8 +45,8 @@ class MetricRecord(Record):
 
         # Add the record indentity
         self.XmlData.append("<RecordIdentity urwg:recordId=\""+socket.getfqdn()+":"+
-                            str(RecordPid)+"."+str(RecordId)+"\" urwg:createTime=\""+TimeToString(time.gmtime())+"\" />\n")
-        RecordId = RecordId + 1
+                            str(global_state.RecordPid)+"."+str(record.RecordId)+"\" urwg:createTime=\""+utils.TimeToString(time.gmtime())+"\" />\n")
+        record.RecordId += 1
 
         for data in self.RecordData:
             self.XmlData.append("\t")
@@ -67,8 +75,10 @@ class MetricRecord(Record):
         The time the metric was gathered
         Expressed in number of second since epoch or a string formated using the format xsd:dateTime.
         """
-        if type(value)==str : realvalue = value
-        else : realvalue = TimeToString(time.gmtime(value))
+        if type(value)==str:
+            realvalue = value
+        else:
+            realvalue = utils.TimeToString(time.gmtime(value))
 #        self.AppendToList(self.RecordData,   "Timestamp",   self.Type(timetype)+self.Description(description),   realvalue)
         self.AppendToList(self.RecordData,   "Timestamp",   "",   realvalue)
         
@@ -133,11 +143,11 @@ def MetricCheckXmldoc(xmlDoc, external, resourceType = None):
                 prefix = child.prefix + ":"
                 break
                                
-        StandardCheckXmldoc(xmlDoc, metricRecord, external, prefix)
+        xml_utils.StandardCheckXmldoc(xmlDoc, metricRecord, external, prefix)
             
     return len(getMetricRecords(xmlDoc))
 
-XmlRecordCheckers.append(MetricCheckXmldoc)
+xml_utils.XmlChecker.AddChecker(MetricCheckXmldoc)
 
 
          

@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 
 import gratia.common.Gratia as Gratia
-
+import gratia.common.GratiaCore as GratiaCore
+import gratia.common.probe_details as probe_details
+import gratia.common.utils as utils
+import gratia.common.send as send
 
 class Simple:
         "A simple example class"
@@ -56,10 +59,10 @@ def GetRecord(jobid = 0):
 
 if __name__ == '__main__': 
         rev = "$Revision$"
-        Gratia.RegisterReporterLibrary("samplemeter.py",Gratia.ExtractSvnRevision(rev))
+        probe_details.RegisterReporterLibrary("samplemeter.py",utils.ExtractSvnRevision(rev))
         
-        Gratia.Initialize()
+        GratiaCore.Initialize()
 
         for i in range(10):
                 r = GetRecord(i)
-                Gratia.Send(r)
+                send.Send(r)

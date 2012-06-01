@@ -2,17 +2,25 @@
 
 ## Updated by Brian Bockelman, University of Nebraska-Lincoln (http://rcf.unl.edu)
 
+import time
 import types
+import socket
+import xml.dom.minidom
 
-from gratia.common.GratiaCore import *
+import gratia.common.global_state as global_state
+import gratia.common.xml_utils as xml_utils
+import gratia.common.record as record
+import gratia.common.utils as utils
 
-class ComputeElementRecord(Record):
+from gratia.common.debug import DebugPrint
+
+class ComputeElementRecord(record.Record):
     "Base class for the Gratia ComputeElementRecord"
 
     def __init__(self):
         # Initializer
         super(self.__class__,self).__init__()
-        DebugPrint(0,"Creating a ComputeElementRecord Record"+TimeToString())
+        DebugPrint(0,"Creating a ComputeElementRecord Record"+utils.TimeToString())
 
     def Print(self):
         DebugPrint(1,"ComputeElementRecord: ",self)
@@ -23,7 +31,6 @@ class ComputeElementRecord(Record):
         super(self.__class__,self).XmlAddMembers()
 
     def XmlCreate(self):
-        global RecordId
 
         self.XmlAddMembers()
 
@@ -33,8 +40,8 @@ class ComputeElementRecord(Record):
 
         # Add the record indentity
         self.XmlData.append("<RecordIdentity urwg:recordId=\""+socket.getfqdn()+":"+
-                            str(RecordPid)+"."+str(RecordId)+"\" urwg:createTime=\""+TimeToString(time.gmtime())+"\" />\n")
-        RecordId = RecordId + 1
+                            str(global_state.RecordPid)+"."+str(record.RecordId)+"\" urwg:createTime=\""+utils.TimeToString(time.gmtime())+"\" />\n")
+        record.RecordId += 1
 
         for data in self.RecordData:
             self.XmlData.append("\t")
@@ -58,7 +65,7 @@ class ComputeElementRecord(Record):
         if isinstance(value, types.StringType):
             realvalue = value
         else:
-            realvalue = TimeToString(time.gmtime(value))
+            realvalue = utils.TimeToString(time.gmtime(value))
         self.AppendToList(self.RecordData, "Timestamp", "", realvalue)
         
     def RunningJobs(self,value):
@@ -102,11 +109,9 @@ def ComputeElementRecordCheckXmldoc(xmlDoc,external,resourceType = None):
                 prefix = child.prefix + ":"
                 break
                                
-        StandardCheckXmldoc(xmlDoc,ComputeElementRecord,external,prefix)
+        xml_utils.StandardCheckXmldoc(xmlDoc,ComputeElementRecord,external,prefix)
             
     return len(getComputeElementRecords(xmlDoc))
 
-XmlRecordCheckers.append(ComputeElementRecordCheckXmldoc)
+xml_utils.XmlChecker.AddChecker(ComputeElementRecordCheckXmldoc)
 
-
-         

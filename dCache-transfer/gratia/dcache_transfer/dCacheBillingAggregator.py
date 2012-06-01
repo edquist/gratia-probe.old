@@ -43,7 +43,7 @@ class dCacheProbeConfig(Gratia.ProbeConfiguration):
         Gratia.ProbeConfiguration.__init__(self)
 
     def getConfigAttribute(self, name):
-        return Gratia.ProbeConfiguration._ProbeConfiguration__getConfigAttribute(self, name)
+        return Gratia.ProbeConfiguration.__getConfigAttribute(self, name)
 
     def get_UpdateFrequency(self):
         return self.getConfigAttribute('UpdateFrequency')

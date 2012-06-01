@@ -23,8 +23,6 @@ fd = None
 # when a fork'ed child exits.
 pid_with_lock = None
 def close_and_unlink_lock():
-    global fd
-    global pid_with_lock
     if fd:
         #DebugPrint(4, "At close, PID with lock is %d; my PID is %d." % \
         #    (pid_with_lock, os.getpid()))
@@ -142,7 +140,7 @@ def ExclusiveLock(given_lock_location = None, timeout=3600):
 
     raise Exception("Unable to acquire lock")
 
-def check_lock(fd, timeout):
+def check_lock(my_fd, timeout):
     """
     For internal use only.
 
@@ -151,7 +149,7 @@ def check_lock(fd, timeout):
     This will log the PID of the "other process".
     """
 
-    pid = get_lock_pid(fd)
+    pid = get_lock_pid(my_fd)
     if pid == os.getpid():
         return True
 
@@ -183,7 +181,7 @@ try:
 except AttributeError:
     start_len = "hhlli"
 
-def get_lock_pid(fd):
+def get_lock_pid(my_fd):
     # For reference, here's the definition of struct flock on Linux
     # (/usr/include/bits/fcntl.h).
     #
@@ -203,7 +201,7 @@ def get_lock_pid(fd):
             arg = struct.pack("QQihh", 0, 0, 0, fcntl.F_WRLCK, 0)
         else:
             arg = struct.pack(linux_struct_flock, fcntl.F_WRLCK, 0, 0, 0, 0)
-        result = fcntl.fcntl(fd, fcntl.F_GETLK, arg)
+        result = fcntl.fcntl(my_fd, fcntl.F_GETLK, arg)
     except IOError, ie:
         if ie.errno != errno.EINVAL:
             raise
@@ -230,7 +228,7 @@ if __name__ == "__main__":
         ExclusiveLock("lock_test")
         print "Child got the lock.  Sleep 5, then exit"
         time.sleep(5)
-        os._exit(0)
+        os._exit(0) #pylint: disable=W0212
     print "Parent got the lock.  Sleep 5, then exit"
     time.sleep(5)
 

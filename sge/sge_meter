@@ -22,7 +22,7 @@
 
 
 import gratia.common.Gratia as Gratia
-import os, copy, pwd, time, sys, string
+import os, copy, pwd, sys, string
 
 # This module requires python v2.3
 from optparse import OptionParser
@@ -274,8 +274,6 @@ class SGE:
         Gratia.DebugPrint(debug_level, "=================================")
                 
             
-
-if __name__ == '__main__':
 def main():
 
     sgeRoot = os.getenv("SGE_ROOT", "/sge")

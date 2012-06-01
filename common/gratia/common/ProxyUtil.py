@@ -28,8 +28,7 @@ import socket
 import httplib
 import os
 
-from string import split, join
-from urllib import splittype, splithost # CG
+from string import split
 from urlparse import urlsplit # CG
 
 class Connection:  # generic tcp connection wrapper
@@ -171,7 +170,7 @@ def findHTTPSProxy():
 
 def process_proxy(proxy):
     if proxy.startswith('http'):
-        nil, netloc, nil, nil, nil = urlsplit(proxy)
+        _, netloc, _, _, _ = urlsplit(proxy)
         address, port = split(netloc, ':')
     else:
         address, port = split(proxy, ':')

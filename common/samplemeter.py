@@ -4,6 +4,10 @@
 An example on how to create and upload Gratia record.
 """
 import gratia.common.Gratia as Gratia
+import gratia.common.GratiaCore as GratiaCore
+import gratia.common.send as send
+import gratia.common.utils as utils
+import gratia.common.probe_details as probe_details
 
 def GetRecord(jobid=0):
     """ 
@@ -59,10 +63,10 @@ def GetRecord(jobid=0):
 
 if __name__ == '__main__':
     rev = '$Revision$'
-    Gratia.RegisterReporterLibrary('samplemeterecord.py', 
-                                   Gratia.ExtractSvnRevision(rev))
+    probe_details.RegisterReporterLibrary('samplemeterecord.py', 
+                                          utils.ExtractSvnRevision(rev))
 
-    Gratia.Initialize()
+    GratiaCore.Initialize()
 
     rec = GetRecord()
-    print Gratia.Send(rec)
+    print send.Send(rec)

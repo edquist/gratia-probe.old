@@ -88,7 +88,7 @@ def getCE(host_proxy):
         # Child
         try:
             new_stderr_fd = os.dup(2)
-            dev_null_fd = os.open("/dev/null", os.WRONLY)
+            dev_null_fd = os.open("/dev/null", os.O_WRONLY)
             os.dup2(dev_null_fd, 2)
             os.close(dev_null_fd)
             os.close(stdout_r)

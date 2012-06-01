@@ -3,7 +3,10 @@
 #@(#)gratia/probe/common:$HeadURL$:$Id$
 
 import getopt,sys
-from gratia.common import GratiaCore
+import gratia.common.GratiaCore as GratiaCore
+import gratia.common.bundle as bundle
+import gratia.common.utils as utils
+import gratia.common.probe_details as probe_details
 
 class UsageError(Exception):
     def __init__(self, msg):
@@ -36,11 +39,11 @@ if __name__ == '__main__':
                         sys.exit(0)
 
         rev = "$Revision$"
-        GratiaCore.RegisterReporter("GratiaPing.py",GratiaCore.ExtractSvnRevision(rev))
+        probe_details.RegisterReporter("GratiaPing.py",utils.ExtractSvnRevision(rev))
 
         GratiaCore.Initialize()
 
         if (verbose):
-                print "Number of successful handshakes: "+str(GratiaCore.successfulHandshakes)
-        sys.exit(0==GratiaCore.successfulHandshakes)
+                print "Number of successful handshakes: "+str(bundle.successfulHandshakes)
+        sys.exit(0==bundle.successfulHandshakes)
 
