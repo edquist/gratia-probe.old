@@ -44,7 +44,7 @@ def Send(record):
         record.XmlCreate()
         DebugPrint(4, 'DEBUG: Creating XML: OK')
 
-        # Parse it into nodes, etc (transitional: this will eventually be native format)
+        # Parse it into nodes, etc
 
         DebugPrint(4, 'DEBUG: parsing XML')
         xmlDoc = safeParseXML(string.join(record.XmlData, r''))

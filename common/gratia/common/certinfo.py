@@ -67,14 +67,18 @@ def verifyFromCertInfo(
     if certInfo == None:
         DebugPrint(4, 'DEBUG: Returning without processing certInfo')
         return
-    elif not certInfo.has_key('DN') or not certInfo['DN']:
 
-        # Found a certinfo file, but no useful info.
+    return populateFromCertInfo(certInfo, xmlDoc, userIdentityNode, namespace)
 
-        DebugPrint(4, 'DEBUG: Certinfo with no DN: WS without delegation?')
-        return {'VOName': certInfo['FQAN'], 'ReportableVOName': certInfo['VO']}
 
-    # Use certinfo
+def populateFromCertInfo(certInfo, xmlDoc, userIdentityNode, namespace):
+    # If DN is missing, return quickly.
+    if 'DN' not in certInfo or not certInfo['DN']:
+        DebugPrint(4, 'Certinfo with no DN: %s' % str(certInfo))
+        if 'FQAN' in certInfo and 'VO' in certInfo:
+            return {'VOName': certInfo['FQAN'], 'ReportableVOName': certInfo['VO']}
+        else:
+            return None
 
     DebugPrint(4, 'DEBUG: fixing DN')
     certInfo['DN'] = FixDN(certInfo['DN'])  # "Standard" slash format

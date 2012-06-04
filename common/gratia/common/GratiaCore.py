@@ -29,6 +29,7 @@ import gratia.common.bundle as bundle
 import gratia.common.connect_utils as connect_utils
 import gratia.common.probe_config as probe_config
 import gratia.common.probe_details as probe_details
+import gratia.common.condor_ce as condor_ce
 
 # These are not necessary but for backward compatibility
 from gratia.common.record import Record
@@ -100,7 +101,6 @@ def Initialize(customConfig='ProbeConfig'):
         DebugPrint(0, 'Initializing Gratia with ' + customConfig)
 
         # Initialize cleanup function.
-
         atexit.register(__disconnect_at_exit__)
 
         global_state.bundle_size = Config.get_BundleSize()
@@ -111,12 +111,13 @@ def Initialize(customConfig='ProbeConfig'):
         send.Handshake()
 
         # Need to initialize the list of possible directories
-
         sandbox_mgmt.InitDirList()
 
         # Need to look for left over files
-
         sandbox_mgmt.SearchOutstandingRecord()
+
+        # Process the Condor-CE history directory.
+        condor_ce.processHistoryDir()
 
         # Attempt to reprocess any outstanding records
 

@@ -347,6 +347,9 @@ class ProbeConfiguration:
     def get_GratiaExtension(self):
         return self.__getConfigAttribute('GratiaExtension')
 
+    def get_CondorCEHistoryFolder(self):
+        return self.__getConfigAttribute('CondorCEHistoryFolder')
+
     def get_CertificateFile(self):
         return self.__getConfigAttribute('CertificateFile')
 

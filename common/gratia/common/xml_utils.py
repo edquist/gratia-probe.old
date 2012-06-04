@@ -11,6 +11,7 @@ import gratia.common.vo as vo
 import gratia.common.utils as utils
 import gratia.common.config as config
 import gratia.common.certinfo as certinfo
+import gratia.common.condor_ce as condor_ce
 
 from gratia.common.debug import DebugPrint, DebugPrintTraceback
 
@@ -308,6 +309,7 @@ def CheckAndExtendUserIdentity(
     '''Check the contents of the UserIdentity block and extend if necessary'''
 
     result = {}
+    jobIdType, jobId = None, None
 
     # LocalUserId
 
@@ -365,9 +367,11 @@ def CheckAndExtendUserIdentity(
     #
     # 2. Certinfo.
     #
-    # 3. Existing VOName if not FQAN.
+    # 3. Condor-CE direct query
     #
-    # 4. VOName from reverse map file.
+    # 4. Existing VOName if not FQAN.
+    #
+    # 5. VOName from reverse map file.
 
     DebugPrint(4, 'DEBUG: Calling verifyFromCertInfo')
     vo_info = certinfo.verifyFromCertInfo(xmlDoc, userIdentityNode, namespace)
@@ -403,7 +407,19 @@ def CheckAndExtendUserIdentity(
         ReportableVONameNodes[0].firstChild.data = vo_info['ReportableVOName']
         ReportableVOName = vo_info['ReportableVOName']
 
-    # 3. & 4.
+    # 3. Condor-CE query
+
+    if not vo_info:
+        DebugPrint(4, "Querying the Condor-CE directly")
+        jobIdentityNode = certinfo.GetNode(xmlDoc.getElementsByTagNameNS(namespace, 'JobIdentity'))
+        if jobIdentityNode:
+            localJobId = certinfo.GetNodeData(jobIdentityNode.getElementsByTagNameNS(namespace, 'LocalJobId'))
+            if localJobId:
+                job_certinfo = condor_ce.queryJob(localJobId)
+                if job_certinfo:
+                    vo_info = certinfo.populateFromCertInfo(job_certinfo, xmlDoc, userIdentityNode, namespace)
+
+    # 4. & 5.
 
     if not vo_info and not VOName:
         DebugPrint(4, 'DEBUG: Calling VOfromUser')
