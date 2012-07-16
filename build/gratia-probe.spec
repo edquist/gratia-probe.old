@@ -1,8 +1,8 @@
 Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
-Version:            1.10
-Release:            0.7.pre%{?dist}
+Version:            1.12
+Release:            0.6.pre%{?dist}
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -743,6 +743,9 @@ Gratia OSG accounting system probe for providing VM accounting.
 %endif # noarch
 
 %changelog
+* Mon Jul 16 2012 Tanya Levshina <tlevshin@fnal.gov> - 1.12-0.6.pre
+new version of one_query_lite.rb
+
 * Thu Feb 9  2012 Tanya Levshina <tlevshin@fnal.gov> - 1.10-0.6.pre
 - Fixed various bugs intoroduced in 1.10-0.4
 
