@@ -96,9 +96,18 @@ class VMRecord:
         if self.info.has_key("IP"):
             if type(self.info["IP"])==list:
                 for ip in self.info["IP"]:
-                    self.ip="%s/%s" % (self.ip,ip)
+		    if self.ip=="":
+			self.ip=ip
+		    else:
+                    	self.ip="%s/%s" % (self.ip,ip)
             else:
                 self.ip=self.info["IP"]
+	if self.info.has_key("IP"):
+		if type(self.info["DN"])==list:
+			#don't know what to do with multiple dn
+			self.dn=self.info["DN"][0]
+		else:
+			self.dn=self.info["DN"]
         self.records=[]
         self.setRecords()
         
@@ -157,8 +166,8 @@ class VMRecord:
         return self.user_name
         
     def getUserKeyInfo(self):
-        if self.info.has_key("PASSWORD"):
-            return self.info["PASSWORD"]
+        if self.info.has_key("DN"):
+            return self.dn
         else:
             return None
         
@@ -182,6 +191,6 @@ class VMRecord:
     def getMachineName(self):
         return self.ip
     def dump(self):
-        print >> sys.stdout, "JobID: %s, Job_Name: %s, VCPU: %s, Memory: %s, User_Name: %s, State: %s, IP %s" % (self.jid,self.job_name,self.vcpu,self.memory,self.user_name,self.state,self.ip)
+        print >> sys.stdout, "JobID: %s, Job_Name: %s, DN: %s, VCPU: %s, Memory: %s, User_Name: %s, State: %s, IP %s" % (self.jid,self.job_name,self.dn,self.vcpu,self.memory,self.user_name,self.state,self.ip)
 	for r in self.records:
 		r.dump()
