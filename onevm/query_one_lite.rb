@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
- 
+
+VERSION_STRING="0.1"
+
 ##############################################################################
 # Environment Configuration
 ##############################################################################
@@ -20,6 +22,7 @@ $: << RUBY_LIB_LOCATION
 
 require 'pp'
 require 'optparse'
+require 'singleton'
 require 'OpenNebula'
 require 'OpenNebula/Pool'
  
@@ -33,7 +36,10 @@ class OpenNebulaSensorCache
 
     attr_reader :is_valid, :queued_vm_ids, :last_known_id, :etime, :filename
 
-
+    #######################################################################
+    # Constants and Class Methods
+    #######################################################################
+        
     # Class constructor
     def initialize(rtime=Time.now().to_i(), stime=0, etime=0,
                    last_known_id=0, queued_vm_ids=[])
@@ -193,34 +199,52 @@ class OpenNebulaVirtualMachine
     # lead to the info
 
     FIELDS_MAP = {
-        "ID"              => ["ID"],
-        "NAME"            => ["NAME"],
-        "STIME"           => ["STIME"],
-        "ETIME"           => ["ETIME"],
-        "STATE"           => ["STATE"],
-        "LCM_STATE"       => ["LCM_STATE"],
-        "MEMORY"          => ["MEMORY"],
-        "CPU"             => ["CPU"],
-        "VCPU"            => ["TEMPLATE", "VCPU"],
-        "MEMORY_REQ(MB)"  => ["TEMPLATE", "MEMORY"],
-        "HID"             => ["HISTORY_RECORDS", "HISTORY", "HID"],
-        "HISTORY_STIME"   => ["HISTORY_RECORDS", "HISTORY", "STIME"],
-        "HISTORY_ETIME"   => ["HISTORY_RECORDS", "HISTORY", "ETIME"],
-        "HISTORY_REASON"  => ["HISTORY_RECORDS", "HISTORY", "REASON"],
-        "HOSTNAME"        => ["HISTORY_RECORDS", "HISTORY", "HOSTNAME"],
-        "MAC"             => ["TEMPLATE", "NIC", "MAC"],
-        "IP"              => ["TEMPLATE", "NIC", "IP"],
-        "NETWORK"         => ["TEMPLATE", "NIC", "NETWORK"],
-        "NETWORK_ID"      => ["TEMPLATE", "NIC", "NETWORK_ID"],
-        "DISK_ID"         => ["TEMPLATE", "DISK", "DISK_ID"],
-        "DISK_TYPE"       => ["TEMPLATE", "DISK", "TYPE"],
-        "DISK_SIZE"       => ["TEMPLATE", "DISK", "SIZE"],
-        "DISK_IMAGE"      => ["TEMPLATE", "DISK", "IMAGE"],
-        "DISK_IMAGE_ID"   => ["TEMPLATE", "DISK", "IMAGE_ID"],
-        "UID"             => ["UID"],
-        "USERNAME"        => ["UNAME"],
-        "GID"             => ["GID"],
-        "GNAME"           => ["GNAME"],
+        "ID"              => { "field" => ["ID"], "type" => "string" },
+        "NAME"            => { "field" => ["NAME"], "type" => "string" },
+        "STIME"           => { "field" => ["STIME"], "type" => "string" },
+        "ETIME"           => { "field" => ["ETIME"], "type" => "string" },
+        "STATE"           => { "field" => ["STATE"], "type" => "string" },
+        "LCM_STATE"       => { "field" => ["LCM_STATE"], "type" => "string" },
+        "MEMORY"          => { "field" => ["MEMORY"], "type" => "string" },
+        "CPU"             => { "field" => ["CPU"], "type" => "string" },
+        "VCPU"            => { "field" => ["TEMPLATE","VCPU"],
+                               "type" => "string" },
+        "MEMORY_REQ(MB)"  => { "field" => ["TEMPLATE","MEMORY"],
+                               "type" => "string" },
+        "HISTORY_RECORDS" => { "field" => ["HISTORY_RECORDS","HISTORY"],
+                               "type" => "array" },
+        "HID"             => { "field" => ["HISTORY_RECORDS","HISTORY","HID"],
+                               "type" => "array" },
+        "HISTORY_STIME"   => { "field" => ["HISTORY_RECORDS","HISTORY","STIME"],
+                               "type" => "array" },
+        "HISTORY_ETIME"   => { "field" => ["HISTORY_RECORDS","HISTORY","ETIME"],
+                               "type" => "array" },
+        "HISTORY_REASON"  => { "field" => ["HISTORY_RECORDS","HISTORY","REASON"],
+                               "type" => "array" },
+        "HOSTNAME"        => { "field" => ["HISTORY_RECORDS","HISTORY","HOSTNAME"],
+                               "type" => "array" },
+        "MAC"             => { "field" => ["TEMPLATE","NIC","MAC"],
+                               "type" => "array" },
+        "IP"              => { "field" => ["TEMPLATE","NIC","IP"],
+                               "type" => "array" },
+        "NETWORK"         => { "field" => ["TEMPLATE","NIC","NETWORK"],
+                               "type" => "string" },
+        "NETWORK_ID"      => { "field" => ["TEMPLATE","NIC","NETWORK_ID"],
+                               "type" => "string" },
+        "DISK_ID"         => { "field" => ["TEMPLATE","DISK","DISK_ID"],
+                               "type" => "array" },
+        "DISK_TYPE"       => { "field" => ["TEMPLATE","DISK","TYPE"],
+                               "type" => "array" },
+        "DISK_SIZE"       => { "field" => ["TEMPLATE","DISK","SIZE"],
+                               "type" => "array" },
+        "DISK_IMAGE"      => { "field" => ["TEMPLATE","DISK","IMAGE"],
+                               "type" => "array" },
+        "DISK_IMAGE_ID"   => { "field" => ["TEMPLATE","DISK","IMAGE_ID"],
+                               "type" => "array" },
+        "UID"             => { "field" => ["UID"], "type" => "string" },
+        "USERNAME"        => { "field" => ["UNAME"], "type" => "string" },
+        "GID"             => { "field" => ["GID"], "type" => "string" },
+        "GNAME"           => { "field" => ["GNAME"], "type" => "string" },
     }
 
     # Class constructor
@@ -234,17 +258,31 @@ class OpenNebulaVirtualMachine
         @info = {}
         vm = VirtualMachine.new_with_id(id, client)
         vm.info()
-        @info = vm.to_hash()["VM"]
-        if @info.size() == 1
+        vminfo = vm.to_hash()["VM"]
+        if vminfo.size() == 1
             return
         end
 
         FIELDS_MAP.each_key() do |field|
-            @info[field] = extract_field_values(@info, FIELDS_MAP[field])
+            #puts "EXTRACTING VALUE FOR FEILD:"
+            #puts "="*50
+            #puts field + " = " + FIELDS_MAP[field]["field"].inspect
+            #puts "-"*50
+            @info[field] = extract_field_values(vminfo,
+                                                FIELDS_MAP[field]["field"])
+            #puts "_"*50
+            #puts "RESULT:"
+            #PP.pp(@info)
+            #puts "_"*50
         end
+        sanitize_fieldtype()
+
         # Additional info that cannot be mapped
         @info["STATE_STR"] = vm.state_str()
         @info["LCM_STATE_STR"] = vm.lcm_state_str()
+
+        user_manager = OpenNebulaUserManager.instance()
+        @info["DN"] = user_manager.uid2dns(client, @info["UID"])
         #puts @info.inspect()
     end
 
@@ -272,6 +310,7 @@ class OpenNebulaVirtualMachine
         return etime
     end
     
+
     def guessed_stime()
         stime = 0
         if @info.has_key?("HISTORY_STIME") and @info["HISTORY_STIME"]
@@ -336,9 +375,17 @@ class OpenNebulaVirtualMachine
 
 
     def extract_field_values(info, fields)
+        
+        #PP.pp(fields)
+        #PP.pp(info)
+        #puts "-"*50
+       
         if info.is_a?(Hash)
+            #puts "info IDENTIFIED as a HASH"
             if info.has_key?(fields[0])
                 if fields.size() == 1
+                    #puts "RETURNING NOW"
+                    #PP.pp(info[fields[0]])
                     return info[fields[0]]
                 else
                     return extract_field_values(info[fields[0]],
@@ -348,21 +395,110 @@ class OpenNebulaVirtualMachine
                 return nil
             end
         elsif info.is_a?(Array) 
+            #puts "info IDENTIFIED as a ARRAY"
             ret_arr = []
             info.each() do |i|
                 ret_arr.push(extract_field_values(i, fields))
             end
+            #puts "RETURNING NOW"
+            #PP.pp(ret_arr)
             return ret_arr
         else
+            #puts "RETURNING nil"
             return nil
         end
     end
 
 
+    def sanitize_fieldtype()
+        @info.each_key do |key|
+            if FIELDS_MAP.has_key?(key)
+                if (FIELDS_MAP[key]["type"] == "array") and
+                   (not @info[key].is_a?(Array))
+                   @info[key] = [@info[key]]
+                end
+            end
+        end
+    end
+
+
 end #OpenNebulaVirtualMachine
+
+
+class OpenNebulaUserManager
+    @@singleton__instance__ = nil
+    @@singleton__mutex__ = Mutex.new
+
+    def self.instance
+        return @@singleton__instance__ if @@singleton__instance__
+        @@singleton__mutex__.synchronize {
+            return @@singleton__instance__ if @@singleton__instance__
+            @@singleton__instance__ = new()
+        }
+        @@singleton__instance__
+    end
+
+
+    def uid2dns(client, uid)
+        if not @users.has_key?(uid)
+            cache_user_info(client, uid)
+        end
+
+        if @users.has_key?(uid)
+            return @users[uid]["DN"]
+        end
+        return nil
+    end
+
+
+    def cache_user_info(client, uid)
+        u = User.new_with_id(uid, client)
+        u.info()
+        #puts "-"*50
+
+        info = u.to_hash()["USER"]
+        if info.size() == 1
+            return
+        end
+        @users[uid] = {}
+        @user_fields.each() do |f|
+            @users[uid][f] = info[f]
+        end
+        if @x509_auth_drivers.include?(@users[uid]["AUTH_DRIVER"])
+            @users[uid]["DN"] = info["PASSWORD"].split("|")
+        else
+            @users[uid]["DN"] = [] 
+        end
+    end
+
+
+    private
+    def initialize()
+        @users = {}
+        @uname = {}
+        #@client = client
+        @user_fields = ["ID", "NAME", "GID", "GNAME", "ENABLED", "AUTH_DRIVER"]
+        @x509_auth_drivers = ["x509", "server_x509"]
+    end
+    private_class_method :new
+    
+
+end #OpenNebulaUserManager
+
 ##############################################################################
 # Custom Functions
 ##############################################################################
+
+def version()
+    return VERSION_STRING
+end
+
+
+def version_string()
+    return "query_one_lite.rb #{version()}" + "\n" +
+           "License: http://fermitools.fnal.gov"
+end
+
 
 def format_results(vms)
     ovms = {}
@@ -394,6 +530,51 @@ def get_queued_vm_ids(vms, etime)
     return ids
 end
 
+
+def print_report(options, stime, etime, output, cachein, cacheout, vm_ids)
+    line_size = 80
+    puts "="*line_size
+    puts "                                 REPORT"
+    puts "="*line_size
+    
+    #puts "Options: #{options.inspect()}"
+    
+    opt_str = "Options:"
+    indent = opt_str.size()
+    cur_line_size = opt_str.size()
+    options.each_key() do |opt|
+        if options[opt]
+            new_str = "#{opt}=#{options[opt]}"
+        else
+            new_str = "#{opt}=nil"
+        end
+
+        if (cur_line_size + " ".size() + new_str.size()) > 80
+            cur_line_size = indent + new_str.size()
+            opt_str = opt_str + "\n         " + new_str
+        else
+            cur_line_size = cur_line_size + new_str.size() + 1
+            opt_str = opt_str + " " + new_str
+        end
+    end
+    puts opt_str
+
+    puts "Script Version: #{version()}"
+    puts "Ruby Version: #{VERSION}"
+    if options[:all]
+        puts "Reporting all vms: #{options[:all]}"
+    else
+        puts "stime: #{stime}"
+        puts "etime: #{etime}"
+    end
+    puts "Output: #{output}"
+    puts "Cachefile Used: #{cachein}"
+    puts "Cachefile Wrote: #{cacheout}"
+    puts "VMs Found: #{vm_ids.size()}"
+    puts "VM Ids: #{vm_ids.inspect()}"
+    puts "_"*line_size
+end
+
 ##############################################################################
 # Main
 ##############################################################################
@@ -408,10 +589,10 @@ end
 ###############################################################################
 options = {}
 optparse = OptionParser.new() do |opts|
-    opts.banner = "Usage: blah blah blah ..."
+    opts.banner = "Usage: query_one_lite.rb [options]"
 
     options[:time] = Time.now().to_i()
-    opts.on('-t', '--time TIME', 'Sec since epoch') do |t|
+    opts.on('-t', '--time TIME', 'Sec since epoch. Defaults to current time') do |t|
         options[:time] = Integer(t)
     end
 
@@ -431,10 +612,20 @@ optparse = OptionParser.new() do |opts|
     end
     
     options[:output] = nil
-    opts.on('-o', '--output OUTPUT', 'File to store VM information. Defaults to /var/tmp/one-gratia-history/onestats') do |o|
+    opts.on('-o', '--output OUTPUT', 'File to store VM information. Defaults to CACHEDIR/onestats') do |o|
         options[:output] = o
     end
     
+    options[:report] = false
+    opts.on('-r', '--report', 'Print a summary report') do |a|
+        options[:report] = true
+    end
+    
+    opts.on( '-v', '--version', 'Display script version' ) do
+        puts version_string()
+        exit
+    end
+
     opts.on( '-h', '--help', 'Display help screen' ) do
         puts opts
         exit
@@ -471,7 +662,7 @@ outputfile = nil
 if options[:output]
     outputfile = options[:output]
 else
-    outputfile = File.join(options[:cachedir], "/onestats")
+    outputfile = File.join(options[:cachedir], "onestats")
 end
 
 #cachefile = File.join(options[:cachedir], "/cache")
@@ -481,6 +672,7 @@ id = 1
 vms = {}
 
 cache_manager = OpenNebulaSensorCacheManager.new(cachedir=options[:cachedir])
+
 cache = nil
 
 if not options[:all] 
@@ -510,6 +702,10 @@ end
 # Check for any vms past last known vm id that may have state transitions
 # This is required so we consider any vms that may have been launched and
 # shutdown since last known run
+
+#HACK STARTS
+#id = 47
+#HACK END
 
 while 1
     vm = OpenNebulaVirtualMachine.new(client, id)
@@ -545,7 +741,7 @@ cache_manager.store(result_cache)
 
 
 # HACK
-exit 0
+#exit 0
 
 ###############################################################################
 # Print Short Runtime Report to stdout
@@ -556,21 +752,9 @@ if cache and cache.filename
     cachefile = cache.filename
 end
 
-puts "________________________________________________________________________"
-puts "                                 REPORT"
-puts "________________________________________________________________________"
-puts "Options: #{options.inspect()}"
-if options[:all]
-    puts "Reporting all vms: #{options[:all]}"
-else
-    puts "stime: #{stime}"
-    puts "etime: #{etime}"
+if options[:report]
+    print_report(options, stime, etime, outputfile, cachefile,
+                 result_cache.filename, vms.keys().sort!)
 end
-puts "Output: #{outputfile}"
-puts "Cachefile Used: #{cachefile}"
-puts "Cachefile Wrote: #{result_cache.filename}"
-puts "VMs Found: #{vms.size()}"
-puts "VM Ids: #{vms.keys().sort!.inspect()}"
-puts "________________________________________________________________________"
 
 exit 0
