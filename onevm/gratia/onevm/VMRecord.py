@@ -102,7 +102,7 @@ class VMRecord:
                     	self.ip="%s/%s" % (self.ip,ip)
             else:
                 self.ip=self.info["IP"]
-	if self.info.has_key("IP"):
+	if self.info.has_key("DN"):
 		if type(self.info["DN"])==list:
 			#don't know what to do with multiple dn
 			self.dn=self.info["DN"][0]
@@ -118,13 +118,19 @@ class VMRecord:
             return True
 
     def createRecord(self,ct, stime,etime,hn,state,reason):
-	from datetime import date
- 	if (stime == None):
+	from datetime import date, datetime
+ 	if (stime == None or int(stime) == 0):
  		return
         end=int(etime)
         st=int(stime)
 	d=date.fromtimestamp(st)
-        et=time.mktime(time.strptime("%s %s %s %s %s %s" % (d.year,d.month,d.day,23,59,59),'%Y %m %d %H %M %S'))
+        # we want to report until the end of the day of GMT
+	# otherwise summarization is skewed in gratia
+        tdelta=datetime.utcnow()-datetime.now()
+	h=23
+	if tdelta.days == 0:
+		h=h-int(round(tdelta.seconds/3600.))
+        et=time.mktime(time.strptime("%s %s %s %s %s %s" % (d.year,d.month,d.day,h,59,59),'%Y %m %d %H %M %S'))
         if end != 0:
             ct=end
 		
