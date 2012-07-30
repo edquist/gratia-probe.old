@@ -30,6 +30,8 @@ from optparse import OptionParser
 info_level = 0
 verbose_level = 0
 debug_level = 0
+noGridmap = False
+gridmapFile = ""
 
 class SGE:
     sgeRecord = {}
