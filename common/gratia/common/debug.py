@@ -35,7 +35,9 @@ def DebugPrint(level, *arg):
     if __quiet__:
         return
     try:
-        if not getGratiaConfig() or level < getGratiaConfig().get_DebugLevel():
+	if not getGratiaConfig():
+		return
+        if  level < getGratiaConfig().get_DebugLevel():
             out = time.strftime(r'%Y-%m-%d %H:%M:%S %Z', time.localtime()) + ' ' + GenerateOutput('Gratia: ',
                     *arg)
             print >> sys.stderr, out
