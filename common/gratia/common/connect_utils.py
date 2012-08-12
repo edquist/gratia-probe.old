@@ -113,6 +113,10 @@ def connect():
                 #                                        http_proxy = ProxyUtil.findHTTPProxy())
 
                 connection = httplib.HTTPConnection(Config.get_SOAPHost())
+            except KeyboardInterrupt:
+                raise
+            except SystemExit:
+                raise
             except Exception, ex:
                 DebugPrint(0, 'ERROR: could not initialize HTTP connection')
                 DebugPrintTraceback()
@@ -134,6 +138,10 @@ def connect():
                 DebugPrint(3, 'Connection timeout (GratiaTimeout exception).')
                 connectionError = True
                 raise                
+            except KeyboardInterrupt:
+                raise
+            except SystemExit:
+                raise
             except Exception, ex:
                 connectionError = True
                 DebugPrint(4, 'DEBUG: Connect: FAILED')
@@ -170,6 +178,10 @@ def connect():
 
                 connection = httplib.HTTPSConnection(Config.get_SSLHost(), cert_file=pr_cert_file,
                                                        key_file=pr_key_file)
+            except KeyboardInterrupt:
+                raise
+            except SystemExit:
+                raise
             except Exception, ex:
                 DebugPrint(0, 'ERROR: could not initialize HTTPS connection')
                 DebugPrintTraceback()
@@ -190,6 +202,10 @@ def connect():
                 DebugPrint(3, 'Connection (GratiaTimeout exception).')
                 connectionError = True
                 raise                
+            except KeyboardInterrupt:
+                raise
+            except SystemExit:
+                raise
             except Exception, ex:
                 DebugPrint(4, 'DEBUG: Connect: FAILED')
                 DebugPrint(0, 'Error: While trying to connect to HTTPS, caught exception ' + str(ex))

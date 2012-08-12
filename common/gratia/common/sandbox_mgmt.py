@@ -418,6 +418,10 @@ def UncompressOutbox(staging_name, target_dir):
     DebugPrint(1, 'Uncompressing: ' + staging_name)
     try:
         tar = tarfile.open(staging_name, 'r')
+    except KeyboardInterrupt:
+        raise
+    except SystemExit:
+        raise
     except Exception, e:
         DebugPrint(0, 'Warning: Exception caught while opening tar file: ' + staging_name + ':')
         DebugPrint(0, 'Caught exception: ', e)
@@ -428,6 +432,10 @@ def UncompressOutbox(staging_name, target_dir):
         for tarinfo in tar:
             DebugPrint(1, 'Extracting: ' + tarinfo.name)
             tar.extract(tarinfo, target_dir)
+    except KeyboardInterrupt:
+        raise   
+    except SystemExit:
+        raise   
     except Exception, e:
         DebugPrint(0, 'Warning: Exception caught while extracting from tar file: ' + staging_name + ':')
         DebugPrint(0, 'Caught exception: ', e)
@@ -436,6 +444,10 @@ def UncompressOutbox(staging_name, target_dir):
 
     try:
         tar.close()
+    except KeyboardInterrupt:
+        raise   
+    except SystemExit:
+        raise   
     except Exception, e:
         DebugPrint(0, 'Warning: Exception caught while closing tar file: ' + staging_name + ':')
         DebugPrint(0, 'Caught exception: ', e)
@@ -460,6 +472,10 @@ def CompressOutbox(probe_dir, outbox, outfiles):
 
     try:
         tar = tarfile.open(staging_name, 'w:bz2')
+    except KeyboardInterrupt:
+        raise   
+    except SystemExit:
+        raise   
     except Exception, e:
         DebugPrint(0, 'Warning: Exception caught while opening tar.bz2 file: ' + staging_name + ':')
         DebugPrint(0, 'Caught exception: ', e)
@@ -474,6 +490,10 @@ def CompressOutbox(probe_dir, outbox, outfiles):
             arcfile = f.replace(Config.getFilenameFragment(), r'')
             arcfile = arcfile.replace('..', '.')
             tar.add(os.path.join(outbox, f), arcfile)
+    except KeyboardInterrupt:
+        raise   
+    except SystemExit:
+        raise   
     except Exception, e:
         DebugPrint(0, 'Warning: Exception caught while adding ' + f + ' from ' + outbox + ' to tar.bz2 file: '
                    + staging_name + ':')
@@ -483,6 +503,10 @@ def CompressOutbox(probe_dir, outbox, outfiles):
 
     try:
         tar.close()
+    except KeyboardInterrupt:
+        raise   
+    except SystemExit:
+        raise   
     except Exception, e:
         DebugPrint(0, 'Warning: Exception caught while closing tar.bz2 file: ' + staging_name + ':')
         DebugPrint(0, 'Caught exception: ', e)

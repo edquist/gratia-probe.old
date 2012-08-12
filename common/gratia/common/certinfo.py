@@ -228,6 +228,10 @@ def readCertInfoFile(localJobId, probeName):
 
         try:
             certinfo_doc = xml.dom.minidom.parse(certinfo)
+        except KeyboardInterrupt:
+            raise
+        except SystemExit:
+            raise
         except Exception, e:
             DebugPrint(0, 'ERROR: Unable to parse XML file ' + certinfo, ': ', e)
             continue

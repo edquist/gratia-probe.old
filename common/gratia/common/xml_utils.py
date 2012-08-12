@@ -250,6 +250,10 @@ def UsageCheckXmldoc(xmlDoc, external, resourceType=None):
                         )
                 if id_info.has_key('VOName'):
                     VOName = id_info['VOName']
+            except KeyboardInterrupt:
+                raise   
+            except SystemExit:
+                raise   
             except Exception, e:
                 DebugPrint(0, 'DEBUG: Caught exception: ', e)
                 DebugPrintTraceback()

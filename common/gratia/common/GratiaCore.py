@@ -68,6 +68,10 @@ def __disconnect_at_exit__():
             sandbox_mgmt.RemoveOldLogs(Config.get_LogRotate())
             sandbox_mgmt.RemoveOldJobData(Config.get_DataFileExpiration())
             sandbox_mgmt.RemoveOldQuarantine(Config.get_DataFileExpiration(), Config.get_QuarantineSize())
+        except KeyboardInterrupt:
+            raise
+        except SystemExit:
+            raise
         except Exception, exception:
             DebugPrint(0, 'Exception caught at top level: ' + str(exception))
             DebugPrintTraceback()
