@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.12
-Release:            6%{?dist}
+Release:            7%{?dist}
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -714,6 +714,9 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
+* Fri Aug 12 2012 Tanya Levshin <tlevshin@fnal.gov> - 1.12.7
+Brian's common libs fixes: Added  more comments. Re-utilized the regexp objects, fixed the handling of IOError, 
+and simplified the exception handling. 
 * Fri Aug 03 2012 Tanya Levshin <tlevshin@fnal.gov> - 1.12.6
 - fixed: sge probe, output messages produced py DebugPrint before ProbeConfig could be read
  
