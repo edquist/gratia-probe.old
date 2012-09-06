@@ -471,9 +471,15 @@ def classadToJUR(classad):
         elif campus_flock_usage.search(classad['MATCH_EXP_JOBGLIDEIN_ResourceName']):
             r.Grid("Campus", "Campus Flocking Usage")
 
+    if 'JobUniverse' in classad:
+        # scheduler and local universes are always considered to be local
+        if classad['JobUniverse'] == 7 or classad['JobUniverse'] == 12:
+            r.Grid("Local", "Local execution based on job universe")
+
     if 'logfile' in classad:
         r.AddTransientInputFile(classad["logfile"])
 
+    setIfExists(r.ProjectName, classad, 'ProjectName', 'As specified in Condor submit file', True)
 
     networkPhaseUnit = classad.get('RemoteWallClockTime', '')
     total_network = 0
@@ -491,7 +497,7 @@ classad_double_re = re.compile("(\w{1,255}) = (-?\d{1,30}\.?\d{1,30}?)")
 classad_string_re = re.compile("^(\S+) = \"(.*)\"$")
 classad_catchall_re = re.compile("^(\S+) = (.*)$")
 def fd_to_classad(fd):
-    classad = {}
+    classad = caselessDict()
     for line in fd.readlines():
         line = line.strip()
         m = classad_bool_re.match(line)
@@ -524,7 +530,7 @@ def fd_to_classad(fd):
             continue
         if not line:
             yield add_unique_id(classad)
-            classad = {}
+            classad = caselessDict()
             continue
         DebugPrint(2, "Invalid line in ClassAd: %s" % line)
 
