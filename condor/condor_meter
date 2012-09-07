@@ -23,12 +23,94 @@ max_batch_size = 500
 
 min_start_time = time.time() - 120*86400
 
+
+# --- classes -------------------------------------------------------------------------
+
 class IgnoreClassadException(Exception):
     pass
 
-def parse_opts():
 
-    global ProbeConfig
+# ********************************************
+# class     caselessDict
+#           http://code.activestate.com/recipes/66315-case-insensitive-dictionary/
+# purpose   emulate a normal Python dictionary
+#           but with keys which can accept the
+#           lower() method (typically strings).
+#           Accesses to the dictionary are
+#           case-insensitive but keys returned
+#           from the dictionary are always in
+#           the original case.
+# ********************************************
+
+class caselessDict:
+    def __init__(self,inDict=None):
+        """Constructor: takes conventional dictionary
+           as input (or nothing)"""
+        self.dict = {}
+        if inDict != None:
+            for key in inDict:
+                k = key.lower()
+                self.dict[k] = (key, inDict[key])
+        self.keyList = self.dict.keys()
+        self.iterPosition = 0
+        return
+
+    def __iter__(self):
+        self.iterPosition = 0
+        return(self)
+
+    def next(self):
+        if self.iterPosition >= len(self.keyList):
+            raise StopIteration
+        x = self.dict[self.keyList[self.iterPosition]][0]
+        self.iterPosition += 1
+        return x
+
+    def __getitem__(self, key):
+        k = key.lower()
+        return self.dict[k][1]
+
+    def __setitem__(self, key, value):
+        k = key.lower()
+        self.dict[k] = (key, value)
+        self.keyList = self.dict.keys()
+
+    def has_key(self, key):
+        k = key.lower()
+        return k in self.keyList
+
+    def __len__(self):
+        return len(self.dict)
+
+    def get(self, key, alt):
+        if self.has_key(key):
+            return self.__getitem__(key)
+        return alt
+
+    def keys(self):
+        return [v[0] for v in self.dict.values()]
+
+    def values(self):
+        return [v[1] for v in self.dict.values()]
+
+    def items(self):
+        return self.dict.values()
+
+    def __contains__(self, item):
+        return self.dict.has_key(item.lower())
+
+    def __repr__(self):
+        items = ", ".join([("%r: %r" % (k,v)) for k,v in self.items()])
+        return "{%s}" % items
+
+    def __str__(self):
+        return repr(self)
+
+
+# --- functions -----------------------------------------------------------------------
+
+
+def parse_opts():
 
     parser = optparse.OptionParser(usage="%prog [options] dir1 dir2")
     parser.add_option("-f", "--gratia_config", help="Location of the Gratia config; "
@@ -79,7 +161,6 @@ def getCondorVersion():
     if m:
         return "%s / %s" % m.groups()
     raise Exception("Unable to parse condor_version output: %s" % version)
-    return version.strip()
 
 logfile_re = re.compile("^history\.(?:.*?\#)?\d+\.\d+")
 def logfiles_to_process(args):
@@ -100,6 +181,10 @@ def main():
 
     try:
         opts, dirs = parse_opts()
+    except SystemExit:
+        raise
+    except KeyboardInterrupt:
+        raise
     except Exception, e:
         print >> sys.stderr, str(e)
         sys.exit(1)
