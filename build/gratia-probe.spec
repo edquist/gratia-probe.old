@@ -2,7 +2,7 @@ Name:               gratia-probe
 Summary:            Gratia OSG accounting system probes
 Group:              Applications/System
 Version:            1.12
-Release:            7%{?dist}
+Release:            8%{?dist}
 License:            GPL
 Group:              Applications/System
 URL:                http://sourceforge.net/projects/gratia/
@@ -714,6 +714,10 @@ Contributed by University of Nebraska Lincoln.
 %endif # noarch
 
 %changelog
+* Fri Sep 7 2012 Tanya Levshina <tlevshin@fnal.gov> - 1.12.8
+condor_meter code merge (modification for xsede to include ProjectName from classad) 
+changes provided by Derek and Brian
+
 * Fri Aug 12 2012 Tanya Levshin <tlevshin@fnal.gov> - 1.12.7
 Brian's common libs fixes: Added  more comments. Re-utilized the regexp objects, fixed the handling of IOError, 
 and simplified the exception handling. 
