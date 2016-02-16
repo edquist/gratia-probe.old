@@ -110,12 +110,12 @@ def createCertinfoXML(classad):
     From a dictionary object representing a Condor ClassAd, create the
     corresponding certinfo XML document.
     """
-    # Sample: GridJobId = "pbs pbs/20120601/2612.brian-test.unl.edu"
-    job_info = classad.get("GridJobId", "").split(" ", 1)
-    if len(job_info) < 2:
+    # Sample: GridJobId = "batch pbs globus1.hyak.washington.edu_9619_globus1.hyak.washington.edu#660817.0#1455209943 pbs/20160211/3857720"
+    job_info = classad.get("GridJobId", "").split()
+    if len(job_info) < 4 or job_info[0] != "batch":
         return None, None
-    bm, jobid = job_info[:2]
-    jobid = gridJobIdToId(jobid)
+    bm = job_info[1]
+    jobid = gridJobIdToId(job_info[3])
 
     dom = xml.dom.minidom.Document()
     batchManager = dom.createElement("BatchManager")
