@@ -111,8 +111,10 @@ def createCertinfoXML(classad):
     corresponding certinfo XML document.
     """
     # Sample: GridJobId = "batch pbs globus1.hyak.washington.edu_9619_globus1.hyak.washington.edu#660817.0#1455209943 pbs/20160211/3857720"
-    job_info = classad.get("GridJobId", "").split()
+    job_info_str = classad.get("GridJobId", "")
+    job_info = job_info_str.split()
     if len(job_info) < 4 or job_info[0] != "batch":
+        DebugPrint(3, "GridJobId was not parsed correctly: '%s'" % job_info_str)
         return None, None
     bm = job_info[1]
     jobid = gridJobIdToId(job_info[3])
