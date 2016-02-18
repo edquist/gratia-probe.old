@@ -111,13 +111,19 @@ def createCertinfoXML(classad):
     corresponding certinfo XML document.
     """
     # Sample: GridJobId = "batch pbs globus1.hyak.washington.edu_9619_globus1.hyak.washington.edu#660817.0#1455209943 pbs/20160211/3857720"
+    #     Or: GridJobId = "condor fermicloud116.fnal.gov fermicloud116.fnal.gov:9619 128.0"
     job_info_str = classad.get("GridJobId", "")
     job_info = job_info_str.split()
-    if len(job_info) < 4 or job_info[0] != "batch":
+    if len(job_info) == 4 and job_info[0] == "batch":
+        bm = job_info[1]
+        jobid = gridJobIdToId(job_info[3])
+    elif len(job_info) == 4 and job_info[0] == "condor" \
+                            and re.search(r'^\d+\.\d+$', job_info[3]):
+        bm = job_info[0]
+        jobid = gridJobIdToId(job_info[3])
+    else:
         DebugPrint(3, "GridJobId was not parsed correctly: '%s'" % job_info_str)
         return None, None
-    bm = job_info[1]
-    jobid = gridJobIdToId(job_info[3])
 
     dom = xml.dom.minidom.Document()
     batchManager = dom.createElement("BatchManager")
