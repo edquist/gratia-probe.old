@@ -190,20 +190,12 @@ def readCertInfoLog(localJobId):
     DebugPrint(0, 'Warning: unable to find valid certinfo file for '+str(localJobId)+' in the log files: ' + pattern)
     return None
 
-# this will only get initialized once, on the first run of _findCertinfoFile()
-jobManagers = None
+# update this list as new job managers are added
+jobManagers = ['batch', 'condor', 'sge', 'slurm', 'pbs', 'lsf']
 
 def _findCertinfoFile(localJobId, probeName):
     ''' Look for cert info file if present.'''
     certinfo_files = []
-
-    # get set of all job manager types seen among certinfo files -- only set up once
-    global jobManagers
-    if jobManagers is None:
-        jobManagers = set()
-        for x in os.listdir(Config.get_DataFolder()):
-            if fnmatch.fnmatch(x, "gratia_certinfo_*_*"):
-                jobManagers.add(x.split("_")[2])
     
     # certinfo file name is composed by job ID and jobManager (LRMS) name
     DebugPrint(4, 'findCertInfoFile: received (' + str(localJobId) + r', ' + str(probeName) + ')')
@@ -216,16 +208,6 @@ def _findCertinfoFile(localJobId, probeName):
         if match:
             lrms = string.lower(match.group('Type'))
             DebugPrint(4, 'findCertInfoFile: obtained LRMS type ' + lrms + ' from ProbeName')
-        elif len(jobManagers) == 0:
-            DebugPrint(0,
-                       'WARNING: unable to ascertain LRMS to match against multiple certinfo entries and no other possibilities found yet -- may be unable to resolve ambiguities'
-                       )
-    if lrms and lrms not in jobManagers:
-        jobManagers.add(lrms)
-        DebugPrint(4, 'findCertInfoFile: added default LRMS type ' + lrms + ' to search list')
-    # slurm jobs can run under pbs; see GRATIA-186, GRATIA-185
-    if lrms == "pbs" and "slurm" not in jobManagers:
-        jobManagers.add("slurm")
 
     # Ascertain local job ID
 
@@ -238,14 +220,19 @@ def _findCertinfoFile(localJobId, probeName):
 
     DebugPrint(4, 'findCertInfoFile: continuing to process')
 
-    for jobManager in jobManagers:
+    for i,jobManager in enumerate(jobManagers):
         filestem = os.path.join(Config.get_DataFolder(), 'gratia_certinfo' + r'_' + jobManager + r'_' + localJobId)
         DebugPrint(4, 'findCertInfoFile: looking for ' + filestem)
         if os.path.exists(filestem):
             certinfo_files.append(filestem)
+            # move jobManager[i] to the front of the list
+            if i > 0:
+                jobManagers.insert(0, jobManagers.pop(i))
             break
         elif os.path.exists(filestem + '.0.0'):
             certinfo_files.append(filestem + '.0.0')
+            if i > 0:
+                jobManagers.insert(0, jobManagers.pop(i))
             break
 
     if len(certinfo_files) == 1:
