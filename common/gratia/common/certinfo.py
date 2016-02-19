@@ -223,6 +223,9 @@ def _findCertinfoFile(localJobId, probeName):
     if lrms and lrms not in jobManagers:
         jobManagers.add(lrms)
         DebugPrint(4, 'findCertInfoFile: added default LRMS type ' + lrms + ' to search list')
+    # slurm jobs can run under pbs; see GRATIA-186, GRATIA-185
+    if lrms == "pbs" and "slurm" not in jobManagers:
+        jobManagers.add("slurm")
 
     # Ascertain local job ID
 
