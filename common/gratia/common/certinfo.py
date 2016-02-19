@@ -193,6 +193,11 @@ def readCertInfoLog(localJobId):
 # update this list as new job managers are added
 jobManagers = ['batch', 'condor', 'sge', 'slurm', 'pbs', 'lsf']
 
+def _bumpJobManager(i):
+    # move jobManager[i] to the front of the list
+    if i > 0:
+        jobManagers.insert(0, jobManagers.pop(i))
+
 def _findCertinfoFile(localJobId, probeName):
     ''' Look for cert info file if present.'''
     certinfo_files = []
@@ -225,14 +230,11 @@ def _findCertinfoFile(localJobId, probeName):
         DebugPrint(4, 'findCertInfoFile: looking for ' + filestem)
         if os.path.exists(filestem):
             certinfo_files.append(filestem)
-            # move jobManager[i] to the front of the list
-            if i > 0:
-                jobManagers.insert(0, jobManagers.pop(i))
+            _bumpJobManager(i)
             break
         elif os.path.exists(filestem + '.0.0'):
             certinfo_files.append(filestem + '.0.0')
-            if i > 0:
-                jobManagers.insert(0, jobManagers.pop(i))
+            _bumpJobManager(i)
             break
 
     if len(certinfo_files) == 1:
