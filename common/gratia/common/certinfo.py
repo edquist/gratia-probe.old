@@ -292,6 +292,12 @@ def readCertInfoFile(localJobId, probeName):
     if not certinfo_touple:
         # matching certinfo file not found
         return None
+    uniqID = GetNodeData(certinfo_touple[1].getElementsByTagName('UniqID'), 0)
+    uniqIDHost = uniqID.split('#')[0]
+    probeHost = probeName.split(':')[1]
+    if uniqIDHost != probeHost:
+        # apparently this certinfo file is for a different probe
+        return None
     # Get results and remove file 
     result = {'DN': GetNodeData(certinfo_touple[1].getElementsByTagName('DN'), 0),
               'VO': GetNodeData(certinfo_touple[1].getElementsByTagName('VO'), 0),
