@@ -1358,6 +1358,10 @@ sub parseUR_pbs {
       } elsif ( $record_field =~ /^Resource_List\.neednodes=(\d+):ppn=(\d+)/o) {
          $urAcctlogInfo{neednodes} = ${1} * ( ${2} || 1 );
          next;
+      } elsif ( $record_field =~ /^Resource_List.flags=ALLPROCS Resource_List\.neednodes=(\d+):ppn=(\d+)/o) {
+         $urAcctlogInfo{neednodes} = ${1} * ( ${2} || 1 );
+         $urAcctlogInfo{allprocs} = 1;  # whole-node jobs, used at Hyak_CE
+         next;
       } elsif ( $record_field =~ /^Resource_List\.nodect=(\d+)/o ) {
          $urAcctlogInfo{nodect} = $1;
          next;
@@ -1417,6 +1421,11 @@ sub parseUR_pbs {
       }
       if ( $record_field =~ /^exec_host=(.*)$/o) {        
          $urAcctlogInfo{execHost} = $1;
+
+         if ($urAcctlogInfo{execHost} =~ m{^\w[-\w.]*/\d+(?:\+\w[-\w.]*/\d+)*$}) {
+            my @fields = split /\+/, $urAcctlogInfo{execHost};
+            $urAcctlogInfo{execHostCount} = @fields;
+         }
          next;
       }
       if ( $record_field =~ /^Exit_status=(\d*)$/) {        
@@ -1425,6 +1434,7 @@ sub parseUR_pbs {
       }
    }
    $urAcctlogInfo{processors} = 
+    ($urAcctlogInfo{allprocs} && $urAcctlogInfo{execHostCount}) || # whole-node
     $urAcctlogInfo{ncpus}     ||    # Number of cpus requested
     $urAcctlogInfo{select}    ||    # Number of cores selected
     $urAcctlogInfo{nodes}     ||    # Number of nodes needed by job * ppn
